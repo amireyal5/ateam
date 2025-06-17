@@ -17,8 +17,8 @@
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // Added getDoc and setDoc for user profile management
-        import { getFirestore, collection, addDoc, onSnapshot, query, where, getDocs, collectionGroup, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Added getDoc, setDoc, and updateDoc for user profile and form updates
+        import { getFirestore, collection, addDoc, onSnapshot, query, where, getDocs, collectionGroup, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
         // Global variables provided by the Canvas environment (do not modify these directly)
@@ -87,7 +87,7 @@
         window.onAuthStateChangedGlobal = onAuthStateChanged;
         window.signOutFirebaseGlobal = signOut; 
         window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
-        window.sendPasswordResetEmailGlobal = sendPasswordResetEmail; /* Exposed for password reset */
+        window.sendPasswordResetEmailGlobal = sendPasswordResetEmail; 
         window.collectionFirebaseGlobal = collection; 
         window.addDocFirebaseGlobal = addDoc; 
         window.onSnapshotGlobal = onSnapshot; 
@@ -95,9 +95,10 @@
         window.whereFirebaseGlobal = where; 
         window.getDocsFirebaseGlobal = getDocs; 
         window.collectionGroupFirebaseGlobal = collectionGroup; 
-        window.docFirebaseGlobal = doc; // Exposed for profile management
-        window.getDocFirebaseGlobal = getDoc; // Exposed for profile management
-        window.setDocFirebaseGlobal = setDoc; // Exposed for profile management
+        window.docFirebaseGlobal = doc; 
+        window.getDocFirebaseGlobal = getDoc; 
+        window.setDocFirebaseGlobal = setDoc; 
+        window.updateDocFirebaseGlobal = updateDoc; /* Exposed for updating existing docs */
 
 
     </script>
@@ -165,16 +166,16 @@
         }
 
         label {
-            color: #666666; /* Lighter grey for labels */
+            color: #333333; /* Darker grey for labels for better readability */
             font-size: 0.9em; /* Smaller font for labels, as in image */
             margin-bottom: 8px; /* Space between label and input */
-            font-weight: normal; /* Labels are not bold in the image */
+            font-weight: 600; /* Increased font-weight for labels as requested */
         }
         /* Required field asterisk */
         label.required::after {
             content: ' *';
             color: #F44336; /* Red for required asterisk */
-            font-weight: normal; /* Ensure asterisk matches label font weight */
+            font-weight: 600; /* Ensure asterisk matches label font weight */
             margin-right: 2px; /* Small space after label */
         }
 
@@ -205,6 +206,14 @@
             outline: none;
             box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.2); /* Subtle focus ring */
         }
+        /* Read-only fields styling */
+        input[readonly],
+        input[disabled] {
+            background-color: #f5f5f5; /* Lighter background for read-only fields */
+            color: #888888; /* Lighter text color */
+            cursor: not-allowed;
+        }
+
         /* Error state for inputs */
         .form-group.error input,
         .form-group.error textarea,
@@ -221,6 +230,42 @@
         textarea {
             resize: vertical;
             min-height: 90px; /* Slightly taller for more input */
+        }
+        /* For Speech-to-Text */
+        .textarea-with-button {
+            display: flex;
+            align-items: center;
+            gap: 8px; /* Space between textarea and button */
+        }
+        .textarea-with-button textarea {
+            flex-grow: 1; /* Make textarea take available space */
+        }
+        .speech-button {
+            background-color: #6c757d; /* Grey button for microphone */
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 12px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background-color 0.2s ease;
+            box-shadow: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .speech-button:hover {
+            background-color: #5a6268;
+        }
+        .speech-button:active {
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transform: translateY(1px);
+        }
+        .speech-button.listening {
+            background-color: #dc3545; /* Red when listening */
+        }
+        .speech-button.listening:hover {
+            background-color: #c82333;
         }
 
         /* Checkbox/Radio group */
@@ -352,6 +397,7 @@
             line-height: 1.6;
             font-size: 0.9em;
             color: #555555;
+            position: relative; /* For edit button positioning */
         }
         .submission-item strong {
             color: #333333;
@@ -362,6 +408,24 @@
             font-size: 0.85em;
             color: #666666;
         }
+        .submission-item .edit-button {
+            position: absolute;
+            top: 10px;
+            left: 10px; /* Position to the left for RTL */
+            background-color: #5cb85c; /* Green for edit */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 0.8em;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .submission-item .edit-button:hover {
+            background-color: #4cae4c;
+        }
+
+
         /* Top bar for dashboard/form pages */
         .top-bar {
             display: flex;
@@ -414,6 +478,22 @@
                 padding: 12px 16px; /* Adjust button padding */
                 font-size: 1em;
             }
+            .submission-item .edit-button {
+                padding: 4px 8px;
+                font-size: 0.7em;
+            }
+            .textarea-with-button {
+                flex-direction: column; /* Stack textarea and button on mobile */
+                align-items: flex-end; /* Align right */
+            }
+            .textarea-with-button textarea {
+                width: 100%;
+                margin-bottom: 8px; /* Space between stacked elements */
+            }
+            .speech-button {
+                width: 100%;
+                padding: 12px 0; /* Make speech button full width */
+            }
         }
     </style>
 </head>
@@ -424,7 +504,6 @@
         const { useState, useEffect, useRef } = React;
 
         // Component for the Login Page - now with Email/Password login
-        // Added ForgotPasswordModal component
         function LoginPage({ auth, onLoginSuccess }) {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
@@ -753,22 +832,86 @@
             const [duplicateFound, setDuplicateFound] = useState(false); // New state for duplicate check
             const [existingSubmissionInfo, setExistingSubmissionInfo] = useState(null); // New state for existing submission info
             const [checkingDuplicate, setCheckingDuplicate] = useState(false); // New state for loading indicator
+            const [isListening, setIsListening] = useState(false); // State for speech-to-text
+            const recognitionRef = useRef(null); // Ref for SpeechRecognition object
 
-            // State for validation errors (new)
+            // State for validation errors
             const [errors, setErrors] = useState({});
+            const [editingSubmissionId, setEditingSubmissionId] = useState(null); // Tracks the ID of the submission being edited
 
-            // Function to reset form fields
+            // Initialize SpeechRecognition
+            useEffect(() => {
+                if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    recognitionRef.current = new SpeechRecognition();
+                    recognitionRef.current.continuous = false; // Stop after a single utterance
+                    recognitionRef.current.interimResults = false; // Only return final results
+                    recognitionRef.current.lang = 'he-IL'; // Set language to Hebrew
+
+                    recognitionRef.current.onresult = (event) => {
+                        const transcript = event.results[0][0].transcript;
+                        setFormData(prev => ({ ...prev, notes: prev.notes + (prev.notes ? ' ' : '') + transcript }));
+                        setIsListening(false);
+                    };
+
+                    recognitionRef.current.onerror = (event) => {
+                        console.error('Speech recognition error:', event.error);
+                        setMessage(`שגיאת זיהוי קולי: ${event.error}.`);
+                        setIsListening(false);
+                    };
+
+                    recognitionRef.current.onend = () => {
+                        setIsListening(false);
+                    };
+                } else {
+                    console.warn('Speech Recognition API not supported in this browser.');
+                }
+                return () => {
+                    if (recognitionRef.current) {
+                        recognitionRef.current.stop();
+                    }
+                };
+            }, []);
+
+            const startListening = () => {
+                if (recognitionRef.current && !isListening) {
+                    setIsListening(true);
+                    setMessage('מאזין... אנא דבר/י.');
+                    recognitionRef.current.start();
+                }
+            };
+
+            // Function to reset form fields for new submission
             const resetForm = () => {
                 setFormData({
                     familyName: '', firstName: '', idNumber: '', age: '', gender: '',
                     phone: '', address: '', residents: '', physicalInjury: 'none',
                     casualties: 'no', disconnected: 'no', evacuationAssistance: 'no', notes: '',
                 });
-                setDuplicateFound(false); // Reset duplicate status
-                setExistingSubmissionInfo(null); // Clear existing submission info
-                setMessage(''); // Clear any messages
-                setErrors({}); // Clear validation errors
+                setDuplicateFound(false);
+                setExistingSubmissionInfo(null);
+                setMessage('');
+                setErrors({});
+                setEditingSubmissionId(null); // Exit edit mode
             };
+
+            // Effect to load submission data when editingSubmissionId changes
+            useEffect(() => {
+                if (editingSubmissionId) {
+                    const submissionToEdit = previousSubmissions.find(sub => sub.id === editingSubmissionId);
+                    if (submissionToEdit) {
+                        setFormData(submissionToEdit);
+                        setMessage('עורך טופס קיים. שימו לב: לא ניתן לשנות תעודת זהות.');
+                    }
+                } else {
+                    // Only reset if we are transitioning from edit mode to new form mode
+                    // To prevent clearing inputs when component first mounts or submissions load
+                    if (Object.keys(formData).some(key => formData[key] !== '')) { // Check if form is already filled
+                         resetForm();
+                    }
+                }
+            }, [editingSubmissionId]);
+
 
             // Load previous submissions when component mounts or userId changes
             useEffect(() => {
@@ -780,17 +923,15 @@
                 }
 
                 setLoadingSubmissions(true);
-                const appId = window.globalAppId; // Get appId from global variable
-                // Construct the user-specific collection path for private data
-                const userFormsCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${appId}/users/${userId}/formData`); // Access from global
+                const appId = window.globalAppId; 
+                const userFormsCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${appId}/users/${userId}/formData`); 
 
-                const unsubscribe = window.onSnapshotGlobal(userFormsCollectionRef, (snapshot) => { // Access from global
+                const unsubscribe = window.onSnapshotGlobal(userFormsCollectionRef, (snapshot) => { 
                     const submissions = [];
                     snapshot.forEach(doc => {
                         submissions.push({ id: doc.id, ...doc.data() });
                     });
-                    // Sort submissions by a timestamp if available, or just by order of retrieval
-                    submissions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Sort by timestamp descending
+                    submissions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); 
                     setPreviousSubmissions(submissions);
                     setLoadingSubmissions(false);
                 }, (error) => {
@@ -799,15 +940,22 @@
                     setLoadingSubmissions(false);
                 });
 
-                // Cleanup subscription on unmount
                 return () => unsubscribe();
-            }, [userId, db]); // Re-run when userId or db changes
+            }, [userId, db]); 
 
-            // New useEffect to check for duplicate ID numbers
+            // New useEffect to check for duplicate ID numbers (only for NEW submissions)
             useEffect(() => {
                 const checkDuplicateId = async () => {
                     const idNumber = formData.idNumber.trim();
-                    if (!idNumber || idNumber.length !== 9) { // Only check if ID is 9 digits
+                    // Skip duplicate check if in edit mode and ID matches current editing ID
+                    if (editingSubmissionId && idNumber === previousSubmissions.find(sub => sub.id === editingSubmissionId)?.idNumber) {
+                        setDuplicateFound(false);
+                        setExistingSubmissionInfo(null);
+                        setErrors(prev => ({ ...prev, idNumber: '' }));
+                        return;
+                    }
+                    
+                    if (!idNumber || idNumber.length !== 9) { 
                         setDuplicateFound(false);
                         setExistingSubmissionInfo(null);
                         setErrors(prev => ({ ...prev, idNumber: !idNumber.trim() || !/^\d{9}$/.test(idNumber) ? 'יש להזין 9 ספרות' : '' }));
@@ -817,11 +965,10 @@
                     setCheckingDuplicate(true);
                     setDuplicateFound(false);
                     setExistingSubmissionInfo(null);
-                    setMessage(''); // Clear previous messages to make way for warning
-                    setErrors(prev => ({ ...prev, idNumber: '' })); // Clear ID number error if valid format
+                    setMessage(''); 
+                    setErrors(prev => ({ ...prev, idNumber: '' })); 
 
                     try {
-                        // Query all 'formData' collections across all users for the given idNumber
                         const q = window.queryFirebaseGlobal(
                             window.collectionGroupFirebaseGlobal(db, 'formData'),
                             window.whereFirebaseGlobal('idNumber', '==', idNumber)
@@ -829,15 +976,21 @@
                         const querySnapshot = await window.getDocsFirebaseGlobal(q);
 
                         if (!querySnapshot.empty) {
-                            const existingDoc = querySnapshot.docs[0]; // Take the first one found
-                            const data = existingDoc.data();
-                            setDuplicateFound(true);
-                            setExistingSubmissionInfo({
-                                id: existingDoc.id,
-                                identity: data.identityId || data.userId, // Prefer full name if available
-                                timestamp: data.timestamp
-                            });
-                            setMessage(''); // Clear general messages if duplicate found, specific warning will be rendered below
+                            const existingDoc = querySnapshot.docs[0];
+                            // If we're editing, allow the current doc's ID to be considered non-duplicate
+                            if (editingSubmissionId && existingDoc.id === editingSubmissionId) {
+                                setDuplicateFound(false);
+                                setExistingSubmissionInfo(null);
+                            } else {
+                                const data = existingDoc.data();
+                                setDuplicateFound(true);
+                                setExistingSubmissionInfo({
+                                    id: existingDoc.id,
+                                    identity: data.identityId || data.userId, 
+                                    timestamp: data.timestamp
+                                });
+                                setMessage(''); 
+                            }
                         } else {
                             setDuplicateFound(false);
                             setExistingSubmissionInfo(null);
@@ -853,23 +1006,20 @@
                     }
                 };
 
-                // Only run if db is available and idNumber has changed meaningfully (and is 9 digits)
                 if (db && formData.idNumber.trim().length === 9) {
-                    const handler = setTimeout(() => { // Debounce the check to avoid too many Firestore reads
+                    const handler = setTimeout(() => { 
                         checkDuplicateId();
-                    }, 500); // Wait 500ms after last keystroke
+                    }, 500); 
 
-                    return () => clearTimeout(handler); // Cleanup timeout on unmount or idNumber change
+                    return () => clearTimeout(handler); 
                 } else {
-                    // Clear duplicate status if idNumber is empty or not 9 digits
                     setDuplicateFound(false);
                     setExistingSubmissionInfo(null);
-                    // Only clear message if it's NOT a submission success/failure message
                     if (!message.includes('הנתונים נשמרו בהצלחה') && !message.includes('שגיאה בשמירת הנתונים')) {
                          setMessage('');
                     }
                 }
-            }, [formData.idNumber, db]); // Re-run when idNumber or db changes
+            }, [formData.idNumber, db, editingSubmissionId, previousSubmissions]); 
 
 
             const handleChange = (e) => {
@@ -878,7 +1028,6 @@
                     ...prev,
                     [name]: value
                 }));
-                // Clear error for the specific field on change
                 setErrors(prev => ({ ...prev, [name]: '' }));
             };
 
@@ -893,6 +1042,14 @@
                 }
             };
 
+            const handleEditClick = (submission) => {
+                setEditingSubmissionId(submission.id);
+            };
+
+            const handleCancelEdit = () => {
+                resetForm(); // Resets form and exits edit mode
+                setMessage('יצאת ממצב עריכה. הטופס מוכן למילוי חדש.');
+            };
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
@@ -925,7 +1082,7 @@
                     return;
                 }
                 
-                if (checkingDuplicate) { // Prevent submission if check is still in progress
+                if (checkingDuplicate) { 
                     setMessage('המערכת עדיין בודקת כפילות תעודת זהות. נא המתן.');
                     return;
                 }
@@ -936,37 +1093,46 @@
                 }
 
                 try {
-                    const appId = window.globalAppId; // Get appId from global variable
-
-                    // Data to save to Firestore
+                    const appId = window.globalAppId; 
                     const dataToSave = {
                         ...formData,
-                        userId: userId, // Link data to the Firebase anonymous UID
-                        identityId: identityId, // Store the FULL NAME as identity for new forms
-                        timestamp: Date.now() // Add a timestamp for sorting
+                        userId: userId, 
+                        identityId: identityId, 
+                        timestamp: Date.now() 
                     };
 
-                    // Construct the user-specific collection path for private data
-                    const userFormsCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${appId}/users/${userId}/formData`); // Access from global
-
-                    await window.addDocFirebaseGlobal(userFormsCollectionRef, dataToSave); // Access from global
-                    setMessage('הנתונים נשמרו בהצלחה!');
-                    resetForm(); // Clear the form after successful submission
+                    if (editingSubmissionId) {
+                        // Update existing document
+                        const docRef = window.docFirebaseGlobal(db, `artifacts/${appId}/users/${userId}/formData`, editingSubmissionId);
+                        await window.updateDocFirebaseGlobal(docRef, dataToSave);
+                        setMessage('הנתונים עודכנו בהצלחה!');
+                    } else {
+                        // Add new document
+                        const userFormsCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${appId}/users/${userId}/formData`); 
+                        await window.addDocFirebaseGlobal(userFormsCollectionRef, dataToSave); 
+                        setMessage('הנתונים נשמרו בהצלחה!');
+                    }
+                    resetForm(); 
                 } catch (error) {
-                    console.error("Error adding document: ", error);
-                    setMessage(`שגיאה בשמירת הנתונים: ${error.message}. וודא את כללי האבטחה של Firestore.`);
+                    console.error("Error saving/updating document: ", error);
+                    setMessage(`שגיאה בשמירת/עדכון הנתונים: ${error.message}. וודא את כללי האבטחה של Firestore.`);
                 }
             };
 
             const handleLogoutClick = async () => {
-                onLogout(); // Trigger logout in parent App component
+                onLogout(); 
             }
 
             return (
                 <div className="container">
                     <div className="top-bar">
-                        <h1>מילוי טופס נתונים</h1>
+                        <h1>{editingSubmissionId ? 'ערוך טופס קיים' : 'מילוי טופס נתונים'}</h1>
                         <div className="button-group">
+                            {editingSubmissionId && (
+                                <button onClick={handleCancelEdit} className="action-button secondary">
+                                    <i className="fas fa-times" style={{marginLeft: '5px'}}></i> ביטול עריכה
+                                </button>
+                            )}
                             <button onClick={onGoToDashboard} className="action-button secondary">
                                 <i className="fas fa-arrow-right" style={{marginLeft: '5px'}}></i> חזור ללוח בקרה
                             </button>
@@ -1022,6 +1188,7 @@
                                         required
                                         placeholder="דוגמה: 123456789"
                                         inputMode="numeric"
+                                        readOnly={!!editingSubmissionId} // Make read-only in edit mode
                                     />
                                     {errors.idNumber && <span className="error-message">{errors.idNumber}</span>}
                                 </div>
@@ -1108,20 +1275,27 @@
                                 </div>
                                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                     <label htmlFor="notes">הערות:</label>
-                                    <textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="הוסף הערות רלוונטיות כאן..."></textarea>
+                                    <div className="textarea-with-button">
+                                        <textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="הוסף הערות רלוונטיות כאן..."></textarea>
+                                        {('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) && (
+                                            <button type="button" onClick={startListening} className={`speech-button ${isListening ? 'listening' : ''}`} title="הזנה קולית">
+                                                <i className="fas fa-microphone"></i>
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* כפתור שליחה */}
-                        {message && !duplicateFound && ( /* Only show general message if no duplicate warning */
-                            <div className={`message-box ${message.includes('הצלחה') ? 'success' : 'danger'}`}>
+                        {/* כפתור שליחה / עדכון */}
+                        {message && !duplicateFound && ( 
+                            <div className={`message-box ${message.includes('הצלחה') || message.includes('עודכנו') ? 'success' : 'danger'}`}>
                                 {message}
                             </div>
                         )}
                         <div className="button-container">
                             <button type="submit" className="action-button" disabled={duplicateFound || checkingDuplicate || Object.keys(errors).some(key => errors[key])}>
-                                {checkingDuplicate ? 'בודק...' : duplicateFound ? 'כבר מולא' : 'שלח'}
+                                {checkingDuplicate ? 'בודק...' : editingSubmissionId ? 'עדכן' : 'שלח'}
                             </button>
                         </div>
                     </form>
@@ -1149,6 +1323,9 @@
                                     <span><strong>מנותקי קשר:</strong> {item.disconnected}</span>
                                     <span><strong>זקוק לסיוע בפינוי:</strong> {item.evacuationAssistance}</span>
                                     <span><strong>הערות:</strong> {item.notes || 'אין'}</span>
+                                    <button className="edit-button" onClick={() => handleEditClick(item)}>
+                                        <i className="fas fa-edit" style={{marginLeft: '5px'}}></i> ערוך
+                                    </button>
                                 </div>
                             ))
                         )}
