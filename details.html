@@ -201,7 +201,7 @@
         /* Styles for Submission Details */
         .details-grid {
             display: grid;
-            /* Updated to allow more columns on large screens */
+            /* Updated to allow more columns on large screens for better utilization */
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
             gap: 20px; /* Space between grid items */
             margin-top: 25px;
@@ -276,7 +276,18 @@
         }
 
         /* Responsive adjustments */
-        @media (max-width: 768px) {
+        /* For larger desktops, keep it wider */
+        @media (min-width: 1200px) {
+            .details-grid {
+                grid-template-columns: repeat(3, 1fr); /* 3 columns on very large screens */
+            }
+        }
+        @media (max-width: 1199px) and (min-width: 769px) { /* Medium desktops/large tablets */
+            .details-grid {
+                grid-template-columns: repeat(2, 1fr); /* 2 columns on medium screens */
+            }
+        }
+        @media (max-width: 768px) { /* Tablets */
             .container {
                 padding: 25px;
                 max-width: 100%; /* Full width on small screens */
@@ -299,7 +310,7 @@
                 font-size: 0.95em;
             }
         }
-        @media (max-width: 480px) {
+        @media (max-width: 480px) { /* Mobile phones */
             .container {
                 padding: 15px;
             }
@@ -479,17 +490,19 @@
             const handleUpdateSubmission = async () => {
                 setMessage('');
                 setMessageType('');
+                console.log("Attempting to save submission...");
 
                 if (!db || !submission) {
                     showMessage('שגיאה: Firebase Db אינו מאותחל או שאין דיווח לטפל בו.', 'danger');
+                    console.error("Save failed: Firebase DB or submission missing.");
                     return false; // Indicate failure
                 }
 
                 try {
-                    // Get the original userId from the submission data to construct the correct path
                     const submissionUserId = submission.userId; 
                     if (!submissionUserId) {
                          showMessage('שגיאה: מזהה משתמש ששלח את הדיווח חסר.', 'danger');
+                         console.error("Save failed: Submission userId missing.");
                          return false; // Indicate failure
                     }
 
@@ -502,6 +515,7 @@
                         lastUpdatedAt: Date.now() // Timestamp of last update
                     });
                     showMessage('הדיווח נשמר בהצלחה!', 'success');
+                    console.log("Submission saved successfully.");
                     return true; // Indicate success
                 } catch (error) {
                     console.error("Error updating submission:", error);
@@ -510,14 +524,17 @@
                         errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים כתיבה לנתיב זה עבור המשתמש המחובר.";
                     }
                     showMessage(errorMessage, 'danger');
+                    console.error("Save failed due to error:", error);
                     return false; // Indicate failure
                 }
             };
 
             // Function to handle sending email, saves first
             const handleSendEmailAndSave = async () => {
+                console.log("handleSendEmailAndSave called.");
                 const saved = await handleUpdateSubmission(); // Attempt to save
                 if (saved) { // Only proceed if save was successful
+                    console.log("Save successful, attempting to send email.");
                     if (!submission) {
                         showMessage('אין דיווח לשליחה במייל.', 'danger');
                         return;
@@ -557,14 +574,20 @@
                         showMessage('שגיאה בפתיחת המייל. ייתכן שנגרם עקב אורך תוכן ארוך מדי או חסימה על ידי הדפדפן.', 'danger');
                         console.error("Error opening mailto link:", e);
                     }
+                } else {
+                    console.log("Save failed, not sending email.");
                 }
             };
 
             // Function to handle going back to data.html, saves first
             const handleGoBackAndSave = async () => {
+                console.log("handleGoBackAndSave called.");
                 const saved = await handleUpdateSubmission(); // Attempt to save
                 if (saved) { // Only proceed if save was successful
+                    console.log("Save successful, redirecting to data.html.");
                     window.location.href = 'data.html';
+                } else {
+                    console.log("Save failed, not redirecting.");
                 }
             };
 
