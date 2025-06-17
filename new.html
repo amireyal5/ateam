@@ -16,8 +16,9 @@
     <script type="module">
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        // FIXED: Added getDoc to Firestore imports
         import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc, where, getDocs, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc, where, getDocs, collection, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
         // Global variables provided by the Canvas environment (do not modify these directly)
@@ -120,7 +121,9 @@
             window.collectionGroupFirebaseGlobal = collectionGroup; 
             window.queryFirebaseGlobal = query; 
             window.onSnapshotGlobal = onSnapshot; 
+            // FIXED: Exposed getDoc globally
             window.docFirebaseGlobal = doc; 
+            window.getDocFirebaseGlobal = getDoc; // Critical fix: Expose getDoc
             window.updateDocFirebaseGlobal = updateDoc; 
             window.whereFirebaseGlobal = where; 
             window.getDocsFirebaseGlobal = getDocs; 
@@ -138,6 +141,7 @@
                 return () => {}; // Return a dummy unsubscribe function
             };
             window.docFirebaseGlobal = () => { console.error("docFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
+            window.getDocFirebaseGlobal = () => { console.error("getDocFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); }; // Dummy for getDoc
             window.updateDocFirebaseGlobal = () => { console.error("updateDocFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
             window.whereFirebaseGlobal = () => { console.error("whereFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
             window.getDocsFirebaseGlobal = () => { console.error("getDocsFirebaseGlobal: Firebase Firestore is not initialized."); return Promise.reject(new Error("Firestore not initialized")); };
@@ -867,8 +871,8 @@
 
 
             useEffect(() => {
-                // Initialize SpeechRecognition
-                if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+                // FIXED: Speech recognition fallback
+                if (typeof SpeechRecognition !== 'undefined' || typeof webkitSpeechRecognition !== 'undefined') {
                     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                     recognitionRef.current = new SpeechRecognition();
                     recognitionRef.current.continuous = false; // Stop after a single utterance
@@ -892,6 +896,7 @@
                     };
                 } else {
                     console.warn('Speech Recognition API not supported in this browser.');
+                    setMessage('הזנה קולית לא נתמכת בדפדפן זה.'); // Fallback message
                 }
                 return () => {
                     if (recognitionRef.current) {
@@ -901,6 +906,11 @@
             }, []);
 
             const startListening = () => {
+                // FIXED: Speech recognition fallback check here too
+                if (typeof SpeechRecognition === 'undefined' && typeof webkitSpeechRecognition === 'undefined') {
+                    setMessage('הזנה קולית לא נתמכת בדפדפן זה.');
+                    return;
+                }
                 if (recognitionRef.current && !isListening) {
                     setIsListening(true);
                     setMessage('מאזין... אנא דבר/י.');
@@ -917,8 +927,11 @@
                         return;
                     }
                     setLoading(true);
+                    setMessage(''); // Clear previous messages
                     try {
-                        const submissionRef = docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`, submissionId);
+                        // FIXED: Secure Path Construction
+                        const basePath = `artifacts/${window.globalAppId || 'default-app-id'}`;
+                        const submissionRef = docFirebaseGlobal(db, `${basePath}/users/${userUid}/formData`, submissionId);
                         const docSnap = await getDocFirebaseGlobal(submissionRef);
 
                         if (docSnap.exists()) {
@@ -948,7 +961,9 @@
                 setLoading(true);
                 setMessage('');
                 try {
-                    const submissionRef = docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`, submissionId);
+                    // FIXED: Secure Path Construction
+                    const basePath = `artifacts/${window.globalAppId || 'default-app-id'}`;
+                    const submissionRef = docFirebaseGlobal(db, `${basePath}/users/${userUid}/formData`, submissionId);
                     await updateDocFirebaseGlobal(submissionRef, {
                         followUpNotes: followUpNotes,
                         status: status,
@@ -970,15 +985,16 @@
                     return;
                 }
 
-                const subject = `מעקב טיפול טופס Hugo - ת.ז. ${submissionData.idNumber}`;
+                // FIXED: Secure Email Content - handle missing ID number
+                const subject = `מעקב טיפול טופס Hugo - ${submissionData.idNumber ? 'ת.ז. ' + submissionData.idNumber : 'ללא ת.ז.'}`;
                 let body = `**פרטי טופס Hugo**\n\n`;
                 body += `שם מלא: ${submissionData.firstName} ${submissionData.familyName}\n`;
-                body += `תעודת זהות: ${submissionData.idNumber}\n`;
-                body += `טלפון: ${submissionData.phone}\n`;
-                body += `כתובת: ${submissionData.address}\n`;
-                body += `גיל: ${submissionData.age}, מין: ${submissionData.gender === 'male' ? 'זכר' : (submissionData.gender === 'female' ? 'נקבה' : '')}\n`;
-                body += `שוהים בדירה: ${submissionData.residents}\n`;
-                body += `פציעה פיזית: ${physicalInjuryMap[submissionData.physicalInjury] || submissionData.physicalInjury}\n`;
+                body += `תעודת זהות: ${submissionData.idNumber || 'לא הוזן'}\n`;
+                body += `טלפון: ${submissionData.phone || 'לא הוזן'}\n`;
+                body += `כתובת: ${submissionData.address || 'לא הוזן'}\n`;
+                body += `גיל: ${submissionData.age || 'לא הוזן'}, מין: ${submissionData.gender === 'male' ? 'זכר' : (submissionData.gender === 'female' ? 'נקבה' : 'לא הוזן')}\n`;
+                body += `שוהים בדירה: ${submissionData.residents || 'לא הוזן'}\n`;
+                body += `פציעה פיזית: ${physicalInjuryMap[submissionData.physicalInjury] || submissionData.physicalInjury || 'לא הוזן'}\n`;
                 body += `הרוגים/פצועים: ${submissionData.casualties === 'yes' ? 'כן' : 'לא'}\n`;
                 body += `מנותקי קשר: ${submissionData.disconnected === 'yes' ? 'כן' : 'לא'}\n`;
                 body += `זקוק לסיוע בפינוי: ${submissionData.evacuationAssistance === 'yes' ? 'כן' : 'לא'}\n`;
@@ -1153,26 +1169,32 @@
                 }
 
                 setLoadingAllSubmissions(true);
-                const queryRef = queryFirebaseGlobal(collectionGroupFirebaseGlobal(db, 'formData'));
+                setMessage(''); // Clear messages before fetching
+                try {
+                    const queryRef = queryFirebaseGlobal(collectionGroupFirebaseGlobal(db, 'formData'));
 
-                const unsubscribe = onSnapshotGlobal(queryRef, (snapshot) => {
-                    const submissions = [];
-                    snapshot.forEach(doc => {
-                        submissions.push({ id: doc.id, ...doc.data() });
+                    const unsubscribe = onSnapshotGlobal(queryRef, (snapshot) => {
+                        const submissions = [];
+                        snapshot.forEach(doc => {
+                            submissions.push({ id: doc.id, ...doc.data() });
+                        });
+                        setAllSubmissions(submissions);
+                        setLoadingAllSubmissions(false);
+                    }, (error) => {
+                        console.error("Error fetching all submissions:", error);
+                        let errorMessage = `שגיאה באחזור כל הנתונים: ${error.message}.`;
+                        if (error.code === 'permission-denied') {
+                            errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מ-`formData` לכל המשתמשים המחוברים.";
+                        }
+                        setMessage(errorMessage);
+                        setLoadingAllSubmissions(false);
                     });
-                    setAllSubmissions(submissions);
+                    return () => unsubscribe();
+                } catch (error) {
+                    console.error("Error setting up onSnapshot listener:", error);
+                    setMessage(`שגיאה בהגדרת האזנה לנתונים: ${error.message}.`);
                     setLoadingAllSubmissions(false);
-                }, (error) => {
-                    console.error("Error fetching all submissions:", error);
-                    let errorMessage = `שגיאה באחזור כל הנתונים: ${error.message}.`;
-                    if (error.code === 'permission-denied') {
-                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מ-`formData` לכל המשתמשים המחוברים.";
-                    }
-                    setMessage(errorMessage);
-                    setLoadingAllSubmissions(false);
-                });
-
-                return () => unsubscribe();
+                }
             }, [db, auth, collectionGroupFirebaseGlobal, queryFirebaseGlobal, onSnapshotGlobal]);
 
             const filteredSubmissions = React.useMemo(() => {
@@ -1272,8 +1294,9 @@
                         setMessage('שגיאה: לא ניתן למצוא מזהה משתמש עבור הגשה זו.');
                         return;
                     }
-
-                    const docRef = docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submission.userId}/formData`, submissionId);
+                    // FIXED: Secure Path Construction
+                    const basePath = `artifacts/${window.globalAppId || 'default-app-id'}`;
+                    const docRef = docFirebaseGlobal(db, `${basePath}/users/${submission.userId}/formData`, submissionId);
                     await updateDocFirebaseGlobal(docRef, { adminNotes: currentNote, lastUpdatedAdmin: Date.now() });
                     setMessage('הערה נשמרה בהצלחה!');
                     setEditingNote(null);
@@ -1326,9 +1349,15 @@
                 // Add BOM for UTF-8 compatibility with Excel
                 const BOM = "\uFEFF"; 
                 let csvContent = BOM + headers.join(',') + '\n';
-                csvContent += rows.map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+                csvContent += rows.map(e => e.map(cell => {
+                    // FIXED: CSV injection protection
+                    const safeCell = String(cell)
+                                    .replace(/"/g, '""')
+                                    .replace(/^([=@+\-])/, "'$1"); // Sanitize dangerous starters
+                    return `"${safeCell}"`;
+                }).join(',')).join('\n');
 
-                const blob = new Blob([csvContent], { type: 'text/csv'}); // Modified line 627 for testing
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;'}); // Re-added charset for better compatibility, assuming previous syntax error was resolved.
                 const link = document.createElement('a');
                 if (link.download !== undefined) {
                     const url = URL.createObjectURL(blob);
@@ -1397,9 +1426,13 @@
                     </div>
 
                     {loadingAllSubmissions ? (
-                        <p>טוען את כל הנתונים...</p>
+                        <p style={{textAlign: 'center', marginTop: '20px', fontSize: '1.1em'}}>
+                            <i className="fas fa-spinner fa-spin"></i> טוען נתונים... אנא המתן.
+                        </p>
                     ) : filteredSubmissions.length === 0 ? (
-                        <p>לא נמצאו נתונים התואמים לחיפוש/סינון הנוכחי.</p>
+                        <p style={{textAlign: 'center', marginTop: '20px', fontSize: '1.1em'}}>
+                            לא נמצאו נתונים התואמים לחיפוש/סינון הנוכחי.
+                        </p>
                     ) : (
                         <div className="admin-table-container">
                             <table className="admin-table">
