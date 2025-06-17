@@ -14,8 +14,8 @@
     <script type="module">
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"; // Removed Google-specific imports
-        import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
         // Global variables provided by the Canvas environment (do not modify these directly)
@@ -82,12 +82,14 @@
         // Expose specific Firebase functions globally
         window.onAuthStateChangedGlobal = onAuthStateChanged;
         window.signOutFirebaseGlobal = signOut; 
-        window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword; // Added
+        window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
         window.collectionGroupFirebaseGlobal = collectionGroup; 
         window.queryFirebaseGlobal = query; 
         window.onSnapshotFirebaseGlobal = onSnapshot; 
         window.docFirebaseGlobal = doc; // Expose doc
         window.updateDocFirebaseGlobal = updateDoc; // Expose updateDoc
+        window.whereFirebaseGlobal = where; // Exposed for consistency
+        window.getDocsFirebaseGlobal = getDocs; // Exposed for consistency
 
     </script>
 
@@ -326,12 +328,12 @@
 
         // Component for the Login Page (reused for data.html if not authenticated)
         function LoginPage({ auth, onLoginSuccess }) {
-            const [email, setEmail] = useState(''); // Added email state
-            const [password, setPassword] = useState(''); // Added password state
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
             const [message, setMessage] = useState('');
             const [loading, setLoading] = useState(false);
             
-            const handleLogin = async () => { // Changed function name from handleGoogleLogin
+            const handleLogin = async () => {
                 setMessage('');
                 setLoading(true);
                 try {
@@ -340,11 +342,9 @@
                         setLoading(false);
                         return;
                     }
-                    // Using signInWithEmailAndPassword instead of Google Sign-in
-                    const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password); 
+                    const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password);
                     setMessage('התחברות הצליחה! נא המתן...');
-                    // Use user's email as identity if available, otherwise UID
-                    const identity = userCredential.user.email || userCredential.user.uid; 
+                    const identity = userCredential.user.email || userCredential.user.uid;
                     onLoginSuccess(userCredential.user.uid, identity);
                 } catch (error) {
                     console.error("Login error:", error);
@@ -364,23 +364,23 @@
 
             return (
                 <div className="container">
-                    <h1>הזדהות לדף הנתונים</h1> {/* Updated title */}
+                    <h1>הזדהות לדף הנתונים</h1>
                     {message && (
                         <div className={`message-box ${message.includes('הצליחה') ? 'success' : ''}`}>
                             {message}
                         </div>
                     )}
-                    <div className="form-group"> {/* Added email input field */}
+                    <div className="form-group">
                         <label htmlFor="email">מייל:</label>
                         <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="הזן מייל" required />
                     </div>
-                    <div className="form-group"> {/* Added password input field */}
+                    <div className="form-group">
                         <label htmlFor="password">סיסמה:</label>
                         <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="הזן סיסמה" required />
                     </div>
                     <div className="button-container">
-                        <button className="action-button secondary" onClick={handleLogin} disabled={loading}> {/* Changed class from google to secondary */}
-                            {loading ? 'מתחבר...' : 'התחבר'} {/* Changed button text */}
+                        <button className="action-button secondary" onClick={handleLogin} disabled={loading}>
+                            {loading ? 'מתחבר...' : 'התחבר'}
                         </button>
                     </div>
                     <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
@@ -392,13 +392,13 @@
 
 
         // New Component: Admin View to show all submissions (now accessible to any authenticated user)
-        function AdminViewComponent({ auth, db, userUid, onLogout }) { // Removed isAdminUser prop
+        function AdminViewComponent({ auth, db, userUid, onLogout }) {
             const [allSubmissions, setAllSubmissions] = useState([]);
             const [loadingAllSubmissions, setLoadingAllSubmissions] = useState(true);
             const [message, setMessage] = useState('');
-            const [sortColumn, setSortColumn] = useState('timestamp'); // Default sort by timestamp
-            const [sortDirection, setSortDirection] = useState('desc'); // Default sort descending
-            const [editingNote, setEditingNote] = useState(null); // {id: ..., originalNote: ..., currentNote: ...}
+            const [sortColumn, setSortColumn] = useState('timestamp');
+            const [sortDirection, setSortDirection] = useState('desc');
+            const [editingNote, setEditingNote] = useState(null);
 
             // Map for physical injury values to Hebrew
             const physicalInjuryMap = {
@@ -419,7 +419,6 @@
                     setLoadingAllSubmissions(false);
                     return;
                 }
-                // No isAdminUser check here, as per user's request. Any authenticated user can view.
 
                 setLoadingAllSubmissions(true);
                 const queryRef = window.queryFirebaseGlobal(window.collectionGroupFirebaseGlobal(db, 'formData'));
@@ -429,7 +428,7 @@
                     snapshot.forEach(doc => {
                         submissions.push({ id: doc.id, ...doc.data() });
                     });
-                    setAllSubmissions(submissions); // Set unsorted data first
+                    setAllSubmissions(submissions);
                     setLoadingAllSubmissions(false);
                 }, (error) => {
                     console.error("Error fetching all submissions:", error);
@@ -444,7 +443,6 @@
                 return () => unsubscribe();
             }, [db, auth]);
 
-            // Apply sorting logic when allSubmissions or sort parameters change
             const sortedSubmissions = React.useMemo(() => {
                 let sortableItems = [...allSubmissions];
                 if (sortColumn) {
@@ -452,13 +450,11 @@
                         let aValue = a[sortColumn];
                         let bValue = b[sortColumn];
 
-                        // Handle physicalInjury mapping for sorting
                         if (sortColumn === 'physicalInjury') {
                             aValue = physicalInjuryMap[aValue] || aValue;
                             bValue = physicalInjuryMap[bValue] || bValue;
                         }
 
-                        // Handle specific column types for sorting
                         if (sortColumn === 'timestamp') {
                             aValue = parseInt(aValue);
                             bValue = parseInt(bValue);
@@ -466,7 +462,6 @@
                             aValue = parseFloat(aValue);
                             bValue = parseFloat(bValue);
                         } else if (typeof aValue === 'string' && typeof bValue === 'string') {
-                            // Case-insensitive string comparison for Hebrew
                             return aValue.localeCompare(bValue, 'he', { sensitivity: 'base' });
                         }
 
@@ -488,7 +483,7 @@
                     setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
                 } else {
                     setSortColumn(column);
-                    setSortDirection('asc'); // Default to ascending for a new column
+                    setSortDirection('asc');
                 }
             };
 
@@ -515,7 +510,6 @@
                 }
 
                 try {
-                    // Find the correct userId associated with this submissionId to build the docRef path
                     const submission = allSubmissions.find(sub => sub.id === submissionId);
                     if (!submission || !submission.userId) {
                         setMessage('שגיאה: לא ניתן למצוא מזהה משתמש עבור הגשה זו.');
@@ -525,7 +519,7 @@
                     const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submission.userId}/formData`, submissionId);
                     await window.updateDocFirebaseGlobal(docRef, { adminNotes: currentNote });
                     setMessage('הערה נשמרה בהצלחה!');
-                    setEditingNote(null); // Clear editing state
+                    setEditingNote(null);
                 } catch (error) {
                     console.error("Error saving note:", error);
                     let errorMessage = `שגיאה בשמירת הערה: ${error.message}.`;
@@ -549,7 +543,6 @@
                     "סיוע בפינוי", "הערות ממלא הטופס", "הערות מנהל"
                 ];
 
-                // Map data to the order of headers, converting values to Hebrew where necessary
                 const rows = sortedSubmissions.map(item => [
                     new Date(item.timestamp).toLocaleString('he-IL'),
                     item.userId,
@@ -561,7 +554,7 @@
                     item.phone || '',
                     item.address || '',
                     item.residents || '',
-                    physicalInjuryMap[item.physicalInjury] || item.physicalInjury || '', // Use map for Hebrew
+                    physicalInjuryMap[item.physicalInjury] || item.physicalInjury || '',
                     (item.casualties === 'yes' ? 'כן' : 'לא') || '',
                     (item.disconnected === 'yes' ? 'כן' : 'לא') || '',
                     (item.evacuationAssistance === 'yes' ? 'כן' : 'לא') || '',
@@ -569,13 +562,14 @@
                     item.adminNotes || ''
                 ]);
 
-                // Combine headers and rows
-                let csvContent = headers.join(',') + '\n';
-                csvContent += rows.map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n'); // Enclose in quotes and escape internal quotes
+                // Add BOM for UTF-8 compatibility with Excel
+                const BOM = "\uFEFF"; // UTF-8 BOM
+                let csvContent = BOM + headers.join(',') + '\n';
+                csvContent += rows.map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
 
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a');
-                if (link.download !== undefined) { // Feature detection for download attribute
+                if (link.download !== undefined) {
                     const url = URL.createObjectURL(blob);
                     link.setAttribute('href', url);
                     link.setAttribute('download', 'hugo_data.csv');
@@ -635,8 +629,8 @@
                                         <th onClick={() => handleSort('casualties')}>הרוגים/פצועים {getSortIcon('casualties')}</th>
                                         <th onClick={() => handleSort('disconnected')}>מנותקי קשר {getSortIcon('disconnected')}</th>
                                         <th onClick={() => handleSort('evacuationAssistance')}>סיוע בפינוי {getSortIcon('evacuationAssistance')}</th>
-                                        <th>הערות ממלא הטופס</th> {/* Renamed for clarity */}
-                                        <th>הערות מנהל</th> {/* New Column */}
+                                        <th>הערות ממלא הטופס</th>
+                                        <th>הערות מנהל</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -648,11 +642,11 @@
                                             <td>{item.firstName} {item.familyName}</td>
                                             <td>{item.idNumber || 'לא הוזן'}</td>
                                             <td>{item.age}</td>
-                                            <td>{item.gender === 'male' ? 'זכר' : (item.gender === 'female' ? 'נקבה' : '')}</td> {/* Output in Hebrew */}
+                                            <td>{item.gender === 'male' ? 'זכר' : (item.gender === 'female' ? 'נקבה' : '')}</td>
                                             <td>{item.phone}</td>
                                             <td>{item.address}</td>
                                             <td>{item.residents}</td>
-                                            <td>{physicalInjuryMap[item.physicalInjury] || item.physicalInjury || ''}</td> {/* Output in Hebrew */}
+                                            <td>{physicalInjuryMap[item.physicalInjury] || item.physicalInjury || ''}</td>
                                             <td>{item.casualties === 'yes' ? 'כן' : 'לא'}</td>
                                             <td>{item.disconnected === 'yes' ? 'כן' : 'לא'}</td>
                                             <td>{item.evacuationAssistance === 'yes' ? 'כן' : 'לא'}</td>
@@ -707,7 +701,7 @@
                     if (user) {
                         setUserUid(user.uid);
                         logoutTriggeredRef.current = false;
-                        setIsAuthReady(true); 
+                        setIsAuthReady(true);
                     } else {
                         setUserUid(null);
                         setIsAuthReady(true);
@@ -717,7 +711,7 @@
             }, []);
 
             const handleLogin = async (uid, identity) => {
-                window.location.reload(); 
+                window.location.reload();
             };
 
             const handleLogout = async () => {
@@ -725,7 +719,7 @@
                     if (firebaseInstances.auth) {
                         logoutTriggeredRef.current = true;
                         await window.signOutFirebaseGlobal(firebaseInstances.auth);
-                        window.location.href = 'index.html'; 
+                        window.location.href = 'index.html';
                     }
                 } catch (error) {
                     console.error("שגיאה בהתנתקות מדף הנתונים:", error);
@@ -751,12 +745,10 @@
                 );
             }
 
-            // If not authenticated, show login page. Otherwise, show AdminViewComponent.
             if (!userUid) {
                 return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={handleLogin} />;
             }
 
-            // If authenticated, show AdminViewComponent (no admin role check)
             return (
                 <AdminViewComponent
                     auth={firebaseInstances.auth}
