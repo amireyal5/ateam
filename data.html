@@ -17,7 +17,6 @@
         import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-
         // Global variables provided by the Canvas environment (do not modify these directly)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -215,7 +214,7 @@
             margin-top: 20px;
             font-size: 0.9em;
             text-align: right; /* RTL alignment */
-            min-width: 1300px; /* Increased min-width for table */
+            min-width: 900px; /* Adjusted min-width due to fewer columns */
         }
         .admin-table th, .admin-table td {
             border: 1px solid #ddd;
@@ -248,6 +247,14 @@
         .admin-table tbody tr:hover {
             background-color: #f0f0f0;
         }
+        /* Status based row coloring */
+        .admin-table tr.status-open { background-color: #e0f7fa; } /* Light Cyan */
+        .admin-table tr.status-closed { background-color: #e8f5e9; } /* Light Green */
+        .admin-table tr.status-social_worker { background-color: #fff3e0; } /* Light Orange */
+        .admin-table tr.status-other { background-color: #ede7f6; } /* Light Purple */
+        .admin-table tr.status-not_defined { background-color: #f9f9f9; } /* Default/light gray for undefined */
+
+
         .admin-notes-textarea {
             width: 100%;
             min-height: 120px; /* Increased height */
@@ -269,6 +276,7 @@
             cursor: pointer;
             font-size: 0.9em; /* Slightly larger font */
             transition: background-color 0.2s ease, opacity 0.2s ease;
+            box-shadow: none; /* ביטול צל */
         }
         .admin-notes-save-button:hover {
             background-color: #555555;
@@ -283,6 +291,43 @@
             color: #666666; /* Lighter text for disabled */
         }
         /* End Table styles */
+
+        /* Status map styling */
+        .status-map-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #333;
+            min-width: 120px;
+        }
+        .status-item .count {
+            font-size: 1.4em;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: #222;
+        }
+        /* Specific status item background colors */
+        .status-item.open { background-color: #e0f7fa; }
+        .status-item.closed { background-color: #e8f5e9; }
+        .status-item.social_worker { background-color: #fff3e0; }
+        .status-item.other { background-color: #ede7f6; }
+        .status-item.not_defined { background-color: #f9f9f9; }
+
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
@@ -302,7 +347,7 @@
                 font-size: 1.1em;
             }
             .admin-table {
-                min-width: 900px;
+                min-width: 700px; /* Adjusted min-width for mobile/tablet */
             }
             .admin-table th, .admin-table td {
                 padding: 8px 10px;
@@ -316,13 +361,22 @@
                 padding: 6px 12px;
                 font-size: 0.8em;
             }
+            .status-map-container {
+                flex-direction: column; /* Stack status items vertically on small screens */
+                align-items: stretch;
+            }
+            .status-item {
+                width: 100%;
+                padding: 10px;
+                box-sizing: border-box;
+            }
         }
         @media (max-width: 480px) {
             .container {
                 padding: 15px;
             }
             .admin-table {
-                min-width: 600px;
+                min-width: 600px; /* Further reduction for very small screens */
             }
             .admin-table th, .admin-table td {
                 font-size: 0.85em;
@@ -407,7 +461,7 @@
             const [message, setMessage] = useState('');
             const [sortColumn, setSortColumn] = useState('timestamp');
             const [sortDirection, setSortDirection] = useState('desc');
-            // Removed editingNote state as admin notes will only be edited on details.html
+            const [statusCounts, setStatusCounts] = useState({}); // New state for status counts
 
             // Map for physical injury values to Hebrew
             const physicalInjuryMap = {
@@ -415,6 +469,15 @@
                 'light': 'קלה (2)',
                 'medium': 'בינונית (3)',
                 'severe': 'קשה (4)'
+            };
+
+            // Status display and color mapping
+            const referralStatusDisplayMap = {
+                'open': { text: 'פתוחה', className: 'open' },
+                'closed': { text: 'סגורה', className: 'closed' },
+                'social_worker': { text: 'הועבר לטיפול עו"ס', className: 'social_worker' },
+                'other': { text: 'הועבר להמשך טיפול אחר', className: 'other' },
+                '': { text: 'טרם הוגדר', className: 'not_defined' } // For empty/undefined status
             };
 
             useEffect(() => {
@@ -434,10 +497,22 @@
 
                 const unsubscribe = window.onSnapshotFirebaseGlobal(queryRef, (snapshot) => {
                     const submissions = [];
+                    const counts = { open: 0, closed: 0, social_worker: 0, other: 0, not_defined: 0 };
+
                     snapshot.forEach(doc => {
-                        submissions.push({ id: doc.id, ...doc.data() });
+                        const data = doc.data();
+                        submissions.push({ id: doc.id, ...data });
+                        
+                        // Update status counts
+                        const statusKey = data.referralStatus || '';
+                        if (referralStatusDisplayMap[statusKey]) {
+                            counts[statusKey === '' ? 'not_defined' : statusKey]++;
+                        } else {
+                            counts.not_defined++; // Fallback for unknown statuses
+                        }
                     });
                     setAllSubmissions(submissions);
+                    setStatusCounts(counts); // Set the calculated counts
                     setLoadingAllSubmissions(false);
                 }, (error) => {
                     console.error("Error fetching all submissions:", error);
@@ -458,6 +533,14 @@
                     sortableItems.sort((a, b) => {
                         let aValue = a[sortColumn];
                         let bValue = b[sortColumn];
+
+                        // Special handling for referralStatus based on display order or alphabetical
+                        if (sortColumn === 'referralStatus') {
+                            const order = ['open', 'social_worker', 'other', 'closed', '']; // Define a custom sort order
+                            const aIndex = order.indexOf(aValue || '');
+                            const bIndex = order.indexOf(bValue || '');
+                            return (sortDirection === 'asc' ? aIndex - bIndex : bIndex - aIndex);
+                        }
 
                         if (sortColumn === 'physicalInjury') {
                             aValue = physicalInjuryMap[aValue] || aValue;
@@ -503,15 +586,13 @@
                 return '';
             };
 
-            // Removed handleNoteChange and saveNote as admin notes will only be edited on details.html
-
             const exportToCsv = () => {
                 if (allSubmissions.length === 0) {
                     setMessage('אין נתונים לייצוא.');
                     return;
                 }
 
-                // Headers including new fields, even if not displayed in main table
+                // Headers including all original fields for export consistency
                 const headers = [
                     "תאריך/שעה", "מזהה הזדהות (מייל/UID)",
                     "שם מלא", "תעודת זהות", "גיל", "מין", "טלפון", "כתובת",
@@ -534,8 +615,8 @@
                     (item.disconnected === 'yes' ? 'כן' : 'לא') || '',
                     (item.evacuationAssistance === 'yes' ? 'כן' : 'לא') || '',
                     item.notes || '',
-                    // Include new fields for export, even if not displayed in table
-                    item.referralStatus === 'closed' ? 'סגורה' : item.referralStatus === 'social_worker' ? 'הועבר לטיפול עו"ס' : item.referralStatus === 'other' ? 'הועבר להמשך טיפול אחר' : 'טרם הוגדר',
+                    // Include new fields for export
+                    referralStatusDisplayMap[item.referralStatus || ''].text, // Use mapped text
                     item.otherStatusText || '',
                     item.adminNotes || ''
                 ]);
@@ -584,6 +665,30 @@
                         </div>
                     )}
 
+                    {/* Status Map Section */}
+                    <div className="status-map-container">
+                        <div className={`status-item open`}>
+                            <div className="count">{statusCounts.open || 0}</div>
+                            <div>פתוחה</div>
+                        </div>
+                        <div className={`status-item social_worker`}>
+                            <div className="count">{statusCounts.social_worker || 0}</div>
+                            <div>הועבר לטיפול עו"ס</div>
+                        </div>
+                        <div className={`status-item other`}>
+                            <div className="count">{statusCounts.other || 0}</div>
+                            <div>הועבר להמשך טיפול אחר</div>
+                        </div>
+                        <div className={`status-item closed`}>
+                            <div className="count">{statusCounts.closed || 0}</div>
+                            <div>סגורה</div>
+                        </div>
+                        <div className={`status-item not_defined`}>
+                            <div className="count">{statusCounts.not_defined || 0}</div>
+                            <div>טרם הוגדר</div>
+                        </div>
+                    </div>
+
                     {loadingAllSubmissions ? (
                         <p>טוען את כל הנתונים...</p>
                     ) : sortedSubmissions.length === 0 ? (
@@ -601,40 +706,36 @@
                                         <th onClick={() => handleSort('gender')}>מין {getSortIcon('gender')}</th>
                                         <th onClick={() => handleSort('phone')}>טלפון {getSortIcon('phone')}</th>
                                         <th onClick={() => handleSort('address')}>כתובת {getSortIcon('address')}</th>
-                                        <th onClick={() => handleSort('residents')}>שוהים בדירה {getSortIcon('residents')}</th>
-                                        <th onClick={() => handleSort('physicalInjury')}>פציעה פיזית {getSortIcon('physicalInjury')}</th>
-                                        <th onClick={() => handleSort('casualties')}>הרוגים/פצועים {getSortIcon('casualties')}</th>
-                                        <th onClick={() => handleSort('disconnected')}>מנותקי קשר {getSortIcon('disconnected')}</th>
-                                        <th onClick={() => handleSort('evacuationAssistance')}>סיוע בפינוי {getSortIcon('evacuationAssistance')}</th>
-                                        <th>הערות ממלא הטופס</th>
+                                        <th onClick={() => handleSort('notes')}>הערות ממלא הטופס {getSortIcon('notes')}</th>
+                                        <th onClick={() => handleSort('referralStatus')}>סטטוס {getSortIcon('referralStatus')}</th> {/* New Status Column */}
                                         <th style={{ width: '20%' }}>הערות מנהל</th> {/* Width for admin notes */}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {sortedSubmissions.map((item) => (
-                                        <tr key={item.id}>
-                                            <td>{new Date(item.timestamp).toLocaleString('he-IL')}</td>
-                                            <td>{item.identityId || 'לא הוזן'}</td>
-                                            <td>{item.firstName} {item.familyName}</td>
-                                            {/* ID Number is now a link */}
-                                            <td>
-                                                <a href={`details.html?id=${item.id}&userId=${item.userId}`} style={{ color: '#007bff', textDecoration: 'underline' }}>
-                                                    {item.idNumber || 'לא הוזן'}
-                                                </a>
-                                            </td>
-                                            <td>{item.age}</td>
-                                            <td>{item.gender === 'male' ? 'זכר' : (item.gender === 'female' ? 'נקבה' : '')}</td>
-                                            <td>{item.phone}</td>
-                                            <td>{item.address}</td>
-                                            <td>{item.residents}</td>
-                                            <td>{physicalInjuryMap[item.physicalInjury] || item.physicalInjury || ''}</td>
-                                            <td>{item.casualties === 'yes' ? 'כן' : 'לא'}</td>
-                                            <td>{item.disconnected === 'yes' ? 'כן' : 'לא'}</td>
-                                            <td>{item.evacuationAssistance === 'yes' ? 'כן' : 'לא'}</td>
-                                            <td>{item.notes || 'אין'}</td>
-                                            <td>{item.adminNotes || 'אין'}</td> {/* Reverted to plain text */}
-                                        </tr>
-                                    ))}
+                                    {sortedSubmissions.map((item) => {
+                                        // Determine the class for row coloring based on referralStatus
+                                        const statusClass = referralStatusDisplayMap[item.referralStatus || ''].className;
+                                        return (
+                                            <tr key={item.id} className={`status-${statusClass}`}>
+                                                <td>{new Date(item.timestamp).toLocaleString('he-IL')}</td>
+                                                <td>{item.identityId || 'לא הוזן'}</td>
+                                                <td>{item.firstName} {item.familyName}</td>
+                                                {/* ID Number is now a link */}
+                                                <td>
+                                                    <a href={`details.html?id=${item.id}&userId=${item.userId}`} style={{ color: '#007bff', textDecoration: 'underline' }}>
+                                                        {item.idNumber || 'לא הוזן'}
+                                                    </a>
+                                                </td>
+                                                <td>{item.age}</td>
+                                                <td>{item.gender === 'male' ? 'זכר' : (item.gender === 'female' ? 'נקבה' : '')}</td>
+                                                <td>{item.phone}</td>
+                                                <td>{item.address}</td>
+                                                <td>{item.notes || 'אין'}</td>
+                                                <td>{referralStatusDisplayMap[item.referralStatus || ''].text}</td> {/* Display mapped status text */}
+                                                <td>{item.adminNotes || 'אין'}</td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -709,8 +810,9 @@
                 />
             );
         }
-
-        ReactDOM.render(<App />, document.getElementById('root'));
+        // Corrected React 18 rendering method
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
