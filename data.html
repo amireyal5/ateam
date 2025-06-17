@@ -9,12 +9,14 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <!-- Babel for JSX compilation directly in the browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <!-- Firebase Libraries - Initialized here and exposed globally -->
     <script type="module">
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
@@ -67,7 +69,6 @@
             }
         } catch (error) {
             console.error("Failed to initialize Firebase in global script for data.html:", error);
-            // Ensure instances are null if initialization fails
             app = null;
             auth = null;
             db = null;
@@ -83,128 +84,209 @@
         window.onAuthStateChangedGlobal = onAuthStateChanged;
         window.signOutFirebaseGlobal = signOut; 
         window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
+        window.sendPasswordResetEmailGlobal = sendPasswordResetEmail; /* Added for password reset */
         window.collectionGroupFirebaseGlobal = collectionGroup; 
         window.queryFirebaseGlobal = query; 
-        window.onSnapshotFirebaseGlobal = onSnapshot; 
-        window.docFirebaseGlobal = doc; // Expose doc
-        window.updateDocFirebaseGlobal = updateDoc; // Expose updateDoc
-        window.whereFirebaseGlobal = where; // Exposed for consistency
-        window.getDocsFirebaseGlobal = getDocs; // Exposed for consistency
+        window.onSnapshotGlobal = onSnapshot; 
+        window.docFirebaseGlobal = doc; 
+        window.updateDocFirebaseGlobal = updateDoc; 
+        window.whereFirebaseGlobal = where; 
+        window.getDocsFirebaseGlobal = getDocs; 
 
     </script>
 
     <style>
-        /* הגדרות בסיסיות לגוף הדף */
+        /* General styles */
         body {
-            font-family: 'Inter', Arial, sans-serif; /* שימוש בפונט Inter */
-            background-color: #f8f8f8; /* צבע רקע אפור בהיר מאוד */
+            font-family: Arial, sans-serif; /* Adjusted font to match image's simplicity */
+            background-color: #f0f2f5; /* Light grey background from image */
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* יישור למעלה כדי לא למרכז אנכית אם התוכן ארוך */
-            min-height: 100vh; /* גובה מינימלי של 100% מגובה המסך */
+            align-items: flex-start; /* Align to top for scrolling content */
+            min-height: 100vh;
             margin: 0;
-            padding: 10px; /* צמצום ריפוד כדי לתת יותר מקום לטבלה */
-            box-sizing: border-box; /* מבטיח שריפוד וגבולות לא יגדילו את הגודל הכולל של האלמנט */
+            padding: 0; /* Remove padding from body for full width container on mobile */
+            box-sizing: border-box;
         }
 
-        /* מכל הטופס והלוגין */
+        /* Container for forms/pages */
         .container {
-            background-color: #ffffff; /* רקע לבן */
-            padding: 35px;
-            border-radius: 12px; /* פינות מעוגלות */
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); /* צל עדין מאוד */
+            background-color: #ffffff; /* White background for the form container */
+            padding: 24px; /* Adjust padding to match image */
+            border-radius: 8px; /* Subtle rounded corners */
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); /* Very subtle shadow for depth */
             width: 100%;
-            max-width: 100%; /* הרחבה לרוחב המסך המקסימלי */
+            max-width: 1200px; /* Increased max-width for admin table */
             box-sizing: border-box;
-            border: 1px solid #e0e0e0; /* גבול אפור עדין */
-            text-align: center;
-            margin: 0; /* הסרת מרווח אוטומטי לרוחב מלא */
+            text-align: right; /* RTL alignment */
+            margin: 24px auto; /* Center with top/bottom margin */
+        }
+        @media (max-width: 480px) {
+            .container {
+                padding: 16px; /* Smaller padding on very small screens */
+                border-radius: 0; /* No rounded corners on very small screens for full bleed */
+                box-shadow: none; /* No shadow on very small screens */
+            }
         }
 
         h1 {
             text-align: center;
-            color: #333333; /* צבע כהה לכותרת */
-            margin-bottom: 25px; /* מרווח תחתון מוגדל */
-            font-size: 1.8em; /* גודל פונט מוגדל לכותרת */
-            font-weight: 700; /* עובי פונט מודגש */
-        }
-        
-        .button-container {
-            display: flex;
-            justify-content: center;
-            gap: 12px; /* מרווח בין כפתורים */
-            margin-top: 30px;
+            color: #333333;
+            margin-bottom: 24px;
+            font-size: 1.8em; /* Adjusted for image's prominence */
+            font-weight: bold;
         }
 
+        /* Form groups (label + input) - mostly for login page in this file */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px; /* Increased margin between form groups */
+            text-align: right;
+            position: relative;
+        }
+
+        label {
+            color: #666666; /* Lighter grey for labels */
+            font-size: 0.9em; /* Smaller font for labels */
+            margin-bottom: 8px; /* Space between label and input */
+            font-weight: normal;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="tel"],
+        textarea,
+        select,
+        input[type="password"],
+        input[type="email"] {
+            width: 100%;
+            padding: 12px 16px; /* Generous padding for comfortable touch */
+            border: 1px solid #dddddd; /* Light grey border for inputs */
+            border-radius: 6px; /* Softly rounded corners */
+            box-sizing: border-box;
+            font-size: 1em; /* Standard font size */
+            color: #333333; /* Dark text for readability */
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        input[type="tel"]:focus,
+        textarea:focus,
+        select:focus,
+        input[type="password"]:focus,
+        input[type="email"]:focus {
+            border-color: #999999; /* Darker grey on focus */
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.2); /* Subtle focus ring */
+        }
+        
+        /* Button container */
+        .button-container {
+            display: flex;
+            flex-direction: column; /* Stack buttons vertically as in image */
+            gap: 12px; /* Space between stacked buttons */
+            margin-top: 24px; /* Space from form elements */
+        }
+
+        /* Action buttons */
         .action-button {
-            background-color: #444444; /* אפור כהה (כפתור ראשי) */
+            background-color: #3498db; /* Primary blue from image */
             color: white;
-            padding: 12px 25px; /* ריפוד מוגדל */
+            padding: 14px 20px; /* Generous padding for primary button */
             border: none;
-            border-radius: 6px;
-            font-size: 1.05em;
-            font-weight: 600;
+            border-radius: 6px; /* Rounded corners */
+            font-size: 1.1em; /* Larger font for main buttons */
+            font-weight: bold;
             cursor: pointer;
-            transition: background-color 0.2s ease, opacity 0.2s ease;
-            box-shadow: none; /* ביטול צל */
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: none; /* Default to no shadow */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px; /* Space between text and icon */
+        }
+        .action-button:hover {
+            background-color: #2980b9; /* Darker blue on hover */
+            box-shadow: none; /* No shadow change on hover */
+        }
+        .action-button:active {
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Subtle shadow on click */
+            transform: translateY(1px); /* Slight press effect */
         }
 
         .action-button.secondary {
-            background-color: #888888; /* אפור בינוני (כפתור משני) */
+            background-color: #ffffff; /* White background for secondary button */
+            color: #666666; /* Grey text for secondary */
+            border: 1px solid #dddddd; /* Light border */
+            box-shadow: none;
+        }
+        .action-button.secondary:hover {
+            background-color: #f0f0f0; /* Lighter grey on hover */
+            color: #333333;
+        }
+        .action-button.secondary:active {
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
 
         .action-button.danger {
-            background-color: #bbbbbb; /* אפור בהיר (כפתור התנתקות/סכנה) */
-            color: #333333; /* טקסט כהה לכפתור בהיר */
+            background-color: #e74c3c; /* Red for danger/logout */
+            color: white;
         }
-
-        .action-button:hover {
-            background-color: #555555;
-            opacity: 1;
-        }
-
-        .action-button.secondary:hover {
-            background-color: #999999;
-        }
-
         .action-button.danger:hover {
-            background-color: #cccccc;
+            background-color: #c0392b;
         }
 
-        .action-button:active {
-            opacity: 0.8;
-            transform: none;
-        }
-
+        /* Message box styles */
         .message-box {
-            background-color: #f0f0f0;
-            color: #333333;
+            background-color: #f8f8f8; /* Light grey background */
+            color: #333333; /* Dark text */
             padding: 12px;
-            border: 1px solid #cccccc;
+            border: 1px solid #cccccc; /* Light grey border */
             border-radius: 6px;
-            margin-top: 15px;
+            margin-top: 16px;
             text-align: right;
             font-size: 0.9em;
             font-weight: normal;
         }
         .message-box.success {
-            background-color: #e6ffe6;
-            color: #2e7d32;
+            background-color: #e6ffe6; /* Very light green */
+            color: #2e7d32; /* Dark green */
             border-color: #a3e6a3;
         }
         .message-box.danger { 
-            background-color: #ffe6e6;
-            color: #c62828;
+            background-color: #ffe6e6; /* Very light red */
+            color: #c62828; /* Dark red */
             border-color: #e6a3a3;
         }
-         .message-box.warning {
-            background-color: #fffacd;
-            color: #a87200;
+        .message-box.warning {
+            background-color: #fffacd; /* Light yellow */
+            color: #a87200; /* Dark yellow/orange */
             border-color: #ffd966;
         }
 
-
-        /* Table styles for Admin View */
+        /* Top bar for dashboard/form pages */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px; /* Space below top bar */
+        }
+        .top-bar h1 {
+            margin-bottom: 0; /* Reset h1 margin */
+            text-align: right; /* Align h1 to right in top bar */
+            font-size: 1.6em; /* Slightly smaller h1 in top bar */
+        }
+        .top-bar .button-group {
+            display: flex;
+            gap: 8px;
+        }
+        .top-bar .action-button {
+            padding: 8px 16px; /* Smaller buttons in top bar */
+            font-size: 0.9em;
+        }
+        
+        /* Admin Table styles for Data View */
         .admin-table-container {
             overflow-x: auto; /* Enable horizontal scrolling for small screens */
             width: 100%;
@@ -215,23 +297,25 @@
             margin-top: 20px;
             font-size: 0.9em;
             text-align: right; /* RTL alignment */
-            min-width: 1300px; /* Increased min-width for table */
+            min-width: 1400px; /* Increased min-width for table */
         }
         .admin-table th, .admin-table td {
-            border: 1px solid #ddd;
+            border: 1px solid #eeeeee; /* Lighter grey border for cells */
             padding: 10px 12px;
             vertical-align: top;
             color: #333333; /* Darker text for table cells */
             font-size: 0.95em; /* Slightly larger font for table content */
         }
         .admin-table th {
-            background-color: #e0e0e0; /* Lighter grey for headers */
+            background-color: #f8f8f8; /* Light grey for headers */
             color: #333333;
-            font-weight: 600;
+            font-weight: bold; /* Bold headers */
             white-space: nowrap;
             cursor: pointer;
-            position: relative;
-            padding-right: 25px;
+            position: sticky; /* Make headers sticky */
+            top: 0; /* Stick to top */
+            z-index: 10; /* Ensure it stays above scrolling content */
+            padding-right: 25px; /* Space for sort icon */
             font-size: 1em; /* Larger font for table headers */
         }
         .admin-table th .sort-icon {
@@ -243,89 +327,112 @@
             color: #777;
         }
         .admin-table tbody tr:nth-child(even) {
-            background-color: #f9f9f9;
+            background-color: #fdfdfd; /* Off-white for even rows */
         }
         .admin-table tbody tr:hover {
-            background-color: #f0f0f0;
+            background-color: #f0f0f0; /* Lighter grey on hover */
         }
         .admin-notes-textarea {
             width: 100%;
             min-height: 120px; /* Increased height */
-            border: 1px solid #cccccc; /* Gray border */
-            border-radius: 4px;
-            padding: 8px; /* Slightly more padding */
+            border: 1px solid #dddddd; /* Light grey border */
+            border-radius: 6px;
+            padding: 10px 12px; /* Increased padding */
             box-sizing: border-box;
-            font-size: 0.95em; /* Slightly larger font */
+            font-size: 1em; /* Standard font size */
             resize: vertical;
             color: #333333; /* Darker text */
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
+        .admin-notes-textarea:focus {
+            border-color: #999999;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.2);
+        }
+
         .admin-notes-save-button {
-            margin-top: 8px; /* Increased margin */
-            padding: 8px 15px; /* Increased padding */
-            background-color: #444444; /* Dark grey */
+            margin-top: 10px; /* Increased margin */
+            padding: 10px 20px; /* Increased padding */
+            background-color: #3498db; /* Primary blue */
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 0.9em; /* Slightly larger font */
-            transition: background-color 0.2s ease, opacity 0.2s ease;
+            font-size: 0.9em;
+            font-weight: bold;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
         }
         .admin-notes-save-button:hover {
-            background-color: #555555;
-            opacity: 1;
+            background-color: #2980b9;
         }
         .admin-notes-save-button:active {
-            opacity: 0.8;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transform: translateY(1px);
         }
         .admin-notes-save-button:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
-            color: #666666; /* Lighter text for disabled */
+            color: #666666;
+            box-shadow: none;
+            transform: none;
         }
-        /* End Table styles */
+        /* End Admin Table styles */
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
-            body {
-                padding: 10px;
-            }
             .container {
-                padding: 25px;
-                margin: 0;
+                padding: 16px;
+                margin: 16px auto;
             }
-            h1 {
-                font-size: 1.8em;
-                margin-bottom: 25px;
+            .top-bar {
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 12px;
             }
-            .action-button {
-                padding: 12px 25px;
-                font-size: 1.1em;
+            .top-bar h1 {
+                width: 100%;
+                text-align: center;
+                font-size: 1.4em;
             }
+            .top-bar .button-group {
+                width: 100%;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            .top-bar .action-button {
+                flex-grow: 1;
+                max-width: calc(50% - 4px);
+            }
+            /* Table adjustments for mobile */
             .admin-table {
-                min-width: 900px;
+                min-width: 1000px; /* Still needs horizontal scroll for many columns */
             }
             .admin-table th, .admin-table td {
-                padding: 8px 10px;
-                font-size: 0.9em;
+                padding: 8px;
+                font-size: 0.85em;
             }
             .admin-notes-textarea {
-                 min-height: 80px;
-                 font-size: 0.9em;
+                min-height: 80px;
+                font-size: 0.85em;
             }
             .admin-notes-save-button {
-                padding: 6px 12px;
-                font-size: 0.8em;
+                padding: 8px 15px;
+                font-size: 0.85em;
             }
         }
         @media (max-width: 480px) {
             .container {
-                padding: 15px;
+                padding: 12px;
+                margin: 12px auto;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            h1 {
+                font-size: 1.2em;
+                margin-bottom: 16px;
             }
             .admin-table {
-                min-width: 600px;
-            }
-            .admin-table th, .admin-table td {
-                font-size: 0.85em;
+                min-width: 700px; /* Further reduced min-width for very small screens */
             }
         }
     </style>
@@ -336,12 +443,14 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Component for the Login Page (reused for data.html if not authenticated)
+        // Component for the Login Page - now with Email/Password login
+        // Added ForgotPasswordModal component
         function LoginPage({ auth, onLoginSuccess }) {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
             const [message, setMessage] = useState('');
             const [loading, setLoading] = useState(false);
+            const [showForgotPassword, setShowForgotPassword] = useState(false);
             
             const handleLogin = async () => {
                 setMessage('');
@@ -352,7 +461,7 @@
                         setLoading(false);
                         return;
                     }
-                    const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password);
+                    const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password); 
                     setMessage('התחברות הצליחה! נא המתן...');
                     onLoginSuccess(userCredential.user);
                 } catch (error) {
@@ -388,13 +497,84 @@
                         <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="הזן סיסמה" required />
                     </div>
                     <div className="button-container">
-                        <button className="action-button secondary" onClick={handleLogin} disabled={loading}>
+                        <button className="action-button" onClick={handleLogin} disabled={loading}>
                             {loading ? 'מתחבר...' : 'התחבר'}
                         </button>
+                        <a href="#" className="action-button secondary" onClick={(e) => { e.preventDefault(); setShowForgotPassword(true); }} style={{textDecoration: 'none'}}>
+                            שכחת סיסמה?
+                        </a>
                     </div>
                     <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
-                        <strong style={{color: '#F44336'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
+                        <strong style={{color: '#e74c3c'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
                     </p>
+
+                    {showForgotPassword && (
+                        <ForgotPasswordModal auth={auth} onClose={() => setShowForgotPassword(false)} />
+                    )}
+                </div>
+            );
+        }
+
+        // New Component for Forgot Password Modal
+        function ForgotPasswordModal({ auth, onClose }) {
+            const [email, setEmail] = useState('');
+            const [message, setMessage] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const handleResetPassword = async () => {
+                setMessage('');
+                setLoading(true);
+                if (!email) {
+                    setMessage('אנא הזן כתובת מייל.');
+                    setLoading(false);
+                    return;
+                }
+                try {
+                    if (!auth) {
+                        setMessage('שגיאה: שירותי Firebase Auth אינם זמינים.');
+                        setLoading(false);
+                        return;
+                    }
+                    await window.sendPasswordResetEmailGlobal(auth, email);
+                    setMessage('אם קיים חשבון עם המייל הזה, קישור לאיפוס סיסמה נשלח אליו. נא לבדוק גם את תיקיית הספאם.');
+                } catch (error) {
+                    console.error("Password reset error:", error);
+                    // Crucially, we give a generic message to avoid email enumeration
+                    setMessage('אם קיים חשבון עם המייל הזה, קישור לאיפוס סיסמה נשלח אליו. נא לבדוק גם את תיקיית הספאם.');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
+                    justifyContent: 'center', alignItems: 'center', zIndex: 1000
+                }}>
+                    <div className="container" style={{maxWidth: '350px', padding: '20px'}}>
+                        <h2>איפוס סיסמה</h2>
+                        {message && (
+                            <div className={`message-box ${message.includes('קישור לאיפוס') ? 'success' : 'danger'}`}>
+                                {message}
+                            </div>
+                        )}
+                        <p style={{marginBottom: '15px', fontSize: '0.9em', color: '#555'}}>
+                            הזן את כתובת המייל שלך וקישור לאיפוס סיסמה יישלח אליך.
+                        </p>
+                        <div className="form-group">
+                            <label htmlFor="resetEmail">מייל:</label>
+                            <input type="email" id="resetEmail" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="הזן מייל רשום" required />
+                        </div>
+                        <div className="button-container">
+                            <button className="action-button" onClick={handleResetPassword} disabled={loading}>
+                                {loading ? 'שולח...' : 'שלח קישור לאיפוס'}
+                            </button>
+                            <button className="action-button secondary" onClick={onClose} disabled={loading}>
+                                ביטול
+                            </button>
+                        </div>
+                    </div>
                 </div>
             );
         }
@@ -432,7 +612,7 @@
                 setLoadingAllSubmissions(true);
                 const queryRef = window.queryFirebaseGlobal(window.collectionGroupFirebaseGlobal(db, 'formData'));
 
-                const unsubscribe = window.onSnapshotFirebaseGlobal(queryRef, (snapshot) => {
+                const unsubscribe = window.onSnapshotGlobal(queryRef, (snapshot) => {
                     const submissions = [];
                     snapshot.forEach(doc => {
                         submissions.push({ id: doc.id, ...doc.data() });
@@ -594,17 +774,17 @@
 
             return (
                 <div className="container">
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+                    <div className="top-bar">
                         <h1>כל הנתונים שהוגשו</h1>
-                        <div style={{display: 'flex', gap: '10px'}}>
-                            <button onClick={exportToCsv} className="action-button" style={{padding: '10px 20px', fontSize: '0.9em'}}>
-                                ייצא לאקסל
+                        <div className="button-group">
+                            <button onClick={exportToCsv} className="action-button">
+                                <i className="fas fa-file-excel" style={{marginLeft: '5px'}}></i> ייצא לאקסל
                             </button>
-                            <a href="index.html" className="action-button secondary" style={{padding: '10px 20px', fontSize: '0.9em', textDecoration: 'none'}}>
-                                חזור לאפליקציה הראשית
+                            <a href="index.html" className="action-button secondary" style={{textDecoration: 'none'}}>
+                                <i className="fas fa-arrow-right" style={{marginLeft: '5px'}}></i> חזור לאפליקציה הראשית
                             </a>
-                            <button onClick={onLogout} className="action-button danger" style={{padding: '10px 20px', fontSize: '0.9em'}}>
-                                התנתק
+                            <button onClick={onLogout} className="action-button danger">
+                                <i className="fas fa-sign-out-alt" style={{marginLeft: '5px'}}></i> התנתק
                             </button>
                         </div>
                     </div>
@@ -625,8 +805,7 @@
                                 <thead>
                                     <tr>
                                         <th onClick={() => handleSort('timestamp')}>תאריך/שעה {getSortIcon('timestamp')}</th>
-                                        {/* Removed "מזהה משתמש (UID)" */}
-                                        <th onClick={() => handleSort('identityId')}>מזהה הזדהות (מייל/UID) {getSortIcon('identityId')}</th>
+                                        <th onClick={() => handleSort('identityId')}>מזהה הזדהות {getSortIcon('identityId')}</th>
                                         <th onClick={() => handleSort('firstName')}>שם מלא {getSortIcon('firstName')}</th>
                                         <th onClick={() => handleSort('idNumber')}>תעודת זהות {getSortIcon('idNumber')}</th>
                                         <th onClick={() => handleSort('age')}>גיל {getSortIcon('age')}</th>
@@ -639,14 +818,13 @@
                                         <th onClick={() => handleSort('disconnected')}>מנותקי קשר {getSortIcon('disconnected')}</th>
                                         <th onClick={() => handleSort('evacuationAssistance')}>סיוע בפינוי {getSortIcon('evacuationAssistance')}</th>
                                         <th>הערות ממלא הטופס</th>
-                                        <th style={{ width: '20%' }}>הערות מנהל</th> {/* Increased width for admin notes */}
+                                        <th style={{ width: '25%' }}>הערות מנהל</th> {/* Increased width for admin notes */}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {sortedSubmissions.map((item) => (
                                         <tr key={item.id}>
                                             <td>{new Date(item.timestamp).toLocaleString('he-IL')}</td>
-                                            {/* Removed item.userId */}
                                             <td>{item.identityId || 'לא הוזן'}</td>
                                             <td>{item.firstName} {item.familyName}</td>
                                             <td>{item.idNumber || 'לא הוזן'}</td>
