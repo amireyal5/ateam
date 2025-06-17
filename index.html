@@ -675,7 +675,7 @@
             const [firstNameError, setFirstNameError] = useState(false);
             const [familyNameError, setFamilyNameError] = useState(false);
             const [idNumberError, setIdNumberError] = useState(false);
-            const [idNumberExistsError, setIdNumberExistsError] = useState(false); // New state for existence check
+            // Removed idNumberExistsError as it's no longer used in this component
 
 
             // Auto-jump focus after 9 digits ID
@@ -687,7 +687,7 @@
 
             const handleSaveProfile = async () => {
                 setMessage('');
-                setIdNumberExistsError(false); // Reset existence error
+                // Removed setIdNumberExistsError(false) as it's no longer used
                 let hasError = false;
 
                 if (!firstName.trim()) {
@@ -725,19 +725,9 @@
 
                 setLoading(true);
                 try {
-                    // Check if ID number already exists in any formData collection
-                    const idNumberQuery = window.queryFirebaseGlobal(
-                        window.collectionGroupFirebaseGlobal(db, 'formData'),
-                        window.whereFirebaseGlobal('idNumber', '==', trimmedId)
-                    );
-                    const querySnapshot = await window.getDocsFirebaseGlobal(idNumberQuery);
-
-                    if (!querySnapshot.empty) {
-                        setIdNumberExistsError(true);
-                        setMessage('מספר תעודת זהות זה כבר קיים במערכת. אנא וודא שאינך מדווח שוב על אותו אדם.');
-                        setLoading(false);
-                        return;
-                    }
+                    // Removed the check for ID number existence in formData collection
+                    // This check is irrelevant for setting the REPORTER'S identity
+                    // and was the cause of the reported problem.
 
                     const profileRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/profile`, 'details');
                     await window.setDocFirebaseGlobal(profileRef, {
@@ -794,7 +784,8 @@
                         />
                         {familyNameError && <span className="error-message">שדה חובה</span>}
                     </div>
-                    <div className={`form-group ${idNumberError || idNumberExistsError ? 'error' : ''}`}>
+                    {/* Removed idNumberExistsError class from form-group */}
+                    <div className={`form-group ${idNumberError ? 'error' : ''}`}>
                         <label htmlFor="setupIdNumber" className="required">תעודת זהות (9 ספרות):</label>
                         <input
                             type="text"
@@ -804,7 +795,7 @@
                                 const val = e.target.value.replace(/\D/g, '').substring(0, 9); // Only digits, max 9
                                 setIdNumber(val); 
                                 setIdNumberError(false); 
-                                setIdNumberExistsError(false); // Clear existence error on change
+                                // Removed setIdNumberExistsError(false)
                                 setMessage(''); // Clear general message
                             }}
                             onBlur={() => {
@@ -825,7 +816,7 @@
                             inputMode="numeric" // Optimized for numeric input on mobile
                         />
                         {idNumberError && <span className="error-message">{message}</span>}
-                        {idNumberExistsError && <span className="error-message">{message}</span>}
+                        {/* Removed idNumberExistsError display */}
                     </div>
                     <div className="button-container">
                         <button className="action-button" onClick={handleSaveProfile} disabled={loading} ref={saveButtonRef}>
@@ -975,7 +966,8 @@
                 }
 
                 try {
-                    // Check if ID number exists BEFORE submitting new form
+                    // This check remains here, as it prevents a user from submitting a duplicate report
+                    // about the *same person* (which, in the current context, is themselves).
                     const idNumberQuery = window.queryFirebaseGlobal(
                         window.collectionGroupFirebaseGlobal(db, 'formData'),
                         window.whereFirebaseGlobal('idNumber', '==', userIdNumber)
