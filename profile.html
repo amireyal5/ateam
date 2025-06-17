@@ -518,6 +518,12 @@
                         (referralStatus === 'other' ? otherStatusText !== originalOtherStatusTextRef.current : originalOtherStatusTextRef.current !== '') || // Check if 'other' status changed or if it was 'other' and then changed away
                         adminNotes !== originalAdminNotesRef.current;
                     setHasUnsavedChanges(changed);
+                    // Add console log to see if hasUnsavedChanges is updated correctly
+                    console.log("Unsaved changes status:", changed, {
+                        referralStatus, originalReferralStatus: originalReferralStatusRef.current,
+                        otherStatusText, originalOtherStatusText: originalOtherStatusTextRef.current,
+                        adminNotes, originalAdminNotes: originalAdminNotesRef.current
+                    });
                 }
             }, [referralStatus, otherStatusText, adminNotes, submission]); // Add submission to dependencies to re-evaluate when it loads
 
@@ -552,8 +558,8 @@
 
                 try {
                     const submissionUserId = submission.userId; 
-                    console.log("submissionUserId from URL params or loaded submission:", submissionUserId);
-                    console.log("Current authenticated user UID:", auth.currentUser.uid);
+                    console.log("Submission Owner UserId (from URL/loaded data):", submissionUserId);
+                    console.log("Currently Authenticated User UID:", auth.currentUser?.uid); // Use optional chaining for safety
 
                     if (!submissionUserId) {
                          showMessage('שגיאה: מזהה משתמש ששלח את הדיווח חסר.', 'danger');
@@ -562,15 +568,18 @@
                     }
 
                     const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submissionUserId}/formData`, submission.id);
-                    console.log("Attempting to update doc at path:", docRef.path);
+                    console.log("Targeting Firestore document at path:", docRef.path);
 
-                    await window.updateDocFirebaseGlobal(docRef, {
+                    const updateData = {
                         referralStatus: referralStatus,
                         otherStatusText: referralStatus === 'other' ? otherStatusText : '', // Clear if not 'other'
                         adminNotes: adminNotes,
                         lastUpdatedBy: auth.currentUser.email || auth.currentUser.uid, // Track who last updated
                         lastUpdatedAt: Date.now() // Timestamp of last update
-                    });
+                    };
+                    console.log("Attempting to update with data:", updateData);
+
+                    await window.updateDocFirebaseGlobal(docRef, updateData);
                     showMessage('הדיווח נשמר בהצלחה!', 'success');
                     console.log("Submission saved successfully.");
                     setHasUnsavedChanges(false); // Reset changes on successful save
