@@ -113,10 +113,11 @@
             border-radius: 12px; /* פינות מעוגלות */
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1); /* צל עדין */
             width: 100%;
-            max-width: 1200px; /* רוחב מקסימלי, רחב יותר לטבלה */
+            max-width: 98%; /* רוחב מקסימלי שיתאים למסך עם מרווחים */
             box-sizing: border-box;
             border: 1px solid #e0e0e0; /* גבול עדין */
             text-align: center;
+            margin: 0 auto; /* מרכוז */
         }
 
         h1 {
@@ -251,7 +252,7 @@
         }
         .admin-notes-textarea {
             width: 100%;
-            min-height: 60px;
+            min-height: 90px; /* הגדלה לגובה רב יותר */
             border: 1px solid #ccc;
             border-radius: 4px;
             padding: 5px;
@@ -375,6 +376,13 @@
             const [sortDirection, setSortDirection] = useState('desc'); // Default sort descending
             const [editingNote, setEditingNote] = useState(null); // {id: ..., originalNote: ..., currentNote: ...}
 
+            // Map for physical injury values to Hebrew
+            const physicalInjuryMap = {
+                'none': 'לא (1)',
+                'light': 'קלה (2)',
+                'medium': 'בינונית (3)',
+                'severe': 'קשה (4)'
+            };
 
             useEffect(() => {
                 if (!db || !auth) {
@@ -420,6 +428,12 @@
                         let aValue = a[sortColumn];
                         let bValue = b[sortColumn];
 
+                        // Handle physicalInjury mapping for sorting
+                        if (sortColumn === 'physicalInjury') {
+                            aValue = physicalInjuryMap[aValue] || aValue;
+                            bValue = physicalInjuryMap[bValue] || bValue;
+                        }
+
                         // Handle specific column types for sorting
                         if (sortColumn === 'timestamp') {
                             aValue = parseInt(aValue);
@@ -428,7 +442,7 @@
                             aValue = parseFloat(aValue);
                             bValue = parseFloat(bValue);
                         } else if (typeof aValue === 'string' && typeof bValue === 'string') {
-                            // Case-insensitive string comparison
+                            // Case-insensitive string comparison for Hebrew
                             return aValue.localeCompare(bValue, 'he', { sensitivity: 'base' });
                         }
 
@@ -477,7 +491,14 @@
                 }
 
                 try {
-                    const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${allSubmissions.find(sub => sub.id === submissionId)?.userId}/formData`, submissionId);
+                    // Find the correct userId associated with this submissionId to build the docRef path
+                    const submission = allSubmissions.find(sub => sub.id === submissionId);
+                    if (!submission || !submission.userId) {
+                        setMessage('שגיאה: לא ניתן למצוא מזהה משתמש עבור הגשה זו.');
+                        return;
+                    }
+
+                    const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submission.userId}/formData`, submissionId);
                     await window.updateDocFirebaseGlobal(docRef, { adminNotes: currentNote });
                     setMessage('הערה נשמרה בהצלחה!');
                     setEditingNote(null); // Clear editing state
@@ -501,10 +522,10 @@
                     "תאריך/שעה", "מזהה משתמש (UID)", "מזהה הזדהות (מייל/UID)",
                     "שם מלא", "תעודת זהות", "גיל", "מין", "טלפון", "כתובת",
                     "שוהים בדירה", "פציעה פיזית", "הרוגים/פצועים", "מנותקי קשר",
-                    "סיוע בפינוי", "הערות", "הערות מנהל"
+                    "סיוע בפינוי", "הערות ממלא הטופס", "הערות מנהל"
                 ];
 
-                // Map data to the order of headers
+                // Map data to the order of headers, converting values to Hebrew where necessary
                 const rows = sortedSubmissions.map(item => [
                     new Date(item.timestamp).toLocaleString('he-IL'),
                     item.userId,
@@ -512,11 +533,11 @@
                     `${item.firstName || ''} ${item.familyName || ''}`,
                     item.idNumber || '',
                     item.age || '',
-                    item.gender || '',
+                    item.gender === 'male' ? 'זכר' : (item.gender === 'female' ? 'נקבה' : ''),
                     item.phone || '',
                     item.address || '',
                     item.residents || '',
-                    item.physicalInjury || '',
+                    physicalInjuryMap[item.physicalInjury] || item.physicalInjury || '', // Use map for Hebrew
                     (item.casualties === 'yes' ? 'כן' : 'לא') || '',
                     (item.disconnected === 'yes' ? 'כן' : 'לא') || '',
                     (item.evacuationAssistance === 'yes' ? 'כן' : 'לא') || '',
@@ -603,11 +624,11 @@
                                             <td>{item.firstName} {item.familyName}</td>
                                             <td>{item.idNumber || 'לא הוזן'}</td>
                                             <td>{item.age}</td>
-                                            <td>{item.gender}</td>
+                                            <td>{item.gender === 'male' ? 'זכר' : (item.gender === 'female' ? 'נקבה' : '')}</td> {/* Output in Hebrew */}
                                             <td>{item.phone}</td>
                                             <td>{item.address}</td>
                                             <td>{item.residents}</td>
-                                            <td>{item.physicalInjury}</td>
+                                            <td>{physicalInjuryMap[item.physicalInjury] || item.physicalInjury || ''}</td> {/* Output in Hebrew */}
                                             <td>{item.casualties === 'yes' ? 'כן' : 'לא'}</td>
                                             <td>{item.disconnected === 'yes' ? 'כן' : 'לא'}</td>
                                             <td>{item.evacuationAssistance === 'yes' ? 'כן' : 'לא'}</td>
