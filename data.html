@@ -303,7 +303,7 @@
 
             return (
                 <div className="container">
-                    <h1>הזדהות לממשק מנהל</h1>
+                    <h1>הזדהות לדף הנתונים</h1>
                     {message && (
                         <div className={`message-box ${message.includes('הצליחה') ? 'success' : ''}`}>
                             {message}
@@ -315,15 +315,15 @@
                         </button>
                     </div>
                     <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
-                        <strong style={{color: '#d9534f'}}>הערה:</strong> גישה לדף זה מוגבלת למנהלים בלבד.
+                        <strong style={{color: '#d9534f'}}>הערה:</strong> התחבר עם חשבון הגוגל שלך לצפייה בנתונים.
                     </p>
                 </div>
             );
         }
 
 
-        // New Component: Admin View to show all submissions
-        function AdminViewComponent({ auth, db, userUid, isAdminUser, onLogout }) {
+        // New Component: Admin View to show all submissions (now accessible to any authenticated user)
+        function AdminViewComponent({ auth, db, userUid, onLogout }) { // Removed isAdminUser prop
             const [allSubmissions, setAllSubmissions] = useState([]);
             const [loadingAllSubmissions, setLoadingAllSubmissions] = useState(true);
             const [message, setMessage] = useState('');
@@ -339,11 +339,7 @@
                     setLoadingAllSubmissions(false);
                     return;
                 }
-                if (!isAdminUser) {
-                    setMessage('שגיאה: אין לך הרשאת מנהל לצפות בנתונים אלו. אנא התחבר עם חשבון מנהל.');
-                    setLoadingAllSubmissions(false);
-                    return;
-                }
+                // No isAdminUser check here, as per user's request. Any authenticated user can view.
 
                 setLoadingAllSubmissions(true);
                 const queryRef = window.queryFirebaseGlobal(window.collectionGroupFirebaseGlobal(db, 'formData'));
@@ -361,14 +357,14 @@
                     console.error("Error fetching all submissions:", error);
                     let errorMessage = `שגיאה באחזור כל הנתונים: ${error.message}.`;
                     if (error.code === 'permission-denied') {
-                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מ-`formData` רק למשתמשים עם הרשאת מנהל.";
+                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מ-`formData` לכל המשתמשים המחוברים.";
                     }
                     setMessage(errorMessage);
                     setLoadingAllSubmissions(false);
                 });
 
                 return () => unsubscribe();
-            }, [db, auth, isAdminUser]); // Added isAdminUser to dependency array
+            }, [db, auth]);
 
             return (
                 <div className="container">
@@ -447,7 +443,8 @@
             const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
-            const [isAdminUser, setIsAdminUser] = useState(false); // Admin status for this page
+            // isAdminUser is no longer used for logic here, but can remain if needed for display
+            // const [isAdminUser, setIsAdminUser] = useState(false); 
             const logoutTriggeredRef = useRef(false);
 
             useEffect(() => {
@@ -468,42 +465,49 @@
                     if (user) {
                         setUserUid(user.uid);
                         logoutTriggeredRef.current = false;
-                        try {
-                            const idTokenResult = await user.getIdTokenResult(true);
-                            setIsAdminUser(idTokenResult.claims.admin === true);
-                            console.log("Admin page user claims:", idTokenResult.claims);
-                        } catch (error) {
-                            console.error("Error fetching ID token result in admin page:", error);
-                            setIsAdminUser(false);
-                        }
-                        setIsAuthReady(true);
+                        // No need to fetch idTokenResult or check admin claim for access
+                        // try {
+                        //     const idTokenResult = await user.getIdTokenResult(true);
+                        //     setIsAdminUser(idTokenResult.claims.admin === true);
+                        //     console.log("Admin page user claims:", idTokenResult.claims);
+                        // } catch (error) {
+                        //     console.error("Error fetching ID token result in admin page:", error);
+                        //     setIsAdminUser(false);
+                        // }
+                        setIsAuthReady(true); // User is authenticated, so ready to show data
                     } else {
                         setUserUid(null);
-                        setIsAdminUser(false);
+                        // setIsAdminUser(false);
                         setIsAuthReady(true);
                     }
                 });
                 return () => unsubscribe();
             }, []);
 
+            const handleLogin = async (uid, identity) => {
+                // This function is passed to LoginPage and is called on successful login
+                // We reload the page to ensure onAuthStateChangedGlobal re-evaluates the user
+                window.location.reload(); 
+            };
+
             const handleLogout = async () => {
                 try {
                     if (firebaseInstances.auth) {
                         logoutTriggeredRef.current = true;
                         await window.signOutFirebaseGlobal(firebaseInstances.auth);
-                        // Redirect to login page or main app after logout
+                        // Redirect to main app after logout
                         window.location.href = 'index.html'; 
                     }
                 } catch (error) {
-                    console.error("שגיאה בהתנתקות מדף המנהל:", error);
+                    console.error("שגיאה בהתנתקות מדף הנתונים:", error);
                 }
             };
 
             if (!isAuthReady) {
                 return (
                     <div className="container">
-                        <h1>טוען ממשק מנהל...</h1>
-                        <p>ממתין לאימות Firebase. וודא שאתה מחובר ובעל הרשאת מנהל.</p>
+                        <h1>טוען דף נתונים...</h1>
+                        <p>ממתין לאימות Firebase.</p>
                     </div>
                 );
             }
@@ -518,18 +522,18 @@
                 );
             }
 
-            // If not authenticated or not an admin, show login page
-            if (!userUid || !isAdminUser) {
-                return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={() => window.location.reload()} />; // Reload to re-check admin status
+            // If not authenticated, show login page. Otherwise, show AdminViewComponent.
+            if (!userUid) {
+                return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={handleLogin} />;
             }
 
-            // If authenticated and is admin, show AdminViewComponent
+            // If authenticated, show AdminViewComponent (no admin role check)
             return (
                 <AdminViewComponent
                     auth={firebaseInstances.auth}
                     db={firebaseInstances.db}
                     userUid={userUid}
-                    isAdminUser={isAdminUser}
+                    // isAdminUser is not passed or used for access logic anymore
                     onLogout={handleLogout}
                 />
             );
