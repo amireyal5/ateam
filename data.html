@@ -25,7 +25,7 @@
 
         // --- חובה: הדבק כאן את אובייקט ה-firebaseConfig שלך מ-Firebase Console ---
         const myFirebaseConfig = {
-            apiKey: "AIzaSyA38-uZwniXXCCK954yjcICl56mwVXbHDk",
+            apiKey: "AIzaSyA38-uZwniXXCCK9954yjcICl56mwVXbHDk",
             authDomain: "ateam-3cf3d.firebaseapp.com",
             projectId: "ateam-3cf3d",
             storageBucket: "ateam-3cf3d.firebasestorage.app",
@@ -101,11 +101,12 @@
             window.signOutFirebaseGlobal = signOut; 
             window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
             window.sendPasswordResetEmailGlobal = sendPasswordResetEmail; 
+            console.log("Auth-related global functions exposed.");
         } else {
             console.warn("Firebase Auth not initialized. Auth related global functions will not be available.");
             // Provide dummy functions to prevent "not a function" errors, logging a warning instead.
             window.onAuthStateChangedGlobal = (authInstance, callback) => {
-                console.error("onAuthStateChangedGlobal: Firebase Auth is not initialized. Cannot attach listener.");
+                console.error("onAuthStateChangedGlobal: Firebase Auth is not initialized. Cannot attach listener. Calling callback with null user.");
                 // Immediately call callback with null user to indicate no auth, if it makes sense for the flow
                 // This might prevent a perpetual loading state if the React component depends on it firing.
                 setTimeout(() => callback(null), 0); 
@@ -125,6 +126,7 @@
             window.whereFirebaseGlobal = where; 
             window.getDocsFirebaseGlobal = getDocs; 
             window.collectionFirebaseGlobal = collection;
+            console.log("Firestore-related global functions exposed.");
         } else {
             console.warn("Firebase Firestore not initialized. Firestore related global functions will not be available.");
             // Provide dummy functions for Firestore to prevent "not a function" errors
@@ -186,7 +188,7 @@
             font-weight: bold;
         }
 
-        /* Form groups (label + input) - mostly for login page in this file */
+        /* Form groups (label + input) */
         .form-group {
             display: flex;
             flex-direction: column;
@@ -1327,7 +1329,7 @@
                 let csvContent = BOM + headers.join(',') + '\n';
                 csvContent += rows.map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
 
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }); // FIX: Added missing closing quote
                 const link = document.createElement('a');
                 if (link.download !== undefined) {
                     const url = URL.createObjectURL(blob);
