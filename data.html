@@ -15,7 +15,7 @@
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collectionGroup, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
         // Global variables provided by the Canvas environment (do not modify these directly)
@@ -87,6 +87,8 @@
         window.collectionGroupFirebaseGlobal = collectionGroup; 
         window.queryFirebaseGlobal = query; 
         window.onSnapshotFirebaseGlobal = onSnapshot; 
+        window.docFirebaseGlobal = doc; // Expose doc
+        window.updateDocFirebaseGlobal = updateDoc; // Expose updateDoc
 
     </script>
 
@@ -229,12 +231,51 @@
             color: #34495e;
             font-weight: 600;
             white-space: nowrap; /* Prevent headers from wrapping */
+            cursor: pointer; /* Indicate sortable */
+            position: relative;
+            padding-right: 25px; /* Space for sort icon */
+        }
+        .admin-table th .sort-icon {
+            position: absolute;
+            left: 8px; /* Position icon on the left for RTL */
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8em;
+            color: #777;
         }
         .admin-table tbody tr:nth-child(even) {
             background-color: #f9f9f9;
         }
         .admin-table tbody tr:hover {
             background-color: #f0f0f0;
+        }
+        .admin-notes-textarea {
+            width: 100%;
+            min-height: 60px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 5px;
+            box-sizing: border-box;
+            font-size: 0.9em;
+            resize: vertical;
+        }
+        .admin-notes-save-button {
+            margin-top: 5px;
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: background-color 0.2s ease;
+        }
+        .admin-notes-save-button:hover {
+            background-color: #0056b3;
+        }
+        .admin-notes-save-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
         }
         /* End Table styles */
 
@@ -256,6 +297,9 @@
         @media (max-width: 480px) {
             .container {
                 padding: 15px;
+            }
+            .admin-table th, .admin-table td {
+                padding: 8px 10px;
             }
         }
     </style>
@@ -327,6 +371,10 @@
             const [allSubmissions, setAllSubmissions] = useState([]);
             const [loadingAllSubmissions, setLoadingAllSubmissions] = useState(true);
             const [message, setMessage] = useState('');
+            const [sortColumn, setSortColumn] = useState('timestamp'); // Default sort by timestamp
+            const [sortDirection, setSortDirection] = useState('desc'); // Default sort descending
+            const [editingNote, setEditingNote] = useState(null); // {id: ..., originalNote: ..., currentNote: ...}
+
 
             useEffect(() => {
                 if (!db || !auth) {
@@ -349,9 +397,7 @@
                     snapshot.forEach(doc => {
                         submissions.push({ id: doc.id, ...doc.data() });
                     });
-                    // Sort by timestamp if available, descending
-                    submissions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                    setAllSubmissions(submissions);
+                    setAllSubmissions(submissions); // Set unsorted data first
                     setLoadingAllSubmissions(false);
                 }, (error) => {
                     console.error("Error fetching all submissions:", error);
@@ -366,16 +412,153 @@
                 return () => unsubscribe();
             }, [db, auth]);
 
+            // Apply sorting logic when allSubmissions or sort parameters change
+            const sortedSubmissions = React.useMemo(() => {
+                let sortableItems = [...allSubmissions];
+                if (sortColumn) {
+                    sortableItems.sort((a, b) => {
+                        let aValue = a[sortColumn];
+                        let bValue = b[sortColumn];
+
+                        // Handle specific column types for sorting
+                        if (sortColumn === 'timestamp') {
+                            aValue = parseInt(aValue);
+                            bValue = parseInt(bValue);
+                        } else if (sortColumn === 'age' || sortColumn === 'residents') {
+                            aValue = parseFloat(aValue);
+                            bValue = parseFloat(bValue);
+                        } else if (typeof aValue === 'string' && typeof bValue === 'string') {
+                            // Case-insensitive string comparison
+                            return aValue.localeCompare(bValue, 'he', { sensitivity: 'base' });
+                        }
+
+                        if (aValue < bValue) {
+                            return sortDirection === 'asc' ? -1 : 1;
+                        }
+                        if (aValue > bValue) {
+                            return sortDirection === 'asc' ? 1 : -1;
+                        }
+                        return 0;
+                    });
+                }
+                return sortableItems;
+            }, [allSubmissions, sortColumn, sortDirection]);
+
+
+            const handleSort = (column) => {
+                if (sortColumn === column) {
+                    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                } else {
+                    setSortColumn(column);
+                    setSortDirection('asc'); // Default to ascending for a new column
+                }
+            };
+
+            const getSortIcon = (column) => {
+                if (sortColumn === column) {
+                    return sortDirection === 'asc' ? ' ▲' : ' ▼';
+                }
+                return '';
+            };
+
+            const handleNoteChange = (e, id) => {
+                setEditingNote({
+                    id: id,
+                    originalNote: allSubmissions.find(sub => sub.id === id)?.adminNotes || '',
+                    currentNote: e.target.value
+                });
+            };
+
+            const saveNote = async (submissionId, currentNote) => {
+                setMessage('');
+                if (!db || !userUid) {
+                    setMessage('שגיאה: Firebase Db אינו מאותחל או שאין מזהה משתמש.');
+                    return;
+                }
+
+                try {
+                    const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${allSubmissions.find(sub => sub.id === submissionId)?.userId}/formData`, submissionId);
+                    await window.updateDocFirebaseGlobal(docRef, { adminNotes: currentNote });
+                    setMessage('הערה נשמרה בהצלחה!');
+                    setEditingNote(null); // Clear editing state
+                } catch (error) {
+                    console.error("Error saving note:", error);
+                    let errorMessage = `שגיאה בשמירת הערה: ${error.message}.`;
+                    if (error.code === 'permission-denied') {
+                         errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים כתיבה ל-`adminNotes` לכל המשתמשים המחוברים.";
+                    }
+                    setMessage(errorMessage);
+                }
+            };
+
+            const exportToCsv = () => {
+                if (allSubmissions.length === 0) {
+                    setMessage('אין נתונים לייצוא.');
+                    return;
+                }
+
+                const headers = [
+                    "תאריך/שעה", "מזהה משתמש (UID)", "מזהה הזדהות (מייל/UID)",
+                    "שם מלא", "תעודת זהות", "גיל", "מין", "טלפון", "כתובת",
+                    "שוהים בדירה", "פציעה פיזית", "הרוגים/פצועים", "מנותקי קשר",
+                    "סיוע בפינוי", "הערות", "הערות מנהל"
+                ];
+
+                // Map data to the order of headers
+                const rows = sortedSubmissions.map(item => [
+                    new Date(item.timestamp).toLocaleString('he-IL'),
+                    item.userId,
+                    item.identityId || '',
+                    `${item.firstName || ''} ${item.familyName || ''}`,
+                    item.idNumber || '',
+                    item.age || '',
+                    item.gender || '',
+                    item.phone || '',
+                    item.address || '',
+                    item.residents || '',
+                    item.physicalInjury || '',
+                    (item.casualties === 'yes' ? 'כן' : 'לא') || '',
+                    (item.disconnected === 'yes' ? 'כן' : 'לא') || '',
+                    (item.evacuationAssistance === 'yes' ? 'כן' : 'לא') || '',
+                    item.notes || '',
+                    item.adminNotes || ''
+                ]);
+
+                // Combine headers and rows
+                let csvContent = headers.join(',') + '\n';
+                csvContent += rows.map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n'); // Enclose in quotes and escape internal quotes
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                if (link.download !== undefined) { // Feature detection for download attribute
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', 'hugo_data.csv');
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    alert('דפדפן זה אינו תומך בייצוא ישיר. אנא העתק את הנתונים ידנית.');
+                }
+            };
+
+
             return (
                 <div className="container">
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
                         <h1>כל הנתונים שהוגשו</h1>
-                        <a href="index.html" className="action-button secondary" style={{padding: '10px 20px', fontSize: '0.9em', textDecoration: 'none'}}>
-                            חזור לאפליקציה הראשית
-                        </a>
-                        <button onClick={onLogout} className="action-button danger" style={{padding: '10px 20px', fontSize: '0.9em'}}>
-                            התנתק
-                        </button>
+                        <div style={{display: 'flex', gap: '10px'}}>
+                            <button onClick={exportToCsv} className="action-button" style={{padding: '10px 20px', fontSize: '0.9em'}}>
+                                ייצא לאקסל
+                            </button>
+                            <a href="index.html" className="action-button secondary" style={{padding: '10px 20px', fontSize: '0.9em', textDecoration: 'none'}}>
+                                חזור לאפליקציה הראשית
+                            </a>
+                            <button onClick={onLogout} className="action-button danger" style={{padding: '10px 20px', fontSize: '0.9em'}}>
+                                התנתק
+                            </button>
+                        </div>
                     </div>
 
                     {message && (
@@ -386,32 +569,33 @@
 
                     {loadingAllSubmissions ? (
                         <p>טוען את כל הנתונים...</p>
-                    ) : allSubmissions.length === 0 ? (
+                    ) : sortedSubmissions.length === 0 ? (
                         <p>טרם נשמרו נתונים כלשהם.</p>
                     ) : (
                         <div className="admin-table-container">
                             <table className="admin-table">
                                 <thead>
                                     <tr>
-                                        <th>תאריך/שעה</th>
-                                        <th>מזהה משתמש (UID)</th>
-                                        <th>מזהה הזדהות (מייל/UID)</th>
-                                        <th>שם מלא</th>
-                                        <th>תעודת זהות</th>
-                                        <th>גיל</th>
-                                        <th>מין</th>
-                                        <th>טלפון</th>
-                                        <th>כתובת</th>
-                                        <th>שוהים בדירה</th>
-                                        <th>פציעה פיזית</th>
-                                        <th>הרוגים/פצועים</th>
-                                        <th>מנותקי קשר</th>
-                                        <th>סיוע בפינוי</th>
-                                        <th>הערות</th>
+                                        <th onClick={() => handleSort('timestamp')}>תאריך/שעה {getSortIcon('timestamp')}</th>
+                                        <th onClick={() => handleSort('userId')}>מזהה משתמש (UID) {getSortIcon('userId')}</th>
+                                        <th onClick={() => handleSort('identityId')}>מזהה הזדהות (מייל/UID) {getSortIcon('identityId')}</th>
+                                        <th onClick={() => handleSort('firstName')}>שם מלא {getSortIcon('firstName')}</th>
+                                        <th onClick={() => handleSort('idNumber')}>תעודת זהות {getSortIcon('idNumber')}</th>
+                                        <th onClick={() => handleSort('age')}>גיל {getSortIcon('age')}</th>
+                                        <th onClick={() => handleSort('gender')}>מין {getSortIcon('gender')}</th>
+                                        <th onClick={() => handleSort('phone')}>טלפון {getSortIcon('phone')}</th>
+                                        <th onClick={() => handleSort('address')}>כתובת {getSortIcon('address')}</th>
+                                        <th onClick={() => handleSort('residents')}>שוהים בדירה {getSortIcon('residents')}</th>
+                                        <th onClick={() => handleSort('physicalInjury')}>פציעה פיזית {getSortIcon('physicalInjury')}</th>
+                                        <th onClick={() => handleSort('casualties')}>הרוגים/פצועים {getSortIcon('casualties')}</th>
+                                        <th onClick={() => handleSort('disconnected')}>מנותקי קשר {getSortIcon('disconnected')}</th>
+                                        <th onClick={() => handleSort('evacuationAssistance')}>סיוע בפינוי {getSortIcon('evacuationAssistance')}</th>
+                                        <th>הערות ממלא הטופס</th> {/* Renamed for clarity */}
+                                        <th>הערות מנהל</th> {/* New Column */}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {allSubmissions.map((item) => (
+                                    {sortedSubmissions.map((item) => (
                                         <tr key={item.id}>
                                             <td>{new Date(item.timestamp).toLocaleString('he-IL')}</td>
                                             <td>{item.userId}</td>
@@ -428,6 +612,21 @@
                                             <td>{item.disconnected === 'yes' ? 'כן' : 'לא'}</td>
                                             <td>{item.evacuationAssistance === 'yes' ? 'כן' : 'לא'}</td>
                                             <td>{item.notes || 'אין'}</td>
+                                            <td>
+                                                <textarea
+                                                    className="admin-notes-textarea"
+                                                    value={editingNote && editingNote.id === item.id ? editingNote.currentNote : (item.adminNotes || '')}
+                                                    onChange={(e) => handleNoteChange(e, item.id)}
+                                                    placeholder="הזן הערה"
+                                                />
+                                                <button
+                                                    className="admin-notes-save-button"
+                                                    onClick={() => saveNote(item.id, editingNote.currentNote)}
+                                                    disabled={!editingNote || editingNote.id !== item.id || editingNote.currentNote === editingNote.originalNote}
+                                                >
+                                                    שמור
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -443,8 +642,6 @@
             const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
-            // isAdminUser is no longer used for logic here, but can remain if needed for display
-            // const [isAdminUser, setIsAdminUser] = useState(false); 
             const logoutTriggeredRef = useRef(false);
 
             useEffect(() => {
@@ -465,19 +662,9 @@
                     if (user) {
                         setUserUid(user.uid);
                         logoutTriggeredRef.current = false;
-                        // No need to fetch idTokenResult or check admin claim for access
-                        // try {
-                        //     const idTokenResult = await user.getIdTokenResult(true);
-                        //     setIsAdminUser(idTokenResult.claims.admin === true);
-                        //     console.log("Admin page user claims:", idTokenResult.claims);
-                        // } catch (error) {
-                        //     console.error("Error fetching ID token result in admin page:", error);
-                        //     setIsAdminUser(false);
-                        // }
-                        setIsAuthReady(true); // User is authenticated, so ready to show data
+                        setIsAuthReady(true); 
                     } else {
                         setUserUid(null);
-                        // setIsAdminUser(false);
                         setIsAuthReady(true);
                     }
                 });
@@ -485,8 +672,6 @@
             }, []);
 
             const handleLogin = async (uid, identity) => {
-                // This function is passed to LoginPage and is called on successful login
-                // We reload the page to ensure onAuthStateChangedGlobal re-evaluates the user
                 window.location.reload(); 
             };
 
@@ -495,7 +680,6 @@
                     if (firebaseInstances.auth) {
                         logoutTriggeredRef.current = true;
                         await window.signOutFirebaseGlobal(firebaseInstances.auth);
-                        // Redirect to main app after logout
                         window.location.href = 'index.html'; 
                     }
                 } catch (error) {
@@ -533,7 +717,6 @@
                     auth={firebaseInstances.auth}
                     db={firebaseInstances.db}
                     userUid={userUid}
-                    // isAdminUser is not passed or used for access logic anymore
                     onLogout={handleLogout}
                 />
             );
