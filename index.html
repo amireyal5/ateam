@@ -18,8 +18,26 @@
 
         // Global variables provided by the Canvas environment (do not modify these directly)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        // FIX: Correctly refer to __initial_auth_token on the right side
+
+        // --- חובה: הדבק כאן את אובייקט ה-firebaseConfig שלך מ-Firebase Console ---
+        // עליך למצוא אותו בהגדרות הפרויקט שלך ב-Firebase (Project settings -> Your apps -> Web app -> Config).
+        // הוא ייראה בערך ככה:
+        // const myFirebaseConfig = {
+        //     apiKey: "AIzaSy...",
+        //     authDomain: "your-project-id.firebaseapp.com",
+        //     projectId: "your-project-id",
+        //     storageBucket: "your-project-id.appspot.com",
+        //     messagingSenderId: "...",
+        //     appId: "1:...",
+        //     measurementId: "G-..." // אם הוגדר
+        // };
+        const myFirebaseConfig = {}; // --- הדבק את האובייקט שהעתקת כאן במקום הסוגריים המסולסלים הריקים {} ---
+
+        // אם __firebase_config זמין מהסביבה (כמו ב-Canvas), השתמש בו. אחרת, השתמש ב-myFirebaseConfig שהדבקת.
+        const firebaseConfig = typeof __firebase_config !== 'undefined' && Object.keys(JSON.parse(__firebase_config)).length > 0
+            ? JSON.parse(__firebase_config)
+            : myFirebaseConfig;
+
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let app;
@@ -27,10 +45,22 @@
         let db;
 
         try {
-            // Check if firebaseConfig is valid
+            // Check if firebaseConfig is valid and not empty after all attempts
             if (Object.keys(firebaseConfig).length === 0) {
-                console.error("Firebase config is empty. Please ensure __firebase_config is defined.");
-                // We'll proceed with null values for app, auth, db to avoid further errors.
+                console.error("Firebase config is empty. Please ensure __firebase_config is defined by the environment or paste your config manually in myFirebaseConfig.");
+                // Ensure global variables are null if initialization fails
+                window.firebaseApp = null;
+                window.firebaseDb = null;
+                window.firebaseAuth = null;
+                window.appId = appId; // appId should still be available
+                window.initialAuthToken = initialAuthToken;
+                window.GoogleAuthProvider = null;
+                window.signInWithPopup = null;
+                window.signOut = null;
+                window.collection = null;
+                window.onSnapshot = null;
+                window.signInWithPhoneNumber = null;
+                window.RecaptchaVerifier = null;
             } else {
                 // Initialize Firebase app and services
                 app = initializeApp(firebaseConfig);
@@ -411,9 +441,8 @@
 
         // Component for the Login Page
         function LoginPage({ onLoginSuccess }) {
-            const [loginMethod, setLoginMethod] = useState('idPassword'); // 'idPassword', 'phone', or 'google'
-            const [identityId, setIdentityId] = useState('');
-            const [password, setPassword] = useState('');
+            // Changed default login method to 'anonymous'
+            const [loginMethod, setLoginMethod] = useState('anonymous'); // 'anonymous', 'phone', or 'google'
             const [phoneNumber, setPhoneNumber] = useState('');
             const [otp, setOtp] = useState('');
             const [verificationId, setVerificationId] = useState(null);
@@ -424,9 +453,7 @@
             const recaptchaContainerRef = useRef(null);
             const recaptchaVerifierInstance = useRef(null); // Store the RecaptchaVerifier instance
 
-            // Hardcoded credentials for demonstration (INSECURE FOR PRODUCTION)
-            const VALID_ID = '123456789';
-            const VALID_PASSWORD = 'password123';
+            // Removed hardcoded ID/password credentials
 
             // Initialize RecaptchaVerifier when phone login method is selected
             useEffect(() => {
@@ -471,33 +498,7 @@
                 }
             }, [loginMethod]); // Re-run when loginMethod changes
 
-            const handleIdPasswordLogin = async (e) => {
-                e.preventDefault();
-                setMessage('');
-                setLoading(true);
-
-                if (identityId === VALID_ID && password === VALID_PASSWORD) {
-                    setMessage('התחברות הצליחה! נא המתן...');
-                    try {
-                        if (!window.firebaseAuth) {
-                            setMessage('שגיאה: Firebase Auth אינו מאותחל. אנא וודא את הגדרות Firebase.');
-                            setLoading(false);
-                            return;
-                        }
-                        const auth = window.firebaseAuth;
-                        const userCredential = await window.signInAnonymously(auth); // Use signInAnonymously for consistency
-                        onLoginSuccess(userCredential.user.uid, identityId); // Pass the entered ID
-                    } catch (error) {
-                        console.error("Firebase Anonymous Auth error:", error);
-                        setMessage(`שגיאה בהתחברות אנונימית: ${error.message}`);
-                    } finally {
-                        setLoading(false);
-                    }
-                } else {
-                    setMessage('פרטי זיהוי שגויים. נסה שוב.');
-                    setLoading(false);
-                }
-            };
+            // Removed handleIdPasswordLogin function
 
             const handleGoogleLogin = async () => {
                 setMessage('');
@@ -527,6 +528,27 @@
                         errorMessage = 'דומיין לא מורשה. וודא שכתובת האתר שלך (GitHub Pages URL) מוגדרת כדומיין מורשה בפרויקט Firebase (Authentication -> Settings -> Authorized domains).';
                     }
                     setMessage(errorMessage);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleAnonymousLogin = async () => {
+                setMessage('');
+                setLoading(true);
+                try {
+                    if (!window.firebaseAuth) {
+                        setMessage('שגיאה: Firebase Auth אינו מאותחל. אנא וודא את הגדרות Firebase.');
+                        setLoading(false);
+                        return;
+                    }
+                    const auth = window.firebaseAuth;
+                    const userCredential = await window.signInAnonymously(auth);
+                    setMessage('התחברת כאורח (אנונימי)! נא המתן...');
+                    onLoginSuccess(userCredential.user.uid, userCredential.user.uid); // Use UID as identifier for anonymous
+                } catch (error) {
+                    console.error("Firebase Anonymous Auth error:", error);
+                    setMessage(`שגיאה בהתחברות אנונימית: ${error.message}`);
                 } finally {
                     setLoading(false);
                 }
@@ -621,11 +643,11 @@
 
                     <div className="login-method-selector">
                         <button
-                            className={loginMethod === 'idPassword' ? 'active' : ''}
-                            onClick={() => setLoginMethod('idPassword')}
+                            className={loginMethod === 'anonymous' ? 'active' : ''}
+                            onClick={() => setLoginMethod('anonymous')}
                             disabled={loading}
                         >
-                            ת"ז וסיסמה
+                            כניסה כאורח (אנונימי)
                         </button>
                         <button
                             className={loginMethod === 'phone' ? 'active' : ''}
@@ -643,43 +665,23 @@
                         </button>
                     </div>
 
-                    {loginMethod === 'idPassword' && (
-                        <form onSubmit={handleIdPasswordLogin}>
-                            <div className="form-group">
-                                <label htmlFor="loginIdentityId">תעודת זהות:</label>
-                                <input
-                                    type="text"
-                                    id="loginIdentityId"
-                                    value={identityId}
-                                    onChange={(e) => setIdentityId(e.target.value)}
-                                    required
-                                    placeholder="הזן תעודת זהות (דוגמה: 123456789)"
-                                    disabled={loading}
-                                />
-                            </div>
-                            <div className="form-group" style={{marginTop: '20px'}}>
-                                <label htmlFor="loginPassword">סיסמה:</label>
-                                <input
-                                    type="password"
-                                    id="loginPassword"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    placeholder="הזן סיסמה (דוגמה: password123)"
-                                    disabled={loading}
-                                />
-                            </div>
+                    {loginMethod === 'anonymous' && (
+                        <div>
                             {message && (
                                 <div className={`message-box ${message.includes('הצליחה') ? 'success' : ''}`}>
                                     {message}
                                 </div>
                             )}
                             <div className="button-container">
-                                <button type="submit" className="action-button secondary" disabled={loading}>
-                                    {loading ? 'מתחבר...' : 'התחבר'}
+                                <button className="action-button secondary" onClick={handleAnonymousLogin} disabled={loading}>
+                                    {loading ? 'מתחבר כאורח...' : 'התחבר כאורח'}
                                 </button>
                             </div>
-                        </form>
+                            <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
+                                <strong style={{color: '#d9534f'}}>הערה:</strong> הזדהות אנונימית מאפשרת גישה מהירה, אך אינה משייכת את הנתונים למשתמש קבוע.
+                                המידע ישויך למזהה משתמש אנונימי.
+                            </p>
+                        </div>
                     )}
 
                     {loginMethod === 'phone' && (
@@ -755,12 +757,6 @@
                                 (Authentication -> Settings -> Authorized domains).
                             </p>
                         </div>
-                    )}
-
-                    {loginMethod !== 'google' && loginMethod !== 'phone' && (
-                         <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
-                             <strong style={{color: '#d9534f'}}>הערה:</strong> הזדהות ת"ז וסיסמה היא לדוגמה בלבד, ולא מאובטחת לסביבת ייצור.
-                         </p>
                     )}
                 </div>
             );
@@ -1045,10 +1041,8 @@
                             } else if (user.displayName) {
                                 setEnteredIdentityId(user.displayName);
                             } else if (user.isAnonymous) {
-                                // For anonymous, keep previous entered identity if exists, or use UID as fallback
-                                if (!enteredIdentityId) { // Only set if not already set by a specific login method
-                                     setEnteredIdentityId(user.uid);
-                                }
+                                // For anonymous, use UID as fallback as no other info
+                                setEnteredIdentityId(user.uid);
                             } else {
                                 setEnteredIdentityId(user.uid); // Fallback to UID
                             }
