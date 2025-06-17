@@ -9,17 +9,13 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <!-- Babel for JSX compilation directly in the browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Font Awesome for Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <!-- Firebase Libraries - Initialized here and exposed globally -->
     <script type="module">
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // FIXED: Added getDoc to Firestore imports
-        // FIXED: Added signInWithCustomToken to Auth imports
-        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc, where, getDocs, collection, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
         // Global variables provided by the Canvas environment (do not modify these directly)
@@ -27,7 +23,7 @@
 
         // --- חובה: הדבק כאן את אובייקט ה-firebaseConfig שלך מ-Firebase Console ---
         const myFirebaseConfig = {
-            apiKey: "AIzaSyA38-uZwniXXCCK9954yjcICl56mwVXbHDk",
+            apiKey: "AIzaSyA38-uZwniXXCCK954yjcICl56mwVXbHDk",
             authDomain: "ateam-3cf3d.firebaseapp.com",
             projectId: "ateam-3cf3d",
             storageBucket: "ateam-3cf3d.firebasestorage.app",
@@ -56,311 +52,161 @@
         }
 
         // Initialize Firebase app and services
-        let app = null; // Initialize to null
-        let auth = null; // Initialize to null
-        let db = null;   // Initialize to null
+        let app;
+        let auth;
+        let db;
 
         try {
             if (Object.keys(firebaseConfig).length === 0) {
                 console.error("Firebase config is empty. Cannot initialize Firebase.");
             } else {
                 app = initializeApp(firebaseConfig);
-                console.log("Firebase app initialized successfully.");
-                
-                try {
-                    auth = getAuth(app);
-                    console.log("Firebase Auth service initialized successfully.");
-                } catch (authError) {
-                    console.error("Failed to initialize Firebase Auth:", authError);
-                    auth = null; // Ensure auth is null if initialization fails
-                }
-
-                try {
-                    db = getFirestore(app);
-                    console.log("Firebase Firestore service initialized successfully.");
-                } catch (dbError) {
-                    console.error("Failed to initialize Firebase Firestore:", dbError);
-                    db = null; // Ensure db is null if initialization fails
-                }
+                auth = getAuth(app);
+                db = getFirestore(app);
+                console.log("Firebase initialized in global script for data.html.");
             }
         } catch (error) {
-            console.error("An unexpected error occurred during Firebase app initialization:", error);
+            console.error("Failed to initialize Firebase in global script for data.html:", error);
+            // Ensure instances are null if initialization fails
             app = null;
             auth = null;
             db = null;
         }
 
         // Expose Firebase instances and functions globally for React to access
-        // Ensure these are only exposed if successfully initialized
         window.firebaseApp = app;
         window.firebaseAuth = auth;
         window.firebaseDb = db;
         window.globalAppId = appId; 
 
-        // Expose specific Firebase functions globally ONLY IF their parent service is initialized
-        if (auth) {
-            window.onAuthStateChangedGlobal = onAuthStateChanged;
-            window.signOutFirebaseGlobal = signOut; 
-            window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
-            window.sendPasswordResetEmailGlobal = sendPasswordResetEmail; 
-            window.signInWithCustomTokenGlobal = signInWithCustomToken; // ADDED: Expose signInWithCustomToken
-            console.log("Auth-related global functions exposed.");
-        } else {
-            console.warn("Firebase Auth not initialized. Auth related global functions will not be available.");
-            // Provide dummy functions to prevent "not a function" errors, logging a warning instead.
-            window.onAuthStateChangedGlobal = (authInstance, callback) => {
-                console.error("onAuthStateChangedGlobal: Firebase Auth is not initialized. Cannot attach listener. Calling callback with null user.");
-                // Immediately call callback with null user to indicate no auth, if it makes sense for the flow
-                setTimeout(() => callback(null), 0); 
-                return () => {}; // Return a dummy unsubscribe function
-            };
-            window.signOutFirebaseGlobal = () => { console.error("signOutFirebaseGlobal: Firebase Auth is not initialized."); return Promise.reject(new Error("Auth not initialized")); };
-            window.signInWithEmailAndPasswordGlobal = () => { console.error("signInWithEmailAndPasswordGlobal: Firebase Auth is not initialized."); return Promise.reject(new Error("Auth not initialized")); };
-            window.sendPasswordResetEmailGlobal = () => { console.error("sendPasswordResetEmailGlobal: Firebase Auth is not initialized."); return Promise.reject(new Error("Auth not initialized")); };
-            window.signInWithCustomTokenGlobal = () => { console.error("signInWithCustomTokenGlobal: Firebase Auth is not initialized."); return Promise.reject(new Error("Auth not initialized")); }; // Dummy for signInWithCustomToken
-        }
+        // Expose specific Firebase functions globally
+        window.onAuthStateChangedGlobal = onAuthStateChanged;
+        window.signOutFirebaseGlobal = signOut; 
+        window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
+        window.collectionGroupFirebaseGlobal = collectionGroup; 
+        window.queryFirebaseGlobal = query; 
+        window.onSnapshotFirebaseGlobal = onSnapshot; 
+        window.docFirebaseGlobal = doc; // Expose doc
+        window.updateDocFirebaseGlobal = updateDoc; // Expose updateDoc
+        window.whereFirebaseGlobal = where; // Exposed for consistency
+        window.getDocsFirebaseGlobal = getDocs; // Exposed for consistency
 
-        if (db) {
-            window.collectionGroupFirebaseGlobal = collectionGroup; 
-            window.queryFirebaseGlobal = query; 
-            window.onSnapshotGlobal = onSnapshot; 
-            // FIXED: Exposed getDoc globally
-            window.docFirebaseGlobal = doc; 
-            window.getDocFirebaseGlobal = getDoc; // Critical fix: Expose getDoc
-            window.updateDocFirebaseGlobal = updateDoc; 
-            window.whereFirebaseGlobal = where; 
-            window.getDocsFirebaseGlobal = getDocs; 
-            window.collectionFirebaseGlobal = collection;
-            console.log("Firestore-related global functions exposed.");
-        } else {
-            console.warn("Firebase Firestore not initialized. Firestore related global functions will not be available.");
-            // Provide dummy functions for Firestore to prevent "not a function" errors
-            window.collectionGroupFirebaseGlobal = () => { console.error("collectionGroupFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
-            window.queryFirebaseGlobal = () => { console.error("queryFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
-            window.onSnapshotGlobal = (q, callback, errorCallback) => {
-                console.error("onSnapshotGlobal: Firebase Firestore is not initialized. Cannot attach listener.");
-                // Immediately call error callback if available
-                if (errorCallback) setTimeout(() => errorCallback(new Error("Firestore not initialized")), 0);
-                return () => {}; // Return a dummy unsubscribe function
-            };
-            window.docFirebaseGlobal = () => { console.error("docFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
-            window.getDocFirebaseGlobal = () => { console.error("getDocFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); }; // Dummy for getDoc
-            window.updateDocFirebaseGlobal = () => { console.error("updateDocFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
-            window.whereFirebaseGlobal = () => { console.error("whereFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
-            window.getDocsFirebaseGlobal = () => { console.error("getDocsFirebaseGlobal: Firebase Firestore is not initialized."); return Promise.reject(new Error("Firestore not initialized")); };
-            window.collectionFirebaseGlobal = () => { console.error("collectionFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
-        }
     </script>
 
     <style>
-        /* General styles */
+        /* הגדרות בסיסיות לגוף הדף */
         body {
-            font-family: Arial, sans-serif; /* Adjusted font to match image's simplicity */
-            background-color: #f0f2f5; /* Light grey background from image */
+            font-family: 'Inter', Arial, sans-serif; /* שימוש בפונט Inter */
+            background-color: #f8f8f8; /* צבע רקע אפור בהיר מאוד */
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* Align to top for scrolling content */
-            min-height: 100vh;
+            align-items: flex-start; /* יישור למעלה כדי לא למרכז אנכית אם התוכן ארוך */
+            min-height: 100vh; /* גובה מינימלי של 100% מגובה המסך */
             margin: 0;
-            padding: 0; /* Remove padding from body for full width container on mobile */
-            box-sizing: border-box;
+            padding: 10px; /* צמצום ריפוד כדי לתת יותר מקום לטבלה */
+            box-sizing: border-box; /* מבטיח שריפוד וגבולות לא יגדילו את הגודל הכולל של האלמנט */
         }
 
-        /* Container for forms/pages */
+        /* מכל הטופס והלוגין */
         .container {
-            background-color: #ffffff; /* White background for the form container */
-            padding: 24px; /* Adjust padding to match image */
-            border-radius: 8px; /* Subtle rounded corners */
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); /* Very subtle shadow for depth */
+            background-color: #ffffff; /* רקע לבן */
+            padding: 35px;
+            border-radius: 12px; /* פינות מעוגלות */
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); /* צל עדין מאוד */
             width: 100%;
-            max-width: 1200px; /* Increased max-width for admin table */
+            max-width: 100%; /* הרחבה לרוחב המסך המקסימלי */
             box-sizing: border-box;
-            text-align: right; /* RTL alignment */
-            margin: 24px auto; /* Center with top/bottom margin */
-        }
-        @media (max-width: 480px) {
-            .container {
-                padding: 16px; /* Smaller padding on very small screens */
-                border-radius: 0; /* No rounded corners on very small screens for full bleed */
-                box-shadow: none; /* No shadow on very small screens */
-            }
+            border: 1px solid #e0e0e0; /* גבול אפור עדין */
+            text-align: center;
+            margin: 0; /* הסרת מרווח אוטומטי לרוחב מלא */
         }
 
         h1 {
             text-align: center;
-            color: #333333;
-            margin-bottom: 24px;
-            font-size: 1.8em; /* Adjusted for image's prominence */
-            font-weight: bold;
-        }
-
-        /* Form groups (label + input) */
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            margin-bottom: 20px; /* Increased margin between form groups */
-            text-align: right;
-            position: relative;
-        }
-
-        label {
-            color: #333333; /* Darker grey for labels for better readability */
-            font-size: 0.9em; 
-            margin-bottom: 8px; 
-            font-weight: 600; /* Increased font-weight for labels */
-        }
-
-        input[type="text"],
-        input[type="number"],
-        input[type="tel"],
-        textarea,
-        select,
-        input[type="password"],
-        input[type="email"] {
-            width: 100%;
-            padding: 12px 16px; 
-            border: 1px solid #dddddd; 
-            border-radius: 6px; 
-            box-sizing: border-box;
-            font-size: 1em; 
-            color: #333333; 
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-        input[type="text"]:focus,
-        input[type="number"]:focus,
-        input[type="tel"]:focus,
-        textarea:focus,
-        select:focus,
-        input[type="password"]:focus,
-        input[type="email"]:focus {
-            border-color: #999999; 
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.2); 
-        }
-        /* Read-only fields styling */
-        input[readonly],
-        input[disabled] {
-            background-color: #f5f5f5; 
-            color: #888888; 
-            cursor: not-allowed;
+            color: #333333; /* צבע כהה לכותרת */
+            margin-bottom: 25px; /* מרווח תחתון מוגדל */
+            font-size: 1.8em; /* גודל פונט מוגדל לכותרת */
+            font-weight: 700; /* עובי פונט מודגש */
         }
         
-        /* Button container */
         .button-container {
             display: flex;
-            flex-direction: column; 
-            gap: 12px; 
-            margin-top: 24px; 
+            justify-content: center;
+            gap: 12px; /* מרווח בין כפתורים */
+            margin-top: 30px;
         }
 
-        /* Action buttons */
         .action-button {
-            background-color: #3498db; 
+            background-color: #444444; /* אפור כהה (כפתור ראשי) */
             color: white;
-            padding: 14px 20px; 
+            padding: 12px 25px; /* ריפוד מוגדל */
             border: none;
-            border-radius: 6px; 
-            font-size: 1.1em; 
-            font-weight: bold;
+            border-radius: 6px;
+            font-size: 1.05em;
+            font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.2s ease, box-shadow 0.2s ease;
-            box-shadow: none; 
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px; 
-        }
-        .action-button:hover {
-            background-color: #2980b9; 
-            box-shadow: none; 
-        }
-        .action-button:active {
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); 
-            transform: translateY(1px); 
+            transition: background-color 0.2s ease, opacity 0.2s ease;
+            box-shadow: none; /* ביטול צל */
         }
 
         .action-button.secondary {
-            background-color: #ffffff; 
-            color: #666666; 
-            border: 1px solid #dddddd; 
-            box-shadow: none;
-        }
-        .action-button.secondary:hover {
-            background-color: #f0f0f0; 
-            color: #333333;
-        }
-        .action-button.secondary:active {
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            background-color: #888888; /* אפור בינוני (כפתור משני) */
         }
 
         .action-button.danger {
-            background-color: #e74c3c; 
-            color: white;
+            background-color: #bbbbbb; /* אפור בהיר (כפתור התנתקות/סכנה) */
+            color: #333333; /* טקסט כהה לכפתור בהיר */
         }
+
+        .action-button:hover {
+            background-color: #555555;
+            opacity: 1;
+        }
+
+        .action-button.secondary:hover {
+            background-color: #999999;
+        }
+
         .action-button.danger:hover {
-            background-color: #c0392b;
-        }
-        .action-button.success { /* For save/update in detail view */
-            background-color: #28a745;
-            color: white;
-        }
-        .action-button.success:hover {
-            background-color: #218838;
+            background-color: #cccccc;
         }
 
+        .action-button:active {
+            opacity: 0.8;
+            transform: none;
+        }
 
-        /* Message box styles */
         .message-box {
-            background-color: #f8f8f8; 
-            color: #333333; 
+            background-color: #f0f0f0;
+            color: #333333;
             padding: 12px;
-            border: 1px solid #cccccc; 
+            border: 1px solid #cccccc;
             border-radius: 6px;
-            margin-top: 16px;
+            margin-top: 15px;
             text-align: right;
             font-size: 0.9em;
             font-weight: normal;
         }
         .message-box.success {
-            background-color: #e6ffe6; 
-            color: #2e7d32; 
+            background-color: #e6ffe6;
+            color: #2e7d32;
             border-color: #a3e6a3;
         }
         .message-box.danger { 
-            background-color: #ffe6e6; 
-            color: #c62828; 
+            background-color: #ffe6e6;
+            color: #c62828;
             border-color: #e6a3a3;
         }
-        .message-box.warning {
-            background-color: #fffacd; 
-            color: #a87200; 
+         .message-box.warning {
+            background-color: #fffacd;
+            color: #a87200;
             border-color: #ffd966;
         }
 
-        /* Top bar for dashboard/form pages */
-        .top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px; 
-        }
-        .top-bar h1 {
-            margin-bottom: 0; 
-            text-align: right; 
-            font-size: 1.6em; 
-        }
-        .top-bar .button-group {
-            display: flex;
-            gap: 8px;
-        }
-        .top-bar .action-button {
-            padding: 8px 16px; 
-            font-size: 0.9em;
-        }
-        
-        /* Admin Table styles for Data View */
+
+        /* Table styles for Admin View */
         .admin-table-container {
-            overflow-x: auto; 
+            overflow-x: auto; /* Enable horizontal scrolling for small screens */
             width: 100%;
         }
         .admin-table {
@@ -368,27 +214,25 @@
             border-collapse: collapse;
             margin-top: 20px;
             font-size: 0.9em;
-            text-align: right; 
-            min-width: 1400px; 
+            text-align: right; /* RTL alignment */
+            min-width: 1300px; /* Increased min-width for table */
         }
         .admin-table th, .admin-table td {
-            border: 1px solid #eeeeee; 
+            border: 1px solid #ddd;
             padding: 10px 12px;
             vertical-align: top;
-            color: #333333; 
-            font-size: 0.95em; 
+            color: #333333; /* Darker text for table cells */
+            font-size: 0.95em; /* Slightly larger font for table content */
         }
         .admin-table th {
-            background-color: #f8f8f8; 
+            background-color: #e0e0e0; /* Lighter grey for headers */
             color: #333333;
-            font-weight: bold; 
+            font-weight: 600;
             white-space: nowrap;
             cursor: pointer;
-            position: sticky; 
-            top: 0; 
-            z-index: 10; 
-            padding-right: 25px; 
-            font-size: 1em; 
+            position: relative;
+            padding-right: 25px;
+            font-size: 1em; /* Larger font for table headers */
         }
         .admin-table th .sort-icon {
             position: absolute;
@@ -399,309 +243,89 @@
             color: #777;
         }
         .admin-table tbody tr:nth-child(even) {
-            background-color: #fdfdfd; 
+            background-color: #f9f9f9;
         }
         .admin-table tbody tr:hover {
-            background-color: #f0f0f0; 
+            background-color: #f0f0f0;
         }
-        /* Status color coding for table rows */
-        .admin-table tbody tr.status-not-started {
-            background-color: #ffe0b2; /* Light orange */
-        }
-        .admin-table tbody tr.status-in-progress {
-            background-color: #bbdefb; /* Light blue */
-        }
-        .admin-table tbody tr.status-closed {
-            background-color: #c8e6c9; /* Light green */
-        }
-        .admin-table tbody tr.status-transferred-sw {
-            background-color: #e1bee7; /* Light purple */
-        }
-        .admin-table tbody tr.status-transferred-other {
-            background-color: #ffcdd2; /* Light red/pink */
-        }
-
         .admin-notes-textarea {
             width: 100%;
-            min-height: 120px; 
-            border: 1px solid #dddddd; 
-            border-radius: 6px;
-            padding: 10px 12px; 
+            min-height: 120px; /* Increased height */
+            border: 1px solid #cccccc; /* Gray border */
+            border-radius: 4px;
+            padding: 8px; /* Slightly more padding */
             box-sizing: border-box;
-            font-size: 1em; 
+            font-size: 0.95em; /* Slightly larger font */
             resize: vertical;
-            color: #333333; 
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            color: #333333; /* Darker text */
         }
-        .admin-notes-textarea:focus {
-            border-color: #999999;
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.2);
-        }
-
         .admin-notes-save-button {
-            margin-top: 10px; 
-            padding: 10px 20px; 
-            background-color: #3498db; 
+            margin-top: 8px; /* Increased margin */
+            padding: 8px 15px; /* Increased padding */
+            background-color: #444444; /* Dark grey */
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 0.9em;
-            font-weight: bold;
-            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+            font-size: 0.9em; /* Slightly larger font */
+            transition: background-color 0.2s ease, opacity 0.2s ease;
         }
         .admin-notes-save-button:hover {
-            background-color: #2980b9;
+            background-color: #555555;
+            opacity: 1;
         }
         .admin-notes-save-button:active {
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            transform: translateY(1px);
+            opacity: 0.8;
         }
         .admin-notes-save-button:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
-            color: #666666;
-            box-shadow: none;
-            transform: none;
+            color: #666666; /* Lighter text for disabled */
         }
-        /* End Admin Table styles */
-
-        /* Search and Filter Section */
-        .filter-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap; /* Allow wrapping on small screens */
-            gap: 15px; /* Space between filter elements */
-            border-bottom: 1px solid #eeeeee;
-            padding-bottom: 15px;
-        }
-        .filter-section input[type="text"] {
-            flex-grow: 1; /* Take up available space */
-            max-width: 300px; /* Limit width */
-            margin-left: 10px; /* Space from buttons */
-            padding: 10px 15px;
-            font-size: 0.95em;
-        }
-        .filter-section .status-filters {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            justify-content: flex-start; /* Align to right for RTL */
-        }
-        .filter-section .status-button {
-            background-color: #f0f0f0;
-            color: #555555;
-            border: 1px solid #dddddd;
-            border-radius: 6px;
-            padding: 8px 15px;
-            cursor: pointer;
-            font-size: 0.9em;
-            transition: background-color 0.2s ease, border-color 0.2s ease;
-        }
-        .filter-section .status-button:hover {
-            background-color: #e0e0e0;
-        }
-        .filter-section .status-button.active {
-            background-color: #3498db;
-            color: white;
-            border-color: #3498db;
-        }
-        /* Status button specific colors */
-        .filter-section .status-button.all.active { background-color: #6c757d; border-color: #6c757d; }
-        .filter-section .status-button.not-started.active { background-color: #ff9800; border-color: #ff9800; }
-        .filter-section .status-button.in-progress.active { background-color: #2196f3; border-color: #2196f3; }
-        .filter-section .status-button.closed.active { background-color: #4caf50; border-color: #4caf50; }
-        .filter-section .status-button.transferred-sw.active { background-color: #9c27b0; border-color: #9c27b0; }
-        .filter-section .status-button.transferred-other.active { background-color: #f44336; border-color: #f44336; }
-
-        /* Submission Detail View */
-        .submission-detail-container {
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            width: 100%;
-            max-width: 600px; /* Max width for detail view */
-            margin: 24px auto;
-            text-align: right;
-        }
-        .submission-detail-container h2 {
-            text-align: center;
-            color: #333333;
-            margin-bottom: 20px;
-            font-size: 1.6em;
-            font-weight: bold;
-        }
-        .submission-detail-container .detail-item {
-            margin-bottom: 15px;
-            line-height: 1.6;
-            color: #555555;
-            padding: 8px 0;
-            border-bottom: 1px dashed #eee;
-        }
-        .submission-detail-container .detail-item:last-of-type {
-            border-bottom: none;
-        }
-        .submission-detail-container .detail-item strong {
-            color: #333333;
-            font-weight: bold;
-            margin-left: 5px; /* space between label and value */
-        }
-        .submission-detail-container .form-section {
-            margin-top: 20px;
-            margin-bottom: 20px;
-            padding-top: 15px;
-            border-top: 1px dashed #ccc;
-            border-bottom: none; /* Override default form-section border-bottom */
-        }
-        .submission-detail-container .form-section:first-of-type {
-             border-top: none; /* No top border if it's the first section */
-             padding-top: 0;
-        }
-        .submission-detail-container .form-group select,
-        .submission-detail-container .form-group input[type="text"],
-        .submission-detail-container .form-group textarea { /* Added textarea for detail view */
-            width: auto; /* Allow select/input to size to content */
-            min-width: 180px; /* Minimum width for dropdown */
-            display: inline-block; /* Keep on same line as label */
-            vertical-align: middle;
-            margin-right: 10px; /* Space between select/input and label */
-        }
-        .submission-detail-container .form-group label {
-            display: inline-block;
-            vertical-align: middle;
-            margin-bottom: 0;
-            margin-left: 10px;
-        }
-        /* Specific for Speech-to-Text in detail view */
-        .submission-detail-container .form-group .speech-button {
-            background-color: #6c757d; 
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 10px 12px;
-            cursor: pointer;
-            font-size: 1.1em;
-            transition: background-color 0.2s ease;
-            box-shadow: none;
-            display: inline-flex; /* Use inline-flex to keep it inline */
-            align-items: center;
-            justify-content: center;
-            vertical-align: middle; /* Align with input */
-            height: 42px; /* Match input height */
-        }
-        .submission-detail-container .form-group .speech-button.listening {
-            background-color: #dc3545; /* Red when listening */
-        }
-        .submission-detail-container .form-group .speech-button:hover {
-            background-color: #5a6268;
-        }
-        .submission-detail-container .form-group .speech-button.listening:hover {
-            background-color: #c82333;
-        }
-
+        /* End Table styles */
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
             .container {
-                padding: 16px;
-                margin: 16px auto;
+                padding: 25px;
+                margin: 0;
             }
-            .top-bar {
-                flex-direction: column;
-                align-items: flex-end;
-                gap: 12px;
+            h1 {
+                font-size: 1.8em;
+                margin-bottom: 25px;
             }
-            .top-bar h1 {
-                width: 100%;
-                text-align: center;
-                font-size: 1.4em;
+            .action-button {
+                padding: 12px 25px;
+                font-size: 1.1em;
             }
-            .top-bar .button-group {
-                width: 100%;
-                justify-content: center;
-                flex-wrap: wrap;
-            }
-            .top-bar .action-button {
-                flex-grow: 1;
-                max-width: calc(50% - 4px);
-            }
-            /* Table adjustments for mobile */
             .admin-table {
-                min-width: 1000px; /* Still needs horizontal scroll for many columns */
+                min-width: 900px;
             }
             .admin-table th, .admin-table td {
-                padding: 8px;
-                font-size: 0.85em;
+                padding: 8px 10px;
+                font-size: 0.9em;
             }
             .admin-notes-textarea {
-                min-height: 80px;
-                font-size: 0.85em;
+                 min-height: 80px;
+                 font-size: 0.9em;
             }
             .admin-notes-save-button {
-                padding: 8px 15px;
-                font-size: 0.85em;
-            }
-            .filter-section {
-                flex-direction: column;
-                align-items: flex-end;
-                gap: 10px;
-            }
-            .filter-section input[type="text"] {
-                max-width: 100%;
-                margin-left: 0;
-                width: 100%; /* Full width search bar */
-            }
-            .filter-section .status-filters {
-                justify-content: center; /* Center status buttons */
-                width: 100%;
-            }
-            .filter-section .status-button {
-                flex-grow: 1;
-            }
-            .submission-detail-container {
-                max-width: 100%;
-                padding: 16px;
-                margin: 16px auto;
-            }
-            .submission-detail-container .form-group label {
-                margin-left: 0;
-                display: block; /* Stack label above input on mobile */
-                margin-bottom: 5px;
-            }
-            .submission-detail-container .form-group select,
-            .submission-detail-container .form-group input[type="text"],
-            .submission-detail-container .form-group textarea {
-                width: 100%;
-                margin-right: 0;
-                min-width: unset;
-            }
-            .submission-detail-container .form-group .speech-button {
-                width: 100%;
-                padding: 10px 0;
-                height: auto; /* Allow height to adjust for stacked layout */
+                padding: 6px 12px;
+                font-size: 0.8em;
             }
         }
         @media (max-width: 480px) {
             .container {
-                padding: 12px;
-                margin: 12px auto;
-                border-radius: 0;
-                box-shadow: none;
-            }
-            h1 {
-                font-size: 1.2em;
-                margin-bottom: 16px;
+                padding: 15px;
             }
             .admin-table {
-                min-width: 700px; /* Further reduced min-width for very small screens */
+                min-width: 600px;
             }
-            .submission-detail-container {
-                padding: 12px;
-                margin: 12px auto;
+            .admin-table th, .admin-table td {
+                font-size: 0.85em;
             }
         }
     </style>
@@ -712,13 +336,12 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Component for the Login Page - now with Email/Password login
+        // Component for the Login Page (reused for data.html if not authenticated)
         function LoginPage({ auth, onLoginSuccess }) {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
             const [message, setMessage] = useState('');
             const [loading, setLoading] = useState(false);
-            const [showForgotPassword, setShowForgotPassword] = useState(false);
             
             const handleLogin = async () => {
                 setMessage('');
@@ -729,7 +352,7 @@
                         setLoading(false);
                         return;
                     }
-                    const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password); 
+                    const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password);
                     setMessage('התחברות הצליחה! נא המתן...');
                     onLoginSuccess(userCredential.user);
                 } catch (error) {
@@ -765,403 +388,34 @@
                         <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="הזן סיסמה" required />
                     </div>
                     <div className="button-container">
-                        <button className="action-button" onClick={handleLogin} disabled={loading}>
+                        <button className="action-button secondary" onClick={handleLogin} disabled={loading}>
                             {loading ? 'מתחבר...' : 'התחבר'}
                         </button>
-                        <a href="#" className="action-button secondary" onClick={(e) => { e.preventDefault(); setShowForgotPassword(true); }} style={{textDecoration: 'none'}}>
-                            שכחת סיסמה?
-                        </a>
                     </div>
                     <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
-                        <strong style={{color: '#e74c3c'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
+                        <strong style={{color: '#F44336'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
                     </p>
-
-                    {showForgotPassword && (
-                        <ForgotPasswordModal auth={auth} onClose={() => setShowForgotPassword(false)} />
-                    )}
-                </div>
-            );
-        }
-
-        // New Component for Forgot Password Modal
-        function ForgotPasswordModal({ auth, onClose }) {
-            const [email, setEmail] = useState('');
-            const [message, setMessage] = useState('');
-            const [loading, setLoading] = useState(false);
-
-            const handleResetPassword = async () => {
-                setMessage('');
-                setLoading(true);
-                if (!email) {
-                    setMessage('אנא הזן כתובת מייל.');
-                    setLoading(false);
-                    return;
-                }
-                try {
-                    if (!auth) {
-                        setMessage('שגיאה: שירותי Firebase Auth אינם זמינים. לא ניתן לשלוח מייל איפוס.');
-                        setLoading(false);
-                        return;
-                    }
-                    console.log(`Attempting to send password reset email to: ${email}`); // ADDED: Log for debugging
-                    await window.sendPasswordResetEmailGlobal(auth, email);
-                    setMessage('אם קיים חשבון עם המייל הזה, קישור לאיפוס סיסמה נשלח אליו. נא לבדוק גם את תיקיית הספאם.');
-                } catch (error) {
-                    console.error("Password reset error details:", error); // UPDATED: More detailed error log
-                    let errorMessage = 'שגיאה כללית בשליחת מייל איפוס. נא לוודא את כתובת המייל ולנסות שוב.';
-                    if (error.code) {
-                        errorMessage += ` קוד שגיאה: ${error.code}.`;
-                    }
-                    setMessage(errorMessage);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            return (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
-                    justifyContent: 'center', alignItems: 'center', zIndex: 1000
-                }}>
-                    <div className="container" style={{maxWidth: '350px', padding: '20px'}}>
-                        <h2>איפוס סיסמה</h2>
-                        {message && (
-                            <div className={`message-box ${message.includes('קישור לאיפוס') ? 'success' : 'danger'}`}>
-                                {message}
-                            </div>
-                        )}
-                        <p style={{marginBottom: '15px', fontSize: '0.9em', color: '#555'}}>
-                            הזן את כתובת המייל שלך וקישור לאיפוס סיסמה יישלח אליך.
-                        </p>
-                        <div className="form-group">
-                            <label htmlFor="resetEmail">מייל:</label>
-                            <input type="email" id="resetEmail" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="הזן מייל רשום" required />
-                        </div>
-                        <div className="button-container">
-                            <button className="action-button" onClick={handleResetPassword} disabled={loading}>
-                                {loading ? 'שולח...' : 'שלח קישור לאיפוס'}
-                            </button>
-                            <button className="action-button secondary" onClick={onClose} disabled={loading}>
-                                ביטול
-                            </button>
-                        </div>
-                    </div>
                 </div>
             );
         }
 
 
-        // Submission Detail View Component
-        function SubmissionDetailView({ db, submissionId, userUid, onClose, docFirebaseGlobal, getDocFirebaseGlobal, updateDocFirebaseGlobal }) {
-            const [submissionData, setSubmissionData] = useState(null);
-            const [loading, setLoading] = useState(true);
-            const [message, setMessage] = useState('');
-            const [followUpNotes, setFollowUpNotes] = useState('');
-            const [status, setStatus] = useState('not-started');
-            const [transferredTo, setTransferredTo] = useState('');
-            const [isListening, setIsListening] = useState(false); // State for speech-to-text
-            const recognitionRef = useRef(null); // Ref for SpeechRecognition object
-
-            // Status mapping for display
-            const statusMap = {
-                'not-started': 'טרם החל',
-                'in-progress': 'בטיפול',
-                'closed': 'נסגר',
-                'transferred-sw': 'הועבר לעו"ס',
-                'transferred-other': 'הועבר לגורם אחר',
-            };
-            // Physical Injury Map (reused from AdminViewComponent)
-            const physicalInjuryMap = {
-                'none': 'לא (1)', 'light': 'קלה (2)', 'medium': 'בינונית (3)', 'severe': 'קשה (4)'
-            };
-
-
-            useEffect(() => {
-                // FIXED: Speech recognition fallback
-                if (typeof SpeechRecognition !== 'undefined' || typeof webkitSpeechRecognition !== 'undefined') {
-                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    recognitionRef.current = new SpeechRecognition();
-                    recognitionRef.current.continuous = false; // Stop after a single utterance
-                    recognitionRef.current.interimResults = false; // Only return final results
-                    recognitionRef.current.lang = 'he-IL'; // Set language to Hebrew
-
-                    recognitionRef.current.onresult = (event) => {
-                        const transcript = event.results[0][0].transcript;
-                        setFollowUpNotes(prev => prev + (prev ? ' ' : '') + transcript);
-                        setIsListening(false);
-                    };
-
-                    recognitionRef.current.onerror = (event) => {
-                        console.error('Speech recognition error:', event.error);
-                        setMessage(`שגיאת זיהוי קולי: ${event.error}.`);
-                        setIsListening(false);
-                    };
-
-                    recognitionRef.current.onend = () => {
-                        setIsListening(false);
-                    };
-                } else {
-                    console.warn('Speech Recognition API not supported in this browser.');
-                    setMessage('הזנה קולית לא נתמכת בדפדפן זה.'); // Fallback message
-                }
-                return () => {
-                    if (recognitionRef.current) {
-                        recognitionRef.current.stop();
-                    }
-                };
-            }, []);
-
-            const startListening = () => {
-                // FIXED: Speech recognition fallback check here too
-                if (typeof SpeechRecognition === 'undefined' && typeof webkitSpeechRecognition === 'undefined') {
-                    setMessage('הזנה קולית לא נתמכת בדפדפן זה.');
-                    return;
-                }
-                if (recognitionRef.current && !isListening) {
-                    setIsListening(true);
-                    setMessage('מאזין... אנא דבר/י.');
-                    recognitionRef.current.start();
-                }
-            };
-
-
-            useEffect(() => {
-                const fetchSubmission = async () => {
-                    if (!db || !submissionId || !userUid) {
-                        setMessage('שגיאה: נתונים חסרים לטעינת הגשה.');
-                        setLoading(false);
-                        return;
-                    }
-                    setLoading(true);
-                    setMessage(''); // Clear previous messages
-                    try {
-                        // FIXED: Secure Path Construction
-                        const basePath = `artifacts/${window.globalAppId || 'default-app-id'}`;
-                        const submissionRef = docFirebaseGlobal(db, `${basePath}/users/${userUid}/formData`, submissionId);
-                        const docSnap = await getDocFirebaseGlobal(submissionRef);
-
-                        if (docSnap.exists()) {
-                            const data = docSnap.data();
-                            setSubmissionData(data);
-                            setFollowUpNotes(data.followUpNotes || '');
-                            setStatus(data.status || 'not-started');
-                            setTransferredTo(data.transferredTo || '');
-                        } else {
-                            setMessage('ההגשה לא נמצאה.');
-                        }
-                    } catch (error) {
-                        console.error("Error fetching submission:", error);
-                        setMessage(`שגיאה בטעינת ההגשה: ${error.message}.`);
-                    } finally {
-                        setLoading(false);
-                    }
-                };
-                fetchSubmission();
-            }, [db, submissionId, userUid, docFirebaseGlobal, getDocFirebaseGlobal]);
-
-            const handleSaveUpdates = async () => {
-                if (!db || !submissionId || !userUid) {
-                    setMessage('שגיאה: נתונים חסרים לשמירה.');
-                    return;
-                }
-                setLoading(true);
-                setMessage('');
-                try {
-                    // FIXED: Secure Path Construction
-                    const basePath = `artifacts/${window.globalAppId || 'default-app-id'}`;
-                    const submissionRef = docFirebaseGlobal(db, `${basePath}/users/${userUid}/formData`, submissionId);
-                    await updateDocFirebaseGlobal(submissionRef, {
-                        followUpNotes: followUpNotes,
-                        status: status,
-                        transferredTo: status === 'transferred-other' ? transferredTo : '', // Clear if not 'other'
-                        lastUpdatedAdmin: Date.now() // Add a timestamp for admin updates
-                    });
-                    setMessage('העדכונים נשמרו בהצלחה!');
-                } catch (error) {
-                    console.error("Error updating submission:", error);
-                    setMessage(`שגיאה בשמירת העדכונים: ${error.message}.`);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleSendEmail = () => {
-                if (!submissionData) {
-                    setMessage('אין נתונים לשליחה במייל.');
-                    return;
-                }
-
-                // FIXED: Secure Email Content - handle missing ID number
-                const subject = `מעקב טיפול טופס Hugo - ${submissionData.idNumber ? 'ת.ז. ' + submissionData.idNumber : 'ללא ת.ז.'}`;
-                let body = `**פרטי טופס Hugo**\n\n`;
-                body += `שם מלא: ${submissionData.firstName} ${submissionData.familyName}\n`;
-                body += `תעודת זהות: ${submissionData.idNumber || 'לא הוזן'}\n`;
-                body += `טלפון: ${submissionData.phone || 'לא הוזן'}\n`;
-                body += `כתובת: ${submissionData.address || 'לא הוזן'}\n`;
-                body += `גיל: ${submissionData.age || 'לא הוזן'}, מין: ${submissionData.gender === 'male' ? 'זכר' : (submissionData.gender === 'female' ? 'נקבה' : 'לא הוזן')}\n`;
-                body += `שוהים בדירה: ${submissionData.residents || 'לא הוזן'}\n`;
-                body += `פציעה פיזית: ${physicalInjuryMap[submissionData.physicalInjury] || submissionData.physicalInjury || 'לא הוזן'}\n`;
-                body += `הרוגים/פצועים: ${submissionData.casualties === 'yes' ? 'כן' : 'לא'}\n`;
-                body += `מנותקי קשר: ${submissionData.disconnected === 'yes' ? 'כן' : 'לא'}\n`;
-                body += `זקוק לסיוע בפינוי: ${submissionData.evacuationAssistance === 'yes' ? 'כן' : 'לא'}\n`;
-                body += `הערות ממלא הטופס: ${submissionData.notes || 'אין'}\n`;
-                body += `\n**פרטי מעקב טיפול**\n\n`;
-                body += `סטטוס: ${statusMap[status]}\n`;
-                if (status === 'transferred-other') {
-                    body += `הועבר לגורם: ${transferredTo || 'לא צוין'}\n`;
-                }
-                body += `המשך טיפול: ${followUpNotes || 'אין'}\n`;
-                body += `\n\n**הנחיות להמשך טיפול:**\n`;
-                body += `- יש לוודא קשר ראשוני עם הפונה בתוך 24 שעות.\n`;
-                body += `- לעדכן סטטוס טיפול בטופס הדיגיטלי.\n`;
-                body += `- לדווח על כל ממצא חריג.\n`;
-                body += `\n\nבברכה,\nצוות Hugo`;
-
-
-                // Encode the subject and body for mailto link
-                const encodedSubject = encodeURIComponent(subject);
-                const encodedBody = encodeURIComponent(body);
-
-                window.location.href = `mailto:?subject=${encodedSubject}&body=${encodedBody}`;
-            };
-
-
-            if (loading) {
-                return (
-                    <div className="submission-detail-container">
-                        <h2>טוען פרטי הגשה...</h2>
-                        <p style={{textAlign: 'center'}}>אנא המתן.</p>
-                    </div>
-                );
-            }
-
-            if (!submissionData) {
-                return (
-                    <div className="submission-detail-container">
-                        <h2>שגיאה בטעינת הפרטים</h2>
-                        <p style={{textAlign: 'center'}}>{message}</p>
-                        <div className="button-container">
-                            <button onClick={onClose} className="action-button secondary">
-                                חזור לטבלה הראשית
-                            </button>
-                        </div>
-                    </div>
-                );
-            }
-
-            return (
-                <div className="submission-detail-container">
-                    <div className="top-bar">
-                        <h2>פרטי הגשה - {submissionData.idNumber}</h2>
-                        <div className="button-group">
-                            <button onClick={onClose} className="action-button secondary">
-                                <i className="fas fa-arrow-right" style={{marginLeft: '5px'}}></i> חזור לטבלה הראשית
-                            </button>
-                        </div>
-                    </div>
-                    {message && (
-                        <div className={`message-box ${message.includes('הצלחה') || message.includes('נשמרו') ? 'success' : (message.includes('שגיאה') ? 'danger' : 'warning')}`}>
-                            {message}
-                        </div>
-                    )}
-
-                    <div className="detail-grid">
-                        <div className="detail-item"><strong>תאריך/שעה:</strong> {new Date(submissionData.timestamp).toLocaleString('he-IL')}</div>
-                        <div className="detail-item"><strong>מזהה הזדהות:</strong> {submissionData.identityId || 'לא הוזן'}</div>
-                        <div className="detail-item"><strong>שם מלא:</strong> {submissionData.firstName} {submissionData.familyName}</div>
-                        <div className="detail-item"><strong>תעודת זהות:</strong> {submissionData.idNumber || 'לא הוזן'}</div>
-                        <div className="detail-item"><strong>גיל:</strong> {submissionData.age}</div>
-                        <div className="detail-item"><strong>מין:</strong> {submissionData.gender === 'male' ? 'זכר' : (submissionData.gender === 'female' ? 'נקבה' : '')}</div>
-                        <div className="detail-item"><strong>טלפון:</strong> {submissionData.phone}</div>
-                        <div className="detail-item"><strong>כתובת:</strong> {submissionData.address}</div>
-                        <div className="detail-item"><strong>שוהים בדירה:</strong> {submissionData.residents}</div>
-                        <div className="detail-item"><strong>פציעה פיזית:</strong> {physicalInjuryMap[submissionData.physicalInjury] || submissionData.physicalInjury || ''}</div>
-                        <div className="detail-item"><strong>הרוגים/פצועים:</strong> {submissionData.casualties === 'yes' ? 'כן' : 'לא'}</div>
-                        <div className="detail-item"><strong>מנותקי קשר:</strong> {submissionData.disconnected === 'yes' ? 'כן' : 'לא'}</div>
-                        <div className="detail-item"><strong>זקוק לסיוע בפינוי:</strong> {submissionData.evacuationAssistance === 'yes' ? 'כן' : 'לא'}</div>
-                        <div className="detail-item"><strong>הערות ממלא הטופס:</strong> {submissionData.notes || 'אין'}</div>
-                        {submissionData.lastUpdatedAdmin && (
-                            <div className="detail-item"><strong>עודכן לאחרונה ע"י מנהל:</strong> {new Date(submissionData.lastUpdatedAdmin).toLocaleString('he-IL')}</div>
-                        )}
-                    </div>
-
-                    <div className="form-section">
-                        <h3>עדכון סטטוס ומעקב טיפול</h3>
-                        <div className="form-group">
-                            <label htmlFor="status">סטטוס:</label>
-                            <select id="status" value={status} onChange={(e) => setStatus(e.target.value)}>
-                                <option value="not-started">טרם החל</option>
-                                <option value="in-progress">בטיפול</option>
-                                <option value="closed">נסגר</option>
-                                <option value="transferred-sw">הועבר לעו"ס</option>
-                                <option value="transferred-other">הועבר לגורם אחר</option>
-                            </select>
-                        </div>
-                        {status === 'transferred-other' && (
-                            <div className="form-group">
-                                <label htmlFor="transferredTo">שם גורם אחר:</label>
-                                <input type="text" id="transferredTo" value={transferredTo} onChange={(e) => setTransferredTo(e.target.value)} placeholder="הזן שם גורם" />
-                            </div>
-                        )}
-                        <div className="form-group">
-                            <label htmlFor="followUpNotes">המשך טיפול (הערות מנהל):</label>
-                            <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                                <textarea id="followUpNotes" value={followUpNotes} onChange={(e) => setFollowUpNotes(e.target.value)} placeholder="הזן הערות מעקב נוספות"></textarea>
-                                {('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) && (
-                                    <button type="button" onClick={startListening} className={`speech-button ${isListening ? 'listening' : ''}`} title="הזנה קולית">
-                                        <i className="fas fa-microphone"></i>
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="button-container">
-                        <button onClick={handleSaveUpdates} className="action-button success" disabled={loading}>
-                            <i className="fas fa-save" style={{marginLeft: '5px'}}></i> {loading ? 'שומר...' : 'שמור עדכונים'}
-                        </button>
-                        <button onClick={handleSendEmail} className="action-button secondary">
-                            <i className="fas fa-envelope" style={{marginLeft: '5px'}}></i> שלח פרטי טופס במייל
-                        </button>
-                    </div>
-                </div>
-            );
-        }
-
-
-        // Admin View Component to show all submissions
-        function AdminViewComponent({ auth, db, userUid, onLogout, onSelectSubmission, docFirebaseGlobal, getDocFirebaseGlobal, updateDocFirebaseGlobal, collectionGroupFirebaseGlobal, queryFirebaseGlobal, onSnapshotGlobal, whereFirebaseGlobal, getDocsFirebaseGlobal }) {
+        // New Component: Admin View to show all submissions (now accessible to any authenticated user)
+        function AdminViewComponent({ auth, db, userUid, onLogout }) {
             const [allSubmissions, setAllSubmissions] = useState([]);
             const [loadingAllSubmissions, setLoadingAllSubmissions] = useState(true);
             const [message, setMessage] = useState('');
             const [sortColumn, setSortColumn] = useState('timestamp');
             const [sortDirection, setSortDirection] = useState('desc');
-            const [editingNote, setEditingNote] = useState(null); // Keep for direct table editing of admin notes
-            const [searchTerm, setSearchTerm] = useState('');
-            const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'not-started', 'in-progress', 'closed', etc.
+            const [editingNote, setEditingNote] = useState(null);
 
-            // Map for physical injury values to Hebrew (reused)
+            // Map for physical injury values to Hebrew
             const physicalInjuryMap = {
-                'none': 'לא (1)', 'light': 'קלה (2)', 'medium': 'בינונית (3)', 'severe': 'קשה (4)'
+                'none': 'לא (1)',
+                'light': 'קלה (2)',
+                'medium': 'בינונית (3)',
+                'severe': 'קשה (4)'
             };
-            // Status map (reused)
-            const statusMap = {
-                'not-started': 'טרם החל',
-                'in-progress': 'בטיפול',
-                'closed': 'נסגר',
-                'transferred-sw': 'הועבר לעו"ס',
-                'transferred-other': 'הועבר לגורם אחר',
-            };
-            // Status colors for CSS class names
-            const statusColors = {
-                'not-started': 'status-not-started',
-                'in-progress': 'status-in-progress',
-                'closed': 'status-closed',
-                'transferred-sw': 'status-transferred-sw',
-                'transferred-other': 'status-transferred-other',
-            };
-
 
             useEffect(() => {
                 if (!db || !auth) {
@@ -1176,75 +430,46 @@
                 }
 
                 setLoadingAllSubmissions(true);
-                setMessage(''); // Clear messages before fetching
-                try {
-                    const queryRef = queryFirebaseGlobal(collectionGroupFirebaseGlobal(db, 'formData'));
+                const queryRef = window.queryFirebaseGlobal(window.collectionGroupFirebaseGlobal(db, 'formData'));
 
-                    const unsubscribe = onSnapshotGlobal(queryRef, (snapshot) => {
-                        const submissions = [];
-                        snapshot.forEach(doc => {
-                            submissions.push({ id: doc.id, ...doc.data() });
-                        });
-                        setAllSubmissions(submissions);
-                        setLoadingAllSubmissions(false);
-                    }, (error) => {
-                        console.error("Error fetching all submissions:", error);
-                        let errorMessage = `שגיאה באחזור כל הנתונים: ${error.message}.`;
-                        if (error.code === 'permission-denied') {
-                            errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מ-`formData` לכל המשתמשים המחוברים.";
-                        }
-                        setMessage(errorMessage);
-                        setLoadingAllSubmissions(false);
+                const unsubscribe = window.onSnapshotFirebaseGlobal(queryRef, (snapshot) => {
+                    const submissions = [];
+                    snapshot.forEach(doc => {
+                        submissions.push({ id: doc.id, ...doc.data() });
                     });
-                    return () => unsubscribe();
-                } catch (error) {
-                    console.error("Error setting up onSnapshot listener:", error);
-                    setMessage(`שגיאה בהגדרת האזנה לנתונים: ${error.message}.`);
+                    setAllSubmissions(submissions);
                     setLoadingAllSubmissions(false);
-                }
-            }, [db, auth, collectionGroupFirebaseGlobal, queryFirebaseGlobal, onSnapshotGlobal]);
+                }, (error) => {
+                    console.error("Error fetching all submissions:", error);
+                    let errorMessage = `שגיאה באחזור כל הנתונים: ${error.message}.`;
+                    if (error.code === 'permission-denied') {
+                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מ-`formData` לכל המשתמשים המחוברים.";
+                    }
+                    setMessage(errorMessage);
+                    setLoadingAllSubmissions(false);
+                });
 
-            const filteredSubmissions = React.useMemo(() => {
-                let filteredItems = [...allSubmissions];
+                return () => unsubscribe();
+            }, [db, auth]);
 
-                // Filter by status first
-                if (filterStatus !== 'all') {
-                    filteredItems = filteredItems.filter(item => (item.status || 'not-started') === filterStatus);
-                }
-
-                // Apply search term filter
-                if (searchTerm) {
-                    const lowerCaseSearchTerm = searchTerm.toLowerCase();
-                    filteredItems = filteredItems.filter(item => 
-                        (item.firstName && item.firstName.toLowerCase().includes(lowerCaseSearchTerm)) ||
-                        (item.familyName && item.familyName.toLowerCase().includes(lowerCaseSearchTerm)) ||
-                        (item.idNumber && item.idNumber.toLowerCase().includes(lowerCaseSearchTerm)) ||
-                        (item.address && item.address.toLowerCase().includes(lowerCaseSearchTerm)) ||
-                        (item.phone && item.phone.toLowerCase().includes(lowerCaseSearchTerm)) ||
-                        (item.notes && item.notes.toLowerCase().includes(lowerCaseSearchTerm)) ||
-                        (item.adminNotes && item.adminNotes.toLowerCase().includes(lowerCaseSearchTerm)) ||
-                        (item.identityId && item.identityId.toLowerCase().includes(lowerCaseSearchTerm))
-                    );
-                }
-
-                // Then sort
+            const sortedSubmissions = React.useMemo(() => {
+                let sortableItems = [...allSubmissions];
                 if (sortColumn) {
-                    filteredItems.sort((a, b) => {
+                    sortableItems.sort((a, b) => {
                         let aValue = a[sortColumn];
                         let bValue = b[sortColumn];
 
                         if (sortColumn === 'physicalInjury') {
                             aValue = physicalInjuryMap[aValue] || aValue;
                             bValue = physicalInjuryMap[bValue] || bValue;
-                        } else if (sortColumn === 'status') {
-                             aValue = statusMap[aValue] || aValue;
-                             bValue = statusMap[bValue] || bValue;
-                        } else if (sortColumn === 'timestamp' || sortColumn === 'lastUpdatedAdmin') {
-                            aValue = parseInt(aValue || 0);
-                            bValue = parseInt(bValue || 0);
+                        }
+
+                        if (sortColumn === 'timestamp') {
+                            aValue = parseInt(aValue);
+                            bValue = parseInt(bValue);
                         } else if (sortColumn === 'age' || sortColumn === 'residents') {
-                            aValue = parseFloat(aValue || 0);
-                            bValue = parseFloat(bValue || 0);
+                            aValue = parseFloat(aValue);
+                            bValue = parseFloat(bValue);
                         } else if (typeof aValue === 'string' && typeof bValue === 'string') {
                             return aValue.localeCompare(bValue, 'he', { sensitivity: 'base' });
                         }
@@ -1258,8 +483,8 @@
                         return 0;
                     });
                 }
-                return filteredItems;
-            }, [allSubmissions, sortColumn, sortDirection, searchTerm, filterStatus]);
+                return sortableItems;
+            }, [allSubmissions, sortColumn, sortDirection]);
 
 
             const handleSort = (column) => {
@@ -1279,7 +504,6 @@
             };
 
             const handleNoteChange = (e, id) => {
-                // This specific handler is for direct editing of adminNotes in the table
                 setEditingNote({
                     id: id,
                     originalNote: allSubmissions.find(sub => sub.id === id)?.adminNotes || '',
@@ -1288,7 +512,6 @@
             };
 
             const saveNote = async (submissionId, currentNote) => {
-                // This saves only the adminNotes field directly from the table
                 setMessage('');
                 if (!db || !userUid) {
                     setMessage('שגיאה: Firebase Db אינו מאותחל או שאין מזהה משתמש.');
@@ -1301,10 +524,9 @@
                         setMessage('שגיאה: לא ניתן למצוא מזהה משתמש עבור הגשה זו.');
                         return;
                     }
-                    // FIXED: Secure Path Construction
-                    const basePath = `artifacts/${window.globalAppId || 'default-app-id'}`;
-                    const docRef = docFirebaseGlobal(db, `${basePath}/users/${submission.userId}/formData`, submissionId);
-                    await updateDocFirebaseGlobal(docRef, { adminNotes: currentNote, lastUpdatedAdmin: Date.now() });
+
+                    const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submission.userId}/formData`, submissionId);
+                    await window.updateDocFirebaseGlobal(docRef, { adminNotes: currentNote });
                     setMessage('הערה נשמרה בהצלחה!');
                     setEditingNote(null);
                 } catch (error) {
@@ -1323,17 +545,17 @@
                     return;
                 }
 
+                // Removed "מזהה משתמש (UID)"
                 const headers = [
-                    "תאריך/שעה", "מזהה הזדהות",
+                    "תאריך/שעה", "מזהה הזדהות (מייל/UID)",
                     "שם מלא", "תעודת זהות", "גיל", "מין", "טלפון", "כתובת",
                     "שוהים בדירה", "פציעה פיזית", "הרוגים/פצועים", "מנותקי קשר",
-                    "סיוע בפינוי", "הערות ממלא הטופס", "הערות מנהל",
-                    "סטטוס טיפול", "המשך טיפול", "הועבר לגורם", "תאריך עדכון מנהל אחרון"
+                    "סיוע בפינוי", "הערות ממלא הטופס", "הערות מנהל"
                 ];
 
-                const rows = filteredSubmissions.map(item => [
+                const rows = sortedSubmissions.map(item => [
                     new Date(item.timestamp).toLocaleString('he-IL'),
-                    item.identityId || '',
+                    item.identityId || '', // Use identityId instead of raw userId for clearer identity
                     `${item.firstName || ''} ${item.familyName || ''}`,
                     item.idNumber || '',
                     item.age || '',
@@ -1346,25 +568,15 @@
                     (item.disconnected === 'yes' ? 'כן' : 'לא') || '',
                     (item.evacuationAssistance === 'yes' ? 'כן' : 'לא') || '',
                     item.notes || '',
-                    item.adminNotes || '',
-                    statusMap[item.status] || 'טרם החל',
-                    item.followUpNotes || '',
-                    item.transferredTo || '',
-                    item.lastUpdatedAdmin ? new Date(item.lastUpdatedAdmin).toLocaleString('he-IL') : ''
+                    item.adminNotes || ''
                 ]);
 
                 // Add BOM for UTF-8 compatibility with Excel
-                const BOM = "\uFEFF"; 
+                const BOM = "\uFEFF"; // UTF-8 BOM
                 let csvContent = BOM + headers.join(',') + '\n';
-                csvContent += rows.map(e => e.map(cell => {
-                    // FIXED: CSV injection protection
-                    const safeCell = String(cell)
-                                    .replace(/"/g, '""')
-                                    .replace(/^([=@+\-])/, "'$1"); // Sanitize dangerous starters
-                    return `"${safeCell}"`;
-                }).join(',')).join('\n');
+                csvContent += rows.map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
 
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;'}); // Re-added charset for better compatibility, assuming previous syntax error was resolved.
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a');
                 if (link.download !== undefined) {
                     const url = URL.createObjectURL(blob);
@@ -1382,17 +594,17 @@
 
             return (
                 <div className="container">
-                    <div className="top-bar">
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
                         <h1>כל הנתונים שהוגשו</h1>
-                        <div className="button-group">
-                            <button onClick={exportToCsv} className="action-button">
-                                <i className="fas fa-file-excel" style={{marginLeft: '5px'}}></i> ייצא לאקסל
+                        <div style={{display: 'flex', gap: '10px'}}>
+                            <button onClick={exportToCsv} className="action-button" style={{padding: '10px 20px', fontSize: '0.9em'}}>
+                                ייצא לאקסל
                             </button>
-                            <a href="index.html" className="action-button secondary" style={{textDecoration: 'none'}}>
-                                <i className="fas fa-arrow-right" style={{marginLeft: '5px'}}></i> חזור לאפליקציה הראשית
-                            </a >
-                            <button onClick={onLogout} className="action-button danger">
-                                <i className="fas fa-sign-out-alt" style={{marginLeft: '5px'}}></i> התנתק
+                            <a href="index.html" className="action-button secondary" style={{padding: '10px 20px', fontSize: '0.9em', textDecoration: 'none'}}>
+                                חזור לאפליקציה הראשית
+                            </a>
+                            <button onClick={onLogout} className="action-button danger" style={{padding: '10px 20px', fontSize: '0.9em'}}>
+                                התנתק
                             </button>
                         </div>
                     </div>
@@ -1403,52 +615,20 @@
                         </div>
                     )}
 
-                    <div className="filter-section">
-                        <div className="status-filters">
-                            <button onClick={() => setFilterStatus('all')} className={`status-button all ${filterStatus === 'all' ? 'active' : ''}`}>
-                                <i className="fas fa-list"></i> הכל
-                            </button>
-                            <button onClick={() => setFilterStatus('not-started')} className={`status-button not-started ${filterStatus === 'not-started' ? 'active' : ''}`}>
-                                <i className="fas fa-hourglass-start"></i> טרם החל
-                            </button>
-                            <button onClick={() => setFilterStatus('in-progress')} className={`status-button in-progress ${filterStatus === 'in-progress' ? 'active' : ''}`}>
-                                <i className="fas fa-spinner"></i> בטיפול
-                            </button>
-                            <button onClick={() => setFilterStatus('closed')} className={`status-button closed ${filterStatus === 'closed' ? 'active' : ''}`}>
-                                <i className="fas fa-check-circle"></i> נסגר
-                            </button>
-                            <button onClick={() => setFilterStatus('transferred-sw')} className={`status-button transferred-sw ${filterStatus === 'transferred-sw' ? 'active' : ''}`}>
-                                <i className="fas fa-user-friends"></i> הועבר לעו"ס
-                            </button>
-                            <button onClick={() => setFilterStatus('transferred-other')} className={`status-button transferred-other ${filterStatus === 'transferred-other' ? 'active' : ''}`}>
-                                <i className="fas fa-share-alt"></i> הועבר לגורם אחר
-                            </button>
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="חיפוש לפי שם, ת.ז., כתובת, טלפון..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-
                     {loadingAllSubmissions ? (
-                        <p style={{textAlign: 'center', marginTop: '20px', fontSize: '1.1em'}}>
-                            <i className="fas fa-spinner fa-spin"></i> טוען נתונים... אנא המתן.
-                        </p>
-                    ) : filteredSubmissions.length === 0 ? (
-                        <p style={{textAlign: 'center', marginTop: '20px', fontSize: '1.1em'}}>
-                            לא נמצאו נתונים התואמים לחיפוש/סינון הנוכחי.
-                        </p>
+                        <p>טוען את כל הנתונים...</p>
+                    ) : sortedSubmissions.length === 0 ? (
+                        <p>טרם נשמרו נתונים כלשהם.</p>
                     ) : (
                         <div className="admin-table-container">
                             <table className="admin-table">
                                 <thead>
                                     <tr>
                                         <th onClick={() => handleSort('timestamp')}>תאריך/שעה {getSortIcon('timestamp')}</th>
-                                        <th onClick={() => handleSort('identityId')}>מזהה הזדהות {getSortIcon('identityId')}</th>
+                                        {/* Removed "מזהה משתמש (UID)" */}
+                                        <th onClick={() => handleSort('identityId')}>מזהה הזדהות (מייל/UID) {getSortIcon('identityId')}</th>
                                         <th onClick={() => handleSort('firstName')}>שם מלא {getSortIcon('firstName')}</th>
-                                        <th onClick={() => handleSort('idNumber')}><i className="fas fa-id-card"></i> תעודת זהות {getSortIcon('idNumber')}</th>
+                                        <th onClick={() => handleSort('idNumber')}>תעודת זהות {getSortIcon('idNumber')}</th>
                                         <th onClick={() => handleSort('age')}>גיל {getSortIcon('age')}</th>
                                         <th onClick={() => handleSort('gender')}>מין {getSortIcon('gender')}</th>
                                         <th onClick={() => handleSort('phone')}>טלפון {getSortIcon('phone')}</th>
@@ -1459,24 +639,17 @@
                                         <th onClick={() => handleSort('disconnected')}>מנותקי קשר {getSortIcon('disconnected')}</th>
                                         <th onClick={() => handleSort('evacuationAssistance')}>סיוע בפינוי {getSortIcon('evacuationAssistance')}</th>
                                         <th>הערות ממלא הטופס</th>
-                                        <th style={{ width: '15%' }} onClick={() => handleSort('adminNotes')}>הערות מנהל {getSortIcon('adminNotes')}</th>
-                                        <th style={{ width: '10%' }} onClick={() => handleSort('status')}><i className="fas fa-info-circle"></i> סטטוס {getSortIcon('status')}</th>
-                                        <th style={{ width: '15%' }} onClick={() => handleSort('followUpNotes')}>המשך טיפול {getSortIcon('followUpNotes')}</th>
-                                        <th style={{ width: '10%' }} onClick={() => handleSort('transferredTo')}>הועבר לגורם {getSortIcon('transferredTo')}</th>
-                                        <th onClick={() => handleSort('lastUpdatedAdmin')}>עדכון מנהל אחרון {getSortIcon('lastUpdatedAdmin')}</th>
+                                        <th style={{ width: '20%' }}>הערות מנהל</th> {/* Increased width for admin notes */}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredSubmissions.map((item) => (
-                                        <tr key={item.id} className={statusColors[item.status || 'not-started']}>
+                                    {sortedSubmissions.map((item) => (
+                                        <tr key={item.id}>
                                             <td>{new Date(item.timestamp).toLocaleString('he-IL')}</td>
+                                            {/* Removed item.userId */}
                                             <td>{item.identityId || 'לא הוזן'}</td>
                                             <td>{item.firstName} {item.familyName}</td>
-                                            <td>
-                                                <a href="#" onClick={(e) => { e.preventDefault(); onSelectSubmission(item.id, item.userId); }} style={{color: '#3498db', textDecoration: 'underline'}}>
-                                                    {item.idNumber || 'לא הוזן'}
-                                                </a>
-                                            </td>
+                                            <td>{item.idNumber || 'לא הוזן'}</td>
                                             <td>{item.age}</td>
                                             <td>{item.gender === 'male' ? 'זכר' : (item.gender === 'female' ? 'נקבה' : '')}</td>
                                             <td>{item.phone}</td>
@@ -1492,19 +665,16 @@
                                                     className="admin-notes-textarea"
                                                     value={editingNote && editingNote.id === item.id ? editingNote.currentNote : (item.adminNotes || '')}
                                                     onChange={(e) => handleNoteChange(e, item.id)}
-                                                    onBlur={() => { // Save on blur if changed
-                                                        if (editingNote && editingNote.id === item.id && editingNote.currentNote !== editingNote.originalNote) {
-                                                            saveNote(item.id, editingNote.currentNote);
-                                                        }
-                                                    }}
                                                     placeholder="הזן הערה"
                                                 />
-                                                {/* Optionally, add a save button here if blur save is not preferred, or combine for explicit save */}
+                                                <button
+                                                    className="admin-notes-save-button"
+                                                    onClick={() => saveNote(item.id, editingNote.currentNote)}
+                                                    disabled={!editingNote || editingNote.id !== item.id || editingNote.currentNote === editingNote.originalNote}
+                                                >
+                                                    שמור
+                                                </button>
                                             </td>
-                                            <td>{statusMap[item.status] || 'טרם החל'}</td>
-                                            <td>{item.followUpNotes || 'אין'}</td>
-                                            <td>{item.transferredTo || 'אין'}</td>
-                                            <td>{item.lastUpdatedAdmin ? new Date(item.lastUpdatedAdmin).toLocaleString('he-IL') : 'אין'}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -1517,100 +687,33 @@
 
         // Main App Component for data.html
         function App() {
-            const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null,
-                docFirebaseGlobal: null, getDocFirebaseGlobal: null, updateDocFirebaseGlobal: null, 
-                collectionGroupFirebaseGlobal: null, queryFirebaseGlobal: null, onSnapshotGlobal: null, 
-                whereFirebaseGlobal: null, getDocsFirebaseGlobal: null, signInWithCustomTokenGlobal: null // ADDED: to track this global
-            });
+            const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
-            const [selectedSubmissionId, setSelectedSubmissionId] = useState(null); // New state to manage detail view
-            const [selectedSubmissionUserId, setSelectedSubmissionUserId] = useState(null); // New state to hold the user ID for selected submission
             const logoutTriggeredRef = useRef(false);
 
             useEffect(() => {
-                let cleanupFunction = null;
-                let pollInterval = null; 
-                let isInitializing = false; // Flag to prevent multiple concurrent initializations
+                if (!window.firebaseApp || !window.firebaseAuth || !window.firebaseDb) {
+                    console.error("Global Firebase instances are not available in data.html. Check initialization.");
+                    setIsAuthReady(true);
+                    return;
+                }
 
-                const initializeFirebaseAndAuth = async () => { 
-                    // Check if the core Firebase instances and essential Firestore functions are available globally
-                    if (window.firebaseApp && window.firebaseAuth && window.firebaseDb &&
-                        typeof window.docFirebaseGlobal !== 'undefined' &&
-                        typeof window.getDocFirebaseGlobal !== 'undefined' &&
-                        typeof window.updateDocFirebaseGlobal !== 'undefined' &&
-                        typeof window.collectionGroupFirebaseGlobal !== 'undefined' &&
-                        typeof window.queryFirebaseGlobal !== 'undefined' &&
-                        typeof window.onSnapshotGlobal !== 'undefined' &&
-                        typeof window.whereFirebaseGlobal !== 'undefined' &&
-                        typeof window.getDocsFirebaseGlobal !== 'undefined' &&
-                        typeof window.signInWithCustomTokenGlobal !== 'undefined' // ADDED: Ensure this is also available
-                    ) {
-                        
-                        // All globals are present, proceed with setting React state and auth listener
-                        setFirebaseInstances({
-                            app: window.firebaseApp,
-                            auth: window.firebaseAuth,
-                            db: window.firebaseDb,
-                            docFirebaseGlobal: window.docFirebaseGlobal,
-                            getDocFirebaseGlobal: window.getDocFirebaseGlobal,
-                            updateDocFirebaseGlobal: window.updateDocFirebaseGlobal,
-                            collectionGroupFirebaseGlobal: window.collectionGroupFirebaseGlobal,
-                            queryFirebaseGlobal: window.queryFirebaseGlobal,
-                            onSnapshotGlobal: window.onSnapshotGlobal,
-                            whereFirebaseGlobal: window.whereFirebaseGlobal,
-                            getDocsFirebaseGlobal: window.getDocsFirebaseGlobal,
-                            signInWithCustomTokenGlobal: window.signInWithCustomTokenGlobal // ADDED: Pass to state
-                        });
+                setFirebaseInstances({
+                    app: window.firebaseApp,
+                    auth: window.firebaseAuth,
+                    db: window.firebaseDb
+                });
 
-                        const auth = window.firebaseAuth;
-                        
-                        // ADDED: Attempt to sign in with custom token if available (for automatic login from Canvas environment)
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token !== null && auth) {
-                            try {
-                                console.log("Attempting to sign in with __initial_auth_token...");
-                                await window.signInWithCustomTokenGlobal(auth, __initial_auth_token);
-                                console.log("Signed in with custom token.");
-                            } catch (error) {
-                                console.error("Error signing in with custom token:", error);
-                                // Fallback to email/password login if custom token fails or is invalid
-                            }
-                        } else {
-                            console.log("__initial_auth_token not found or is null, or Firebase Auth not ready. Proceeding with standard auth checks.");
-                        }
-
-                        cleanupFunction = window.onAuthStateChangedGlobal(auth, (firebaseUser) => {
-                            setUserUid(firebaseUser);
-                            setIsAuthReady(true); // Firebase and Auth state are now truly ready
-                        });
-                        return true; // Indicate successful initialization
-                    } else {
-                        return false; // Indicate that initialization is not complete
-                    }
-                };
-
-                // Poll interval to wait for global Firebase instances to be ready
-                pollInterval = setInterval(async () => { 
-                    if (!isInitializing) {
-                        isInitializing = true;
-                        if (await initializeFirebaseAndAuth()) { // Await the async function call
-                            clearInterval(pollInterval);
-                        }
-                        isInitializing = false;
-                    }
-                }, 100);
-
-                // Cleanup interval and auth listener when component unmounts
-                return () => {
-                    clearInterval(pollInterval);
-                    if (cleanupFunction) {
-                        cleanupFunction();
-                    }
-                };
-            }, []); // Empty dependency array, runs once on mount
+                const auth = window.firebaseAuth;
+                const unsubscribe = window.onAuthStateChangedGlobal(auth, (firebaseUser) => {
+                    setUserUid(firebaseUser); // Store full user object directly if needed, or just UID
+                    setIsAuthReady(true);
+                });
+                return () => unsubscribe();
+            }, []);
 
             const handleLogin = async (uid, identity) => {
-                // After successful login, reload the page to ensure full state re-initialization
                 window.location.reload();
             };
 
@@ -1619,38 +722,23 @@
                     if (firebaseInstances.auth) {
                         logoutTriggeredRef.current = true;
                         await window.signOutFirebaseGlobal(firebaseInstances.auth);
-                        window.location.href = 'index.html'; // Redirect to main app after logout
+                        window.location.href = 'index.html';
                     }
                 } catch (error) {
                     console.error("שגיאה בהתנתקות מדף הנתונים:", error);
                 }
             };
 
-            const handleSelectSubmission = (submissionId, submissionUserId) => {
-                setSelectedSubmissionId(submissionId);
-                setSelectedSubmissionUserId(submissionUserId);
-            };
-
-            const handleCloseSubmissionDetail = () => {
-                setSelectedSubmissionId(null);
-                setSelectedSubmissionUserId(null);
-            };
-
-            // Display loading state until isAuthReady is true
             if (!isAuthReady) {
                 return (
                     <div className="container">
                         <h1>טוען דף נתונים...</h1>
                         <p>ממתין לאימות Firebase.</p>
-                        <p>אם המתנה ארוכה מדי, וודא שחבילות Firebase נטענו כראוי ושהגדרות הפרויקט נכונות. בדוק את קונסולת המפתחים (F12) לפרטים נוספים.</p>
                     </div>
                 );
             }
 
-            // After isAuthReady, check if core Firebase services are actually initialized
-            // This caters to a scenario where `onAuthStateChangedGlobal` might fire
-            // but `firebaseInstances.app` or `db` are still null due to earlier initialization failure.
-            if (!firebaseInstances.app || !firebaseInstances.auth || !firebaseInstances.db) {
+            if (!firebaseInstances.auth || !firebaseInstances.db) {
                  return (
                     <div className="container">
                         <h1>שגיאה באתחול Firebase!</h1>
@@ -1660,42 +748,16 @@
                 );
             }
 
-            // If not logged in, show login page
-            if (!userUid) { 
+            if (!userUid) { // Changed from !user to !userUid since setUserUid now stores the user object directly
                 return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={handleLogin} />;
             }
 
-            // If a submission is selected, render the detail view
-            if (selectedSubmissionId && selectedSubmissionUserId) {
-                return (
-                    <SubmissionDetailView
-                        db={firebaseInstances.db}
-                        docFirebaseGlobal={firebaseInstances.docFirebaseGlobal} // Use from state
-                        getDocFirebaseGlobal={firebaseInstances.getDocFirebaseGlobal} // Use from state
-                        updateDocFirebaseGlobal={firebaseInstances.updateDocFirebaseGlobal} // Use from state
-                        submissionId={selectedSubmissionId}
-                        userUid={selectedSubmissionUserId} 
-                        onClose={handleCloseSubmissionDetail}
-                    />
-                );
-            }
-
-            // Otherwise, render the admin table view
             return (
                 <AdminViewComponent
                     auth={firebaseInstances.auth}
                     db={firebaseInstances.db}
-                    userUid={userUid.uid}
+                    userUid={userUid.uid} // Pass the UID specifically
                     onLogout={handleLogout}
-                    onSelectSubmission={handleSelectSubmission}
-                    docFirebaseGlobal={firebaseInstances.docFirebaseGlobal} // Use from state
-                    getDocFirebaseGlobal={firebaseInstances.getDocFirebaseGlobal} // Use from state
-                    updateDocFirebaseGlobal={firebaseInstances.updateDocFirebaseGlobal} // Use from state
-                    collectionGroupFirebaseGlobal={firebaseInstances.collectionGroupFirebaseGlobal} // Use from state
-                    queryFirebaseGlobal={firebaseInstances.queryFirebaseGlobal} // Use from state
-                    onSnapshotGlobal={firebaseInstances.onSnapshotGlobal} // Use from state
-                    whereFirebaseGlobal={firebaseInstances.whereFirebaseGlobal} // Use from state
-                    getDocsFirebaseGlobal={firebaseInstances.getDocsFirebaseGlobal} // Use from state
                 />
             );
         }
