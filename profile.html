@@ -1,0 +1,750 @@
+<!DOCTYPE HTML>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>עדכון פרטי משתמש</title>
+    <!-- React Libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX compilation directly in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Firebase Libraries - Initialized here and exposed globally -->
+    <script type="module">
+        // Import Firebase functions (These must be standard ES module imports in this block)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+
+        // Global variables provided by the Canvas environment (do not modify these directly)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // --- חובה: הדבק כאן את אובייקט ה-firebaseConfig שלך מ-Firebase Console ---
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyA38-uZwniXXCCK954yjcICl56mwVXbHDk",
+            authDomain: "ateam-3cf3d.firebaseapp.com",
+            projectId: "ateam-3cf3d",
+            storageBucket: "ateam-3cf3d.firebasestorage.app",
+            messagingSenderId: "760383317284",
+            appId: "1:760383317284:web:a33ae7d2a89911b77f3fb1",
+            measurementId: "G-NCVXFH3R6X"
+        }; 
+
+        let firebaseConfig;
+        try {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config !== null && String(__firebase_config).trim() !== '') {
+                const parsedConfig = JSON.parse(__firebase_config);
+                if (Object.keys(parsedConfig).length > 0) {
+                    firebaseConfig = parsedConfig;
+                } else {
+                    firebaseConfig = myFirebaseConfig;
+                    console.warn("Environmental __firebase_config was empty after parsing. Falling back to hardcoded myFirebaseConfig.");
+                }
+            } else {
+                firebaseConfig = myFirebaseConfig;
+                console.log("Environmental __firebase_config not found or is empty. Using hardcoded myFirebaseConfig.");
+            }
+        } catch (e) {
+            console.error("Error parsing __firebase_config, falling back to hardcoded config:", e);
+            firebaseConfig = myFirebaseConfig;
+        }
+
+        // Initialize Firebase app and services
+        let app;
+        let auth;
+        let db;
+
+        try {
+            if (Object.keys(firebaseConfig).length === 0) {
+                console.error("Firebase config is empty. Cannot initialize Firebase.");
+            } else {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                console.log("Firebase initialized in global script for profile.html.");
+            }
+        } catch (error) {
+            console.error("Failed to initialize Firebase in global script for profile.html:", error);
+            app = null;
+            auth = null;
+            db = null;
+        }
+
+        // Expose Firebase instances and functions globally for React to access
+        window.firebaseApp = app;
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.globalAppId = appId; 
+
+        // Expose specific Firebase functions globally
+        window.onAuthStateChangedGlobal = onAuthStateChanged;
+        window.signOutFirebaseGlobal = signOut; 
+        window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
+        window.docFirebaseGlobal = doc;
+        window.getDocFirebaseGlobal = getDoc;
+        window.setDocFirebaseGlobal = setDoc;
+        window.updatePasswordGlobal = updatePassword; // For changing password
+        window.EmailAuthProviderGlobal = EmailAuthProvider; // For reauthentication
+        window.reauthenticateWithCredentialGlobal = reauthenticateWithCredential; // For reauthentication
+
+    </script>
+
+    <style>
+        /* הגדרות בסיסיות לגוף הדף */
+        body {
+            font-family: 'Inter', Arial, sans-serif; /* שימוש בפונט Inter */
+            background-color: #f0f2f5; /* צבע רקע עדין */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* גובה מינימלי של 100% מגובה המסך */
+            margin: 0;
+            padding: 5px; /* צמצום ריפוד כדי להתאים למסכים קטנים */
+            box-sizing: border-box; /* מבטיח שריפוד וגבולות לא יגדילו את הגודל הכולל של האלמנט */
+        }
+
+        /* מכל הטופס והלוגין */
+        .container {
+            background-color: #ffffff; /* רקע לבן */
+            padding: 20px; /* ריפוד מופחת מ-25px ל-20px */
+            border-radius: 8px; /* פינות מעוגלות קטנות יותר */
+            box-shadow: none; /* הסרת צל לכיוון עיצוב מינימליסטי ומהיר */
+            width: 100%;
+            max-width: 600px; /* רוחב מקסימלי מותאם לנייד */
+            box-sizing: border-box;
+            border: 1px solid #e0e0e0; /* גבול עדין */
+            text-align: right; /* יישור לימין לכל התוכן בתוך הקונטיינר */
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50; /* צבע כהה לכותרת */
+            margin-bottom: 20px; /* מרווח תחתון מופחת */
+            font-size: 1.6em; /* גודל פונט קטן יותר לכותרת */
+            font-weight: 700; /* עובי פונט מודגש */
+        }
+
+        .form-section {
+            margin-bottom: 15px; /* מרווח תחתון מופחת */
+            padding-bottom: 10px; /* ריפוד תחתון מופחת */
+            border-bottom: 1px dashed #cccccc; /* קו הפרדה מקווקו */
+        }
+
+        .form-section:last-of-type {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .form-grid {
+            display: grid;
+            gap: 10px; /* מרווח מופחת בין השדות */
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* התאמה אוטומטית של עמודות, קטן יותר לנייד */
+        }
+
+        .form-grid.two-columns {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* רוחב מינימלי מופחת לשתי עמודות */
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            text-align: right; /* יישור לימין עבור RTL */
+        }
+
+        label {
+            margin-bottom: 5px; /* מרווח תחתון מופחת */
+            color: #34495e; /* צבע כהה לתווית */
+            font-weight: 600; /* עובי פונט בינוני */
+            font-size: 0.95em; /* גודל פונט קטן יותר */
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="tel"], /* Added for phone numbers */
+        textarea,
+        select,
+        input[type="password"],
+        input[type="email"] { /* Added email input type */
+            width: 100%;
+            padding: 8px 10px; /* ריפוד מופחת */
+            border: 1px solid #dcdcdc; /* גבול עדין */
+            border-radius: 4px; /* פינות מעוגלות קטנות יותר */
+            box-sizing: border-box;
+            font-size: 0.95em; /* גודל פונט סטנדרטי */
+            color: #333;
+            transition: none; /* ביטול אנימציות */
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        input[type="tel"]:focus,
+        textarea:focus,
+        select:focus,
+        input[type="password"]:focus,
+        input[type="email"]:focus { /* Added email input type */
+            border-color: #3498db; /* צבע כחול בפוקוס */
+            outline: none; /* הסרת קו המתאר ברירת המחדל */
+            box-shadow: none; /* הסרת צל בפוקוס */
+        }
+
+        textarea {
+            resize: vertical; /* מאפשר שינוי גודל אנכי בלבד */
+            min-height: 60px; /* גובה מינימלי מופחת */
+        }
+
+        .radio-group {
+            display: flex;
+            flex-wrap: wrap; /* מאפשר מעבר שורה לפריטים */
+            gap: 10px; /* מרווח מופחת בין כפתורי הרדיו */
+            margin-top: 5px;
+            justify-content: flex-end; /* יישור לימין של כפתורי הרדיו */
+        }
+
+        .radio-group label {
+            margin-bottom: 0;
+            font-weight: normal; /* ביטול מודגש */
+            display: flex;
+            align-items: center;
+            cursor: pointer; /* סמן עכבר יד */
+            color: #444;
+            font-size: 0.9em; /* גודל פונט קטן יותר */
+        }
+
+        .radio-group input[type="radio"] {
+            margin-left: 6px; /* מרווח משמאל לכפתור עבור RTL */
+            width: auto;
+            transform: scale(1); /* ביטול הגדלה */
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 8px; /* מרווח מופחת בין כפתורים */
+            margin-top: 20px; /* מרווח עליון מופחת */
+        }
+
+        .action-button {
+            background-color: #4CAF50; /* ירוק רך יותר (השראת Material Design) */
+            color: white;
+            padding: 10px 20px; /* ריפוד מופחת */
+            border: none;
+            border-radius: 4px; /* פינות מעוגלות קטנות יותר */
+            font-size: 1em; /* גודל פונט סטנדרטי */
+            font-weight: 600; /* מודגש פחות */
+            cursor: pointer;
+            transition: none; /* ביטול אנימציות */
+            box-shadow: none; /* ביטול צל */
+        }
+
+        .action-button.secondary {
+            background-color: #2196F3; /* כחול רך יותר */
+        }
+
+        .action-button.danger {
+            background-color: #F44336; /* אדום רך יותר */
+        }
+
+        /* הסרת אפקטי hover ו-active מורכבים, שימוש בשקיפות בלבד */
+        .action-button:hover,
+        .action-button.secondary:hover,
+        .action-button.danger:hover {
+            opacity: 0.8; /* שינוי שקיפות עדין */
+        }
+        .action-button:active,
+        .action-button.secondary:active,
+        .action-button.danger:active {
+            opacity: 0.6; /* שינוי שקיפות בולט יותר בלחיצה */
+        }
+
+        .message-box {
+            background-color: #e0f2f7; /* רקע בהיר יותר להודעות */
+            color: #01579b; /* טקסט כחול כהה יותר */
+            padding: 10px; /* ריפוד מופחת */
+            border: 1px solid #b3e5fc; /* גבול בהיר יותר */
+            border-radius: 4px;
+            margin-top: 10px; /* מרווח עליון מופחת */
+            text-align: right;
+            font-size: 0.9em;
+            font-weight: normal; /* פחות מודגש */
+        }
+        .message-box.success {
+            background-color: #e8f5e9; /* ירוק בהיר יותר */
+            color: #2e7d32; /* ירוק כהה יותר */
+            border-color: #c8e6c9;
+        }
+        .message-box.danger { 
+            background-color: #ffebee; /* אדום בהיר יותר */
+            color: #c62828; /* אדום כהה יותר */
+            border-color: #ffcdd2;
+        }
+         .message-box.warning { /* New style for warning messages */
+            background-color: #fffde7; /* Light yellow */
+            color: #c0840c; /* Dark yellow/orange */
+            border-color: #ffe082;
+        }
+
+
+        .previous-submissions {
+            margin-top: 20px; /* מרווח עליון מופחת */
+            text-align: right;
+            border-top: 1px dashed #cccccc;
+            padding-top: 15px; /* ריפוד עליון מופחת */
+        }
+        .previous-submissions h2 {
+            color: #2c3e50;
+            font-size: 1.4em; /* גודל פונט קטן יותר */
+            margin-bottom: 10px; /* מרווח תחתון מופחת */
+        }
+        .submission-item {
+            background-color: #f5f5f5; /* רקע בהיר יותר */
+            border: 1px solid #e0e0e0;
+            border-radius: 6px; /* פינות מעוגלות קטנות יותר */
+            padding: 10px; /* ריפוד מופחת */
+            margin-bottom: 8px; /* מרווח תחתון מופחת */
+            text-align: right;
+            line-height: 1.4; /* מרווח שורות מופחת */
+            font-size: 0.85em; /* גודל פונט קטן יותר */
+        }
+        .submission-item strong {
+            color: #34495e;
+        }
+        .submission-item span {
+            display: block;
+            margin-bottom: 2px; /* מרווח תחתון מופחת */
+            font-size: 0.8em; /* גודל פונט קטן יותר */
+            color: #555;
+        }
+
+        /* רספונסיביות - התאמה למסכים קטנים (עד 768 פיקסלים) */
+        @media (max-width: 768px) {
+            .form-grid,
+            .form-grid.two-columns {
+                grid-template-columns: 1fr; /* כל השדות נערמים לעמודה אחת */
+            }
+            .container {
+                padding: 10px; /* ריפוד מינימלי למסכים קטנים */
+                margin: 0; /* ללא מרווחים צדדיים */
+                border-radius: 0; /* ללא פינות מעוגלות למסכים קטנים מאוד */
+                box-shadow: none; /* ללא צל */
+            }
+            h1 {
+                font-size: 1.4em; /* הקטנה נוספת של כותרת */
+                margin-bottom: 15px;
+            }
+            label {
+                font-size: 0.85em;
+            }
+            input[type="text"],
+            input[type="number"],
+            input[type="tel"],
+            textarea,
+            select,
+            input[type="password"],
+            input[type="email"] {
+                padding: 6px 8px; /* ריפוד מינימלי ביותר בשדות קלט */
+                font-size: 0.85em;
+            }
+            textarea {
+                min-height: 50px; /* הקטנה נוספת של גובה שדה טקסט */
+            }
+            .form-section {
+                margin-bottom: 10px;
+                padding-bottom: 8px;
+            }
+            .action-button {
+                padding: 8px 15px;
+                font-size: 0.9em;
+            }
+            .previous-submissions h2 {
+                font-size: 1.1em;
+            }
+            .submission-item {
+                padding: 8px;
+                font-size: 0.8em;
+            }
+        }
+
+        /* רספונסיביות - התאמה למסכים קטנים מאוד (עד 480 פיקסלים) */
+        @media (max-width: 480px) {
+            body {
+                padding: 0; /* הסרת כל הריפוד מגוף הדף */
+            }
+            .container {
+                padding: 8px; /* ריפוד מינימלי ביותר לקונטיינר */
+                border: none; /* ללא גבול */
+            }
+            h1 {
+                font-size: 1.3em;
+            }
+            .radio-group {
+                flex-direction: column;
+                gap: 4px;
+                align-items: flex-end; /* יישור לימין לתוויות של כפתורי הרדיו */
+            }
+            .radio-group label {
+                width: 100%; /* רוחב מלא לתוויות כפתורי רדיו ללחיצה קלה */
+            }
+            .action-button {
+                font-size: 0.8em;
+                padding: 5px 10px;
+            }
+             .previous-submissions {
+                padding-top: 10px;
+            }
+             .submission-item {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Component for the Login Page (reused for profile.html if not authenticated)
+        function LoginPage({ auth, onLoginSuccess }) {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [message, setMessage] = useState('');
+            const [loading, setLoading] = useState(false);
+            
+            const handleLogin = async () => {
+                setMessage('');
+                setLoading(true);
+                try {
+                    if (!auth) {
+                        setMessage('שגיאה: שירותי Firebase Auth אינם זמינים. אנא וודא את הגדרות Firebase.');
+                        setLoading(false);
+                        return;
+                    }
+                    const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password); 
+                    setMessage('התחברות הצליחה! נא המתן...');
+                    onLoginSuccess(userCredential.user);
+                } catch (error) {
+                    console.error("Login error:", error);
+                    let errorMessage = 'שגיאה בהתחברות. וודא מייל וסיסמה.';
+                    if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+                        errorMessage = 'מייל או סיסמה שגויים.';
+                    } else if (error.code === 'auth/invalid-email') {
+                        errorMessage = 'פורמט מייל לא תקין.';
+                    } else if (error.code === 'auth/user-disabled') {
+                        errorMessage = 'המשתמש הושבת. פנה למנהל המערכת.';
+                    }
+                    setMessage(errorMessage);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <h1>הזדהות</h1>
+                    {message && (
+                        <div className={`message-box ${message.includes('הצליחה') ? 'success' : ''}`}>
+                            {message}
+                        </div>
+                    )}
+                    <div className="form-group">
+                        <label htmlFor="email">מייל:</label>
+                        <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="הזן מייל" required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="password">סיסמה:</label>
+                        <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="הזן סיסמה" required />
+                    </div>
+                    <div className="button-container">
+                        <button className="action-button secondary" onClick={handleLogin} disabled={loading}>
+                            {loading ? 'מתחבר...' : 'התחבר'}
+                        </button>
+                    </div>
+                    <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
+                        <strong style={{color: '#d9534f'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
+                    </p>
+                </div>
+            );
+        }
+
+        // Component for Profile Management
+        function ProfilePage({ auth, db, user, onLogout }) {
+            const [firstName, setFirstName] = useState('');
+            const [familyName, setFamilyName] = useState('');
+            const [address, setAddress] = useState('');
+            const [phoneNumber, setPhoneNumber] = useState('');
+            const [oldPassword, setOldPassword] = useState('');
+            const [newPassword, setNewPassword] = useState('');
+            const [confirmNewPassword, setConfirmNewPassword] = useState('');
+            const [message, setMessage] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            useEffect(() => {
+                const fetchProfile = async () => {
+                    if (!db || !user) return;
+                    setLoading(true);
+                    try {
+                        const profileRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${user.uid}/profile`, 'details');
+                        const profileSnap = await window.getDocFirebaseGlobal(profileRef);
+                        if (profileSnap.exists()) {
+                            const data = profileSnap.data();
+                            setFirstName(data.firstName || '');
+                            setFamilyName(data.familyName || '');
+                            setAddress(data.address || '');
+                            setPhoneNumber(data.phoneNumber || '');
+                            // Email is not directly updated via profile doc as it's a Firebase Auth property
+                            // user.email will reflect the current email
+                        }
+                    } catch (error) {
+                        console.error("Error fetching profile:", error);
+                        setMessage(`שגיאה בטעינת הפרטים: ${error.message}.`);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                fetchProfile();
+            }, [db, user]);
+
+            const handleUpdateProfile = async (e) => {
+                e.preventDefault();
+                setMessage('');
+                setLoading(true);
+                if (!db || !user) {
+                    setMessage('שגיאה: Firebase Db או משתמש אינם זמינים.');
+                    setLoading(false);
+                    return;
+                }
+                if (!firstName || !familyName) {
+                    setMessage('שם פרטי ושם משפחה הם שדות חובה.');
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    const profileRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${user.uid}/profile`, 'details');
+                    await window.setDocFirebaseGlobal(profileRef, {
+                        firstName,
+                        familyName,
+                        address,
+                        phoneNumber,
+                        updatedAt: Date.now()
+                    }, { merge: true });
+                    setMessage('הפרטים עודכנו בהצלחה!');
+                } catch (error) {
+                    console.error("Error updating profile:", error);
+                    setMessage(`שגיאה בעדכון הפרטים: ${error.message}.`);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleChangePassword = async (e) => {
+                e.preventDefault();
+                setMessage('');
+                setLoading(true);
+
+                if (!oldPassword || !newPassword || !confirmNewPassword) {
+                    setMessage('אנא מלא את כל השדות לשינוי סיסמה.');
+                    setLoading(false);
+                    return;
+                }
+                if (newPassword !== confirmNewPassword) {
+                    setMessage('הסיסמה החדשה ואימות הסיסמה אינם תואמים.');
+                    setLoading(false);
+                    return;
+                }
+                if (newPassword.length < 6) {
+                    setMessage('הסיסמה החדשה חייבת להיות לפחות 6 תווים.');
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    const credential = window.EmailAuthProviderGlobal.credential(user.email, oldPassword);
+                    await window.reauthenticateWithCredentialGlobal(user, credential);
+                    await window.updatePasswordGlobal(user, newPassword);
+                    setMessage('הסיסמה עודכנה בהצלחה!');
+                    setOldPassword('');
+                    setNewPassword('');
+                    setConfirmNewPassword('');
+                } catch (error) {
+                    console.error("Error changing password:", error);
+                    let errorMessage = `שגיאה בשינוי סיסמה: ${error.message}.`;
+                    if (error.code === 'auth/wrong-password') {
+                        errorMessage = 'הסיסמה הנוכחית שהוזנה שגויה.';
+                    } else if (error.code === 'auth/requires-recent-login') {
+                        errorMessage = 'למען אבטחת חשבונך, יש להתחבר מחדש לפני שינוי סיסמה. אנא התנתק והתחבר שוב.';
+                    }
+                    setMessage(errorMessage);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+                        <h1>עדכון פרטים אישיים</h1>
+                        <a href="index.html" className="action-button secondary" style={{padding: '10px 20px', fontSize: '0.9em', textDecoration: 'none'}}>
+                            חזור ללוח בקרה
+                        </a>
+                    </div>
+
+                    {message && (
+                        <div className={`message-box ${message.includes('הצלחה') ? 'success' : 'danger'}`}>
+                            {message}
+                        </div>
+                    )}
+
+                    <form onSubmit={handleUpdateProfile}>
+                        <div className="form-section">
+                            <div className="form-grid two-columns">
+                                <div className="form-group">
+                                    <label htmlFor="profileFirstName">שם פרטי:</label>
+                                    <input type="text" id="profileFirstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required placeholder="הזן שם פרטי" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="profileFamilyName">שם משפחה:</label>
+                                    <input type="text" id="profileFamilyName" value={familyName} onChange={(e) => setFamilyName(e.target.value)} required placeholder="הזן שם משפחה" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="profileAddress">כתובת מגורים:</label>
+                                    <input type="text" id="profileAddress" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="רחוב, מספר, עיר" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="profileEmail">אימייל (לא ניתן לשינוי ישיר כאן):</label>
+                                    <input type="email" id="profileEmail" value={user?.email || ''} readOnly disabled placeholder="אימייל משויך למשתמש" />
+                                    <p style={{fontSize: '0.8em', color: '#888', marginTop: '5px', textAlign: 'right'}}>
+                                        לשינוי אימייל, יש לפנות למנהל המערכת או להתחבר מחדש עם אימייל אחר.
+                                    </p>
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="profilePhoneNumber">מספר טלפון:</label>
+                                    <input type="tel" id="profilePhoneNumber" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} pattern="[0-9]{9,10}" title="יש להזין 9 או 10 ספרות" placeholder="דוגמה: 05X-XXXXXXX" inputMode="numeric" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="button-container">
+                            <button type="submit" className="action-button" disabled={loading}>
+                                {loading ? 'שומר שינויים...' : 'שמור שינויים'}
+                            </button>
+                        </div>
+                    </form>
+
+                    <h2 style={{textAlign: 'center', marginTop: '40px', marginBottom: '20px', color: '#2c3e50', fontSize: '1.4em'}}>שינוי סיסמה</h2>
+                    <form onSubmit={handleChangePassword}>
+                        <div className="form-section">
+                            <div className="form-grid two-columns">
+                                <div className="form-group">
+                                    <label htmlFor="oldPassword">סיסמה נוכחית:</label>
+                                    <input type="password" id="oldPassword" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} required placeholder="הזן סיסמה נוכחית" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="newPassword">סיסמה חדשה (מינימום 6 תווים):</label>
+                                    <input type="password" id="newPassword" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required placeholder="הזן סיסמה חדשה" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="confirmNewPassword">אימות סיסמה חדשה:</label>
+                                    <input type="password" id="confirmNewPassword" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} required placeholder="אמת סיסמה חדשה" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="button-container">
+                            <button type="submit" className="action-button danger" disabled={loading}>
+                                {loading ? 'משנה סיסמה...' : 'שנה סיסמה'}
+                            </button>
+                        </div>
+                    </form>
+
+                    <div className="button-container" style={{marginTop: '30px'}}>
+                        <button onClick={onLogout} className="action-button danger">
+                            התנתק
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Main App Component for profile.html
+        function App() {
+            const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
+            const [isAuthReady, setIsAuthReady] = useState(false);
+            const [user, setUser] = useState(null); // Store full user object
+            const logoutTriggeredRef = useRef(false);
+
+            useEffect(() => {
+                if (!window.firebaseApp || !window.firebaseAuth || !window.firebaseDb) {
+                    console.error("Global Firebase instances are not available in profile.html. Check initialization.");
+                    setIsAuthReady(true);
+                    return;
+                }
+
+                setFirebaseInstances({
+                    app: window.firebaseApp,
+                    auth: window.firebaseAuth,
+                    db: window.firebaseDb
+                });
+
+                const auth = window.firebaseAuth;
+                const unsubscribe = window.onAuthStateChangedGlobal(auth, (firebaseUser) => {
+                    setUser(firebaseUser);
+                    setIsAuthReady(true);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            const handleLogin = (loggedInUser) => {
+                setUser(loggedInUser);
+                // On login success, the onAuthStateChanged listener will handle the view update
+            };
+
+            const handleLogout = async () => {
+                try {
+                    if (firebaseInstances.auth) {
+                        logoutTriggeredRef.current = true;
+                        await window.signOutFirebaseGlobal(firebaseInstances.auth);
+                        window.location.href = 'index.html'; // Redirect to main app after logout
+                    }
+                } catch (error) {
+                    console.error("שגיאה בהתנתקות מדף הפרופיל:", error);
+                }
+            };
+
+            if (!isAuthReady) {
+                return (
+                    <div className="container">
+                        <h1>טוען דף פרופיל...</h1>
+                        <p>ממתין לאימות Firebase.</p>
+                    </div>
+                );
+            }
+
+            if (!firebaseInstances.auth || !firebaseInstances.db) {
+                 return (
+                    <div className="container">
+                        <h1>שגיאה באתחול Firebase!</h1>
+                        <p>לא ניתן להתחבר ל-Firebase. אנא וודא שקובץ `firebaseConfig` שלך מוגדר כראוי בפרויקט Firebase שלך ושהדומיין הנוכחי מורשה (Authentication -> Settings -> Authorized domains).</p>
+                        <p>פרטים נוספים יכולים להימצא בקונסולת המפתחים של הדפדפן (F12).</p>
+                    </div>
+                );
+            }
+
+            if (!user) {
+                return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={handleLogin} />;
+            }
+
+            return (
+                <ProfilePage
+                    auth={firebaseInstances.auth}
+                    db={firebaseInstances.db}
+                    user={user}
+                    onLogout={handleLogout}
+                />
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
