@@ -14,8 +14,8 @@
     <script type="module">
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"; // Removed Google-specific imports
-        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, where, getDocs, collectionGroup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
         // Global variables provided by the Canvas environment (do not modify these directly)
@@ -83,10 +83,15 @@
         // Expose specific Firebase functions globally with distinct names
         window.onAuthStateChangedGlobal = onAuthStateChanged;
         window.signOutFirebaseGlobal = signOut; 
-        window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword; // Added
+        window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
         window.collectionFirebaseGlobal = collection; 
         window.addDocFirebaseGlobal = addDoc; 
         window.onSnapshotFirebaseGlobal = onSnapshot; 
+        window.queryFirebaseGlobal = query; // Exposed for duplicate check
+        window.whereFirebaseGlobal = where; // Exposed for duplicate check
+        window.getDocsFirebaseGlobal = getDocs; // Exposed for duplicate check
+        window.collectionGroupFirebaseGlobal = collectionGroup; // Exposed for duplicate check
+
 
     </script>
 
@@ -276,6 +281,12 @@
             color: #c62828; /* אדום כהה יותר */
             border-color: #ffcdd2;
         }
+         .message-box.warning { /* New style for warning messages */
+            background-color: #fffde7; /* Light yellow */
+            color: #c0840c; /* Dark yellow/orange */
+            border-color: #ffe082;
+        }
+
 
         .previous-submissions {
             margin-top: 20px; /* מרווח עליון מופחת */
@@ -512,6 +523,10 @@
             const [message, setMessage] = useState('');
             const [previousSubmissions, setPreviousSubmissions] = useState([]);
             const [loadingSubmissions, setLoadingSubmissions] = useState(true);
+            const [duplicateFound, setDuplicateFound] = useState(false); // New state for duplicate check
+            const [existingSubmissionInfo, setExistingSubmissionInfo] = useState(null); // New state for existing submission info
+            const [checkingDuplicate, setCheckingDuplicate] = useState(false); // New state for loading indicator
+
 
             // Function to reset form fields
             const resetForm = () => {
@@ -520,6 +535,9 @@
                     phone: '', address: '', residents: '', physicalInjury: '',
                     casualties: '', disconnected: '', evacuationAssistance: '', notes: '',
                 });
+                setDuplicateFound(false); // Reset duplicate status
+                setExistingSubmissionInfo(null); // Clear existing submission info
+                setMessage(''); // Clear any messages
             };
 
             // Load previous submissions when component mounts or userId changes
@@ -555,6 +573,74 @@
                 return () => unsubscribe();
             }, [userId, db]); // Re-run when userId or db changes
 
+            // New useEffect to check for duplicate ID numbers
+            useEffect(() => {
+                const checkDuplicateId = async () => {
+                    const idNumber = formData.idNumber.trim();
+                    if (!idNumber || idNumber.length !== 9) { // Only check if ID is 9 digits
+                        setDuplicateFound(false);
+                        setExistingSubmissionInfo(null);
+                        setMessage('');
+                        return;
+                    }
+
+                    setCheckingDuplicate(true);
+                    setDuplicateFound(false);
+                    setExistingSubmissionInfo(null);
+                    setMessage(''); // Clear previous messages to make way for warning
+
+                    try {
+                        // Query all 'formData' collections across all users for the given idNumber
+                        const q = window.queryFirebaseGlobal(
+                            window.collectionGroupFirebaseGlobal(db, 'formData'),
+                            window.whereFirebaseGlobal('idNumber', '==', idNumber)
+                        );
+                        const querySnapshot = await window.getDocsFirebaseGlobal(q);
+
+                        if (!querySnapshot.empty) {
+                            const existingDoc = querySnapshot.docs[0]; // Take the first one found
+                            const data = existingDoc.data();
+                            setDuplicateFound(true);
+                            setExistingSubmissionInfo({
+                                id: existingDoc.id,
+                                identity: data.identityId || data.userId, // Prefer email/displayName if available
+                                timestamp: data.timestamp
+                            });
+                            setMessage(''); // Clear general messages if duplicate found, specific warning will be rendered below
+                        } else {
+                            setDuplicateFound(false);
+                            setExistingSubmissionInfo(null);
+                            setMessage('');
+                        }
+                    } catch (error) {
+                        console.error("Error checking for duplicate ID:", error);
+                        setMessage('שגיאה בבדיקת כפילות תעודת זהות: ' + error.message);
+                        setDuplicateFound(false);
+                        setExistingSubmissionInfo(null);
+                    } finally {
+                        setCheckingDuplicate(false);
+                    }
+                };
+
+                // Only run if db is available and idNumber has changed meaningfully (and is 9 digits)
+                if (db && formData.idNumber.trim().length === 9) {
+                    const handler = setTimeout(() => { // Debounce the check to avoid too many Firestore reads
+                        checkDuplicateId();
+                    }, 500); // Wait 500ms after last keystroke
+
+                    return () => clearTimeout(handler); // Cleanup timeout on unmount or idNumber change
+                } else {
+                    // Clear duplicate status if idNumber is empty or not 9 digits
+                    setDuplicateFound(false);
+                    setExistingSubmissionInfo(null);
+                    // Only clear message if it's NOT a submission success/failure message
+                    if (!message.includes('הנתונים נשמרו בהצלחה') && !message.includes('שגיאה בשמירת הנתונים')) {
+                         setMessage('');
+                    }
+                }
+            }, [formData.idNumber, db]); // Re-run when idNumber or db changes
+
+
             const handleChange = (e) => {
                 const { name, value, type, checked } = e.target;
                 if (type === 'radio') {
@@ -573,6 +659,16 @@
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 setMessage('');
+
+                if (duplicateFound) {
+                    setMessage('לא ניתן לשלוח - טופס עבור תעודת זהות זו כבר מולא.');
+                    return;
+                }
+                
+                if (checkingDuplicate) { // Prevent submission if check is still in progress
+                    setMessage('המערכת עדיין בודקת כפילות תעודת זהות. נא המתן.');
+                    return;
+                }
 
                 if (!db || !userId) {
                     setMessage('שגיאה: Firebase Db אינו מאותחל או שאין מזהה משתמש. אנא התחבר מחדש.');
@@ -634,12 +730,19 @@
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="idNumber">תעודת זהות:</label>
-                                    {/* Changed type to text and added inputmode="numeric" for mobile numeric keyboard hint */}
                                     <input type="text" id="idNumber" name="idNumber" value={formData.idNumber} onChange={handleChange} pattern="\d{9}" title="יש להזין 9 ספרות" required placeholder="דוגמה: 123456789" inputMode="numeric" />
                                 </div>
+                                {/* Display duplicate ID message directly under ID field */}
+                                {checkingDuplicate && <div className="message-box warning">בודק כפילות תעודת זהות...</div>}
+                                {duplicateFound && existingSubmissionInfo && (
+                                    <div className="message-box warning">
+                                        <strong>אזהרה:</strong> טופס עבור תעודת זהות <strong>{formData.idNumber}</strong> כבר מולא.
+                                        מולא על ידי: <strong>{existingSubmissionInfo.identity}</strong>, בתאריך: <strong>{new Date(existingSubmissionInfo.timestamp).toLocaleString('he-IL')}</strong>.
+                                        <br />לא ניתן לשלוח טופס נוסף עבור תעודת זהות זו.
+                                    </div>
+                                )}
                                 <div className="form-group">
                                     <label htmlFor="age">גיל:</label>
-                                    {/* Ensured type is number for numeric keyboard */}
                                     <input type="number" id="age" name="age" value={formData.age} onChange={handleChange} min="0" max="120" placeholder="הזן גיל" />
                                 </div>
                                 <div className="form-group">
@@ -652,7 +755,6 @@
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="phone">טלפון:</label>
-                                    {/* Changed type to tel and added inputmode="numeric" for phone keyboard hint */}
                                     <input type="tel" id="phone" name="phone" value={formData.phone} onChange={handleChange} pattern="[0-9]{9,10}" title="יש להזין 9 או 10 ספרות" placeholder="דוגמה: 05X-XXXXXXX" inputMode="numeric" />
                                 </div>
                                 <div className="form-group">
@@ -661,7 +763,6 @@
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="residents">מספר שוהים בדירה:</label>
-                                    {/* Ensured type is number for numeric keyboard */}
                                     <input type="number" id="residents" name="residents" value={formData.residents} onChange={handleChange} min="1" placeholder="כמה נפשות בדירה?" />
                                 </div>
                             </div>
@@ -696,7 +797,7 @@
                                 <div className="form-group">
                                     <label>זקוק לסיוע בפינוי:</label>
                                     <div className="radio-group">
-                                        <label><input type="radio" name="evacuationAssistance" value="no" checked={formData.evacuationAssistance === 'no'} onChange={handleChange} /> לא</label>
+                                        <label><input type="radio" name="evacuationAssistance" value="no" checked={formData.evacuationAssacuationAssistance === 'no'} onChange={handleChange} /> לא</label>
                                         <label><input type="radio" name="evacuationAssistance" value="yes" checked={formData.evacuationAssistance === 'yes'} onChange={handleChange} /> כן</label>
                                     </div>
                                 </div>
@@ -708,13 +809,15 @@
                         </div>
 
                         {/* כפתור שליחה */}
-                        {message && (
-                            <div className={`message-box ${message.includes('הצלחה') ? 'success' : ''}`}>
+                        {message && !duplicateFound && ( /* Only show general message if no duplicate warning */
+                            <div className={`message-box ${message.includes('הצלחה') ? 'success' : 'danger'}`}>
                                 {message}
                             </div>
                         )}
                         <div className="button-container">
-                            <button type="submit" className="action-button">שלח</button>
+                            <button type="submit" className="action-button" disabled={duplicateFound || checkingDuplicate}>
+                                {checkingDuplicate ? 'בודק...' : duplicateFound ? 'כבר מולא' : 'שלח'}
+                            </button>
                         </div>
                     </form>
 
@@ -731,7 +834,7 @@
                                     <span><strong>תאריך/שעה:</strong> {new Date(item.timestamp).toLocaleString('he-IL')}</span>
                                     <span><strong>מזהה הזדהות:</strong> {item.identityId || 'לא הוזן'}</span>
                                     <span><strong>שם:</strong> {item.firstName} {item.familyName}</span>
-                                    <span><strong>תעודת זהות:</strong> {item.idNumber || 'לא הוזן'}</span> {/* Added ID Number */}
+                                    <span><strong>תעודת זהות:</strong> {item.idNumber || 'לא הוזן'}</span>
                                     <span><strong>גיל:</strong> {item.age}, <strong>מין:</strong> {item.gender}</span>
                                     <span><strong>טלפון:</strong> {item.phone}</span>
                                     <span><strong>כתובת:</strong> {item.address}</span>
@@ -755,19 +858,17 @@
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
             const [enteredIdentityId, setEnteredIdentityId] = useState(null);
-            const [isAdminUser, setIsAdminUser] = useState(false); // New state for admin status
-            const [currentView, setCurrentView] = useState('login'); // 'login', 'dashboard', 'form'
+            const [isAdminUser, setIsAdminUser] = useState(false);
+            const [currentView, setCurrentView] = useState('login');
             const logoutTriggeredRef = useRef(false);
 
             useEffect(() => {
-                // Initialize Firebase only once and ensure global instances are available
                 if (!window.firebaseApp || !window.firebaseAuth || !window.firebaseDb) {
                     console.error("Global Firebase instances are not available. Please check the initial script tag for Firebase initialization errors.");
-                    setIsAuthReady(true); // Mark ready to display error
+                    setIsAuthReady(true);
                     return;
                 }
 
-                // If already initialized in the global script, use those instances
                 setFirebaseInstances({
                     app: window.firebaseApp,
                     auth: window.firebaseAuth,
@@ -775,68 +876,64 @@
                 });
 
                 const auth = window.firebaseAuth;
-                // Set up auth state listener
-                const unsubscribe = window.onAuthStateChangedGlobal(auth, async (user) => { // Use global onAuthStateChangedGlobal
+                const unsubscribe = window.onAuthStateChangedGlobal(auth, async (user) => {
                     if (user) {
                         setUserUid(user.uid);
-                        let newIdentityId = user.email; // Changed to prioritize email for identity
+                        let newIdentityId = user.email;
                         if (!newIdentityId && user.phoneNumber) {
                             newIdentityId = user.phoneNumber;
                         } else if (!newIdentityId && user.displayName) {
                             newIdentityId = user.displayName;
-                        } else if (!newIdentityId) { // Fallback to UID if no other identity is available
+                        } else if (!newIdentityId) {
                             newIdentityId = user.uid;
                         }
                         setEnteredIdentityId(newIdentityId);
                         logoutTriggeredRef.current = false;
 
-                        // Fetch latest ID token and claims to check admin status
                         try {
-                            const idTokenResult = await user.getIdTokenResult(true); // true to force refresh
-                            setIsAdminUser(idTokenResult.claims.admin === true); // Set admin status
+                            const idTokenResult = await user.getIdTokenResult(true);
+                            setIsAdminUser(idTokenResult.claims.admin === true);
                             console.log("User claims:", idTokenResult.claims);
                         } catch (error) {
                             console.error("Error fetching ID token result:", error);
-                            setIsAdminUser(false); // Default to not admin on error
+                            setIsAdminUser(false);
                         }
                         
-                        setCurrentView('dashboard'); // Go to dashboard on successful login
-                        setIsAuthReady(true); // Now we have all auth and admin status
+                        setCurrentView('dashboard');
+                        setIsAuthReady(true);
                         console.log("User signed in:", user.uid, "Identity:", newIdentityId, "Is Admin:", isAdminUser);
                     } else {
                         setUserUid(null);
                         setEnteredIdentityId(null);
-                        setIsAdminUser(false); // Reset admin status on logout
+                        setIsAdminUser(false);
                         setIsAuthReady(true);
-                        setCurrentView('login'); // Go to login on logout/no user
+                        setCurrentView('login');
                         console.log("User signed out or no user. Auth state processed.");
                     }
                 });
-                return () => unsubscribe(); // Cleanup listener on unmount
-            }, []); // Empty dependency array: run once on mount for initialization
+                return () => unsubscribe();
+            }, []);
 
             const handleLoginSuccess = (uid, id) => {
                 setUserUid(uid);
                 setEnteredIdentityId(id);
                 logoutTriggeredRef.current = false;
-                // Admin status will be set by the onAuthStateChanged listener after login
-                // No need to manually set currentView here, onAuthStateChanged will handle it.
             };
 
             const handleLogout = async () => {
                 try {
                     if (firebaseInstances.auth) {
                         logoutTriggeredRef.current = true;
-                        await window.signOutFirebaseGlobal(firebaseInstances.auth); // Use global signOutFirebaseGlobal
+                        await window.signOutFirebaseGlobal(firebaseInstances.auth);
                     } else {
                         console.warn("Firebase Auth is not available for logout.");
                         setUserUid(null);
                         setEnteredIdentityId(null);
-                        setIsAdminUser(false); // Ensure admin status is reset
+                        setIsAdminUser(false);
                         logoutTriggeredRef.current = true;
-                        setCurrentView('login'); // Force login view if Firebase auth is somehow unavailable
+                        setCurrentView('login');
                     }
-                } catch (error) { // Corrected: Added the missing catch block
+                } catch (error) {
                     console.error("שגיאה בהתנתקות:", error);
                 }
             };
@@ -845,7 +942,6 @@
             const goToDashboard = () => setCurrentView('dashboard');
 
 
-            // Display loading or error message
             if (!isAuthReady) {
                 return (
                     <div className="container">
@@ -866,7 +962,6 @@
                 );
             }
 
-            // Render components based on currentView state
             switch (currentView) {
                 case 'login':
                     return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={handleLoginSuccess} />;
@@ -877,7 +972,7 @@
                             identityId={enteredIdentityId}
                             onGoToForm={goToForm}
                             onLogout={handleLogout}
-                            isAdminUser={isAdminUser} // Pass isAdminUser to MainDashboard
+                            isAdminUser={isAdminUser}
                         />
                     );
                 case 'form':
@@ -891,7 +986,7 @@
                             onGoToDashboard={goToDashboard}
                         />
                     );
-                default: // Should not happen, but for safety
+                default:
                     return (
                         <div className="container">
                             <h1>שגיאה: תצוגה לא ידועה</h1>
@@ -902,7 +997,6 @@
             }
         }
 
-        // Render the App component into the 'root' div
         const container = document.getElementById('root');
         const root = ReactDOM.createRoot(container);
         root.render(<App />);
