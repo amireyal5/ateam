@@ -18,46 +18,71 @@
 
         // Global variables provided by the Canvas environment (do not modify these directly)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        // Fix: Use __firebase_config directly for parsing
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        // Fix: Correctly refer to __initial_auth_token on the right side
+        // FIX: Correctly refer to __initial_auth_token on the right side
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        // Initialize Firebase app and services
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        let app;
+        let auth;
+        let db;
 
-        // Make Firebase instances and global variables available to React components
-        // This is done for simplicity in a single-file demo; in a larger app, use React Context.
-        window.firebaseApp = app;
-        window.firebaseDb = db;
-        window.firebaseAuth = auth;
-        window.appId = appId;
-        window.initialAuthToken = initialAuthToken;
-        window.GoogleAuthProvider = GoogleAuthProvider; // Make GoogleAuthProvider available globally
-        window.signInWithPopup = signInWithPopup;       // Make signInWithPopup available globally
-        window.signOut = signOut;                       // Make signOut available globally
-        window.collection = collection;                 // Make collection available globally (FIX for ReferenceError)
-        window.onSnapshot = onSnapshot;                 // Make onSnapshot available globally (FIX for ReferenceError)
-        window.signInWithPhoneNumber = signInWithPhoneNumber; // Make signInWithPhoneNumber available globally
-        window.RecaptchaVerifier = RecaptchaVerifier;       // Make RecaptchaVerifier available globally
+        try {
+            // Check if firebaseConfig is valid
+            if (Object.keys(firebaseConfig).length === 0) {
+                console.error("Firebase config is empty. Please ensure __firebase_config is defined.");
+                // We'll proceed with null values for app, auth, db to avoid further errors.
+            } else {
+                // Initialize Firebase app and services
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
 
-        // Handle initial authentication state:
-        // If a custom token is provided by the environment, try to sign in with it.
-        // Otherwise, sign in anonymously (for basic functionality and user ID).
-        onAuthStateChanged(auth, (user) => {
-            if (!user && initialAuthToken) {
-                signInWithCustomToken(auth, initialAuthToken).catch((error) => {
-                    console.error("Error signing in with custom token:", error);
-                    // Fallback to anonymous if custom token fails
-                    signInAnonymously(auth).catch(e => console.error("Error signing in anonymously as fallback:", e));
+                // Make Firebase instances and global variables available to React components
+                window.firebaseApp = app;
+                window.firebaseDb = db;
+                window.firebaseAuth = auth;
+                window.appId = appId;
+                window.initialAuthToken = initialAuthToken;
+                window.GoogleAuthProvider = GoogleAuthProvider; // Make GoogleAuthProvider available globally
+                window.signInWithPopup = signInWithPopup;       // Make signInWithPopup available globally
+                window.signOut = signOut;                       // Make signOut available globally
+                window.collection = collection;                 // Make collection available globally
+                window.onSnapshot = onSnapshot;                 // Make onSnapshot available globally
+                window.signInWithPhoneNumber = signInWithPhoneNumber; // Make signInWithPhoneNumber available globally
+                window.RecaptchaVerifier = RecaptchaVerifier;       // Make RecaptchaVerifier available globally
+
+                // Handle initial authentication state:
+                // If a custom token is provided by the environment, try to sign in with it.
+                // Otherwise, sign in anonymously (for basic functionality and user ID).
+                onAuthStateChanged(auth, (user) => {
+                    if (!user && initialAuthToken) {
+                        signInWithCustomToken(auth, initialAuthToken).catch((error) => {
+                            console.error("Error signing in with custom token:", error);
+                            // Fallback to anonymous if custom token fails
+                            signInAnonymously(auth).catch(e => console.error("Error signing in anonymously as fallback:", e));
+                        });
+                    } else if (!user && !initialAuthToken) {
+                        // If no user and no initial token, sign in anonymously
+                        signInAnonymously(auth).catch(e => console.error("Error signing in anonymously:", e));
+                    }
                 });
-            } else if (!user && !initialAuthToken) {
-                // If no user and no initial token, sign in anonymously
-                signInAnonymously(auth).catch(e => console.error("Error signing in anonymously:", e));
             }
-        });
+        } catch (error) {
+            console.error("Failed to initialize Firebase:", error);
+            // Ensure global variables are null if initialization fails
+            window.firebaseApp = null;
+            window.firebaseDb = null;
+            window.firebaseAuth = null;
+            window.appId = appId; // appId should still be available
+            window.initialAuthToken = initialAuthToken;
+            window.GoogleAuthProvider = null;
+            window.signInWithPopup = null;
+            window.signOut = null;
+            window.collection = null;
+            window.onSnapshot = null;
+            window.signInWithPhoneNumber = null;
+            window.RecaptchaVerifier = null;
+        }
     </script>
     <style>
         /* הגדרות בסיסיות לגוף הדף */
@@ -407,6 +432,11 @@
             useEffect(() => {
                 if (loginMethod === 'phone' && !recaptchaVerifierInstance.current && recaptchaContainerRef.current) {
                     try {
+                        // Ensure window.firebaseAuth and window.RecaptchaVerifier are available
+                        if (!window.firebaseAuth || !window.RecaptchaVerifier) {
+                            setMessage('שגיאה: שירותי Firebase (Auth/RecaptchaVerifier) אינם זמינים. אנא וודא את הגדרות Firebase.');
+                            return;
+                        }
                         const verifier = new window.RecaptchaVerifier(recaptchaContainerRef.current, {
                             'size': 'invisible', // Invisible reCAPTCHA is generally better UX
                             'callback': (response) => {
@@ -450,7 +480,7 @@
                     setMessage('התחברות הצליחה! נא המתן...');
                     try {
                         if (!window.firebaseAuth) {
-                            setMessage('שגיאה: Firebase Auth אינו מאותחל.');
+                            setMessage('שגיאה: Firebase Auth אינו מאותחל. אנא וודא את הגדרות Firebase.');
                             setLoading(false);
                             return;
                         }
@@ -473,8 +503,9 @@
                 setMessage('');
                 setLoading(true);
                 try {
+                    // Ensure all necessary Firebase components are available
                     if (!window.firebaseAuth || !window.GoogleAuthProvider || !window.signInWithPopup) {
-                        setMessage('שגיאה: Firebase Auth או ספק גוגל אינם זמינים.');
+                        setMessage('שגיאה: שירותי Firebase (Auth/Google Provider) אינם זמינים. אנא וודא את הגדרות Firebase.');
                         setLoading(false);
                         return;
                     }
@@ -520,8 +551,8 @@
                 }
 
                 try {
-                    if (!window.firebaseAuth) {
-                        setMessage('שגיאה: Firebase Auth אינו מאותחל.');
+                    if (!window.firebaseAuth || !window.signInWithPhoneNumber) {
+                        setMessage('שגיאה: שירותי Firebase (Auth/Phone Sign-in) אינם זמינים. אנא וודא את הגדרות Firebase.');
                         setLoading(false);
                         return;
                     }
@@ -768,7 +799,7 @@
             // Load previous submissions when component mounts or userId changes
             useEffect(() => {
                 if (!window.firebaseDb || !userId) {
-                    setMessage('שגיאה: Firebase Db אינו מאותחל או שאין מזהה משתמש.');
+                    setMessage('שגיאה: Firebase Db אינו מאותחל או שאין מזהה משתמש. אנא וודא את הגדרות Firebase.');
                     setLoadingSubmissions(false);
                     return;
                 }
@@ -777,9 +808,9 @@
                 const db = window.firebaseDb;
                 const appId = window.appId;
                 // Construct the user-specific collection path for private data
-                const userFormsCollectionRef = window.collection(db, `artifacts/${appId}/users/${userId}/formData`); // Used window.collection here
+                const userFormsCollectionRef = window.collection(db, `artifacts/${appId}/users/${userId}/formData`);
 
-                const unsubscribe = window.onSnapshot(userFormsCollectionRef, (snapshot) => { // FIX: Use window.onSnapshot
+                const unsubscribe = window.onSnapshot(userFormsCollectionRef, (snapshot) => {
                     const submissions = [];
                     snapshot.forEach(doc => {
                         submissions.push({ id: doc.id, ...doc.data() });
@@ -791,7 +822,7 @@
                     setLoadingSubmissions(false);
                 }, (error) => {
                     console.error("Error fetching previous submissions:", error);
-                    setMessage(`שגיאה בטעינת נתונים קודמים: ${error.message}`);
+                    setMessage(`שגיאה בטעינת נתונים קודמים: ${error.message}. וודא את כללי האבטחה של Firestore.`);
                     setLoadingSubmissions(false);
                 });
 
@@ -836,20 +867,22 @@
                     };
 
                     // Construct the user-specific collection path for private data
-                    const userFormsCollectionRef = window.collection(db, `artifacts/${appId}/users/${userId}/formData`); // Used window.collection here
+                    const userFormsCollectionRef = window.collection(db, `artifacts/${appId}/users/${userId}/formData`);
 
                     await addDoc(userFormsCollectionRef, dataToSave);
                     setMessage('הנתונים נשמרו בהצלחה!');
                     resetForm(); // Clear the form after successful submission
                 } catch (error) {
                     console.error("Error adding document: ", error);
-                    setMessage(`שגיאה בשמירת הנתונים: ${error.message}`);
+                    setMessage(`שגיאה בשמירת הנתונים: ${error.message}. וודא את כללי האבטחה של Firestore.`);
                 }
             };
 
             const handleLogout = async () => {
                 try {
-                    await window.signOut(window.firebaseAuth);
+                    if (window.firebaseAuth && window.signOut) { // Ensure signOut is available
+                       await window.signOut(window.firebaseAuth);
+                    }
                     onLogout(); // Notify parent App component to change state and show login page
                     setMessage('התנתקת בהצלחה.');
                 } catch (error) {
@@ -999,24 +1032,25 @@
 
             // Initialize Firebase Auth listener
             useEffect(() => {
+                // Check if firebaseAuth is initialized and available globally
                 if (window.firebaseAuth) {
                     const unsubscribe = window.firebaseAuth.onAuthStateChanged(user => {
                         if (user) {
                             setUserUid(user.uid);
-                            // If it's a new sign-in, try to get a meaningful identifier
-                            if (user.isAnonymous) {
-                                // For anonymous, keep previous entered identity if exists, or use UID as fallback
-                                if (!enteredIdentityId) { // Only set if not already set by a specific login method
-                                     setEnteredIdentityId(user.uid);
-                                }
-                            } else if (user.email) {
+                            // Set a meaningful identifier for the user based on login method
+                            if (user.email) {
                                 setEnteredIdentityId(user.email);
                             } else if (user.phoneNumber) {
                                 setEnteredIdentityId(user.phoneNumber);
                             } else if (user.displayName) {
                                 setEnteredIdentityId(user.displayName);
+                            } else if (user.isAnonymous) {
+                                // For anonymous, keep previous entered identity if exists, or use UID as fallback
+                                if (!enteredIdentityId) { // Only set if not already set by a specific login method
+                                     setEnteredIdentityId(user.uid);
+                                }
                             } else {
-                                setEnteredIdentityId(user.uid);
+                                setEnteredIdentityId(user.uid); // Fallback to UID
                             }
                             setIsAuthReady(true);
                         } else {
@@ -1027,10 +1061,10 @@
                     });
                     return () => unsubscribe();
                 } else {
-                    console.error("Firebase Auth is not available.");
-                    setIsAuthReady(true); // Still set ready to avoid infinite loading
+                    console.error("Firebase Auth is not available. Please check Firebase initialization in the <script type='module'> block.");
+                    setIsAuthReady(true); // Still set ready to avoid infinite loading, but indicate failure.
                 }
-            }, []);
+            }, []); // Empty dependency array means this effect runs once on mount
 
             const handleLoginSuccess = (uid, id) => {
                 setUserUid(uid);
@@ -1042,11 +1076,22 @@
                 setEnteredIdentityId(null);
             };
 
+            // Display loading or error message if Firebase is not ready/initialized
             if (!isAuthReady) {
                 return (
                     <div className="container">
                         <h1>טוען...</h1>
-                        <p>ממתין לאימות Firebase.</p>
+                        <p>ממתין לאימות Firebase. אם הודעה זו נשארת, אנא וודא שהגדרת את פרויקט Firebase שלך כראוי.</p>
+                    </div>
+                );
+            }
+            // If Firebase initialization failed, but isAuthReady is true (due to error handler), show a specific error.
+            if (!window.firebaseAuth) {
+                return (
+                    <div className="container">
+                        <h1>שגיאה באתחול Firebase!</h1>
+                        <p>לא ניתן להתחבר ל-Firebase. אנא וודא שקובץ `firebaseConfig` שלך מוגדר כראוי בפרויקט Firebase שלך ושהדומיין הנוכחי מורשה.</p>
+                        <p>פרטים נוספים יכולים להימצא בקונסולת המפתחים של הדפדפן (F12).</p>
                     </div>
                 );
             }
