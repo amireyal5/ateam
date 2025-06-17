@@ -1,0 +1,5 @@
+baseURL = "https://YOUR_USERNAME.github.io/my-hugo-form-app/" # שנה את YOUR_USERNAME ושם המאגר
+languageCode = "he-il"
+title = "טופס נתונים"
+theme = "" # השאר ריק
+disableKinds = ["RSS", "taxonomy", "taxonomyTerm", "page", "section"]
