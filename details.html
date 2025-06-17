@@ -110,7 +110,7 @@
             border-radius: 12px; /* פינות מעוגלות */
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); /* צל עדין מאוד */
             width: 100%;
-            max-width: 1600px; /* Increased max-width for very large desktops */
+            max-width: 1920px; /* Increased max-width for very wide desktops */
             box-sizing: border-box;
             border: 1px solid #e0e0e0; /* גבול אפור עדין */
             text-align: right; /* יישור לימין עבור RTL */
@@ -202,7 +202,7 @@
         .details-grid {
             display: grid;
             /* Allow more columns on large screens for better utilization */
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
             gap: 20px; /* Space between grid items */
             margin-top: 25px;
             padding: 15px;
@@ -418,6 +418,12 @@
             const [referralStatus, setReferralStatus] = useState('');
             const [otherStatusText, setOtherStatusText] = useState('');
             const [adminNotes, setAdminNotes] = useState('');
+            const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // State to track unsaved changes
+
+            // Refs to store original loaded values for comparison
+            const originalReferralStatusRef = useRef('');
+            const originalOtherStatusTextRef = useRef('');
+            const originalAdminNotesRef = useRef('');
 
             // Map for physical injury values to Hebrew
             const physicalInjuryMap = {
@@ -465,8 +471,7 @@
                 // Construct the document reference using the original userId that submitted the data
                 const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submissionUserId}/formData`, submissionId);
 
-                // Use onSnapshot for real-time updates (optional, getDoc also works)
-                // Corrected call to onSnapshotFirebaseGlobal
+                // Use onSnapshot for real-time updates
                 const unsubscribe = window.onSnapshotFirebaseGlobal(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
@@ -474,6 +479,13 @@
                         setReferralStatus(data.referralStatus || '');
                         setOtherStatusText(data.otherStatusText || '');
                         setAdminNotes(data.adminNotes || '');
+                        
+                        // Store original values when data is freshly loaded
+                        originalReferralStatusRef.current = data.referralStatus || '';
+                        originalOtherStatusTextRef.current = data.otherStatusText || '';
+                        originalAdminNotesRef.current = data.adminNotes || '';
+                        
+                        setHasUnsavedChanges(false); // Reset unsaved changes flag on fresh load
                         showMessage(''); // Clear any previous error messages on successful data load
                     } else {
                         showMessage('שגיאה: דיווח לא נמצא.', 'danger');
@@ -493,27 +505,62 @@
                 return () => unsubscribe();
             }, [db, auth]); // Re-run if db or auth instances change
 
+
+            // Effect to track changes in form fields (comparing to original loaded values)
+            useEffect(() => {
+                // Only mark as unsaved if original values are loaded (i.e., submission is not null)
+                if (submission) { 
+                    const changed = 
+                        referralStatus !== originalReferralStatusRef.current ||
+                        (referralStatus === 'other' ? otherStatusText !== originalOtherStatusTextRef.current : originalOtherStatusTextRef.current !== '') || // Check if 'other' status changed or if it was 'other' and then changed away
+                        adminNotes !== originalAdminNotesRef.current;
+                    setHasUnsavedChanges(changed);
+                }
+            }, [referralStatus, otherStatusText, adminNotes, submission]); // Add submission to dependencies to re-evaluate when it loads
+
+            // Effect for beforeunload warning to prevent accidental navigation
+            useEffect(() => {
+                const handleBeforeUnload = (event) => {
+                    if (hasUnsavedChanges) {
+                        event.preventDefault(); // Standard for browser to show prompt
+                        event.returnValue = ''; // For older browsers
+                        return ''; // For modern browsers
+                    }
+                };
+
+                window.addEventListener('beforeunload', handleBeforeUnload);
+
+                return () => {
+                    window.removeEventListener('beforeunload', handleBeforeUnload);
+                };
+            }, [hasUnsavedChanges]); // Dependency on hasUnsavedChanges
+
             // Function to save current form data to Firestore
             const handleUpdateSubmission = async () => {
                 setMessage('');
                 setMessageType('');
-                console.log("Attempting to save submission...");
+                console.log("handleUpdateSubmission called. Attempting to save submission...");
 
                 if (!db || !submission) {
                     showMessage('שגיאה: Firebase Db אינו מאותחל או שאין דיווח לטפל בו.', 'danger');
-                    console.error("Save failed: Firebase DB or submission missing.");
+                    console.error("Save failed: Firebase DB or submission missing. db:", db, "submission:", submission);
                     return false; // Indicate failure
                 }
 
                 try {
                     const submissionUserId = submission.userId; 
+                    console.log("submissionUserId from URL params or loaded submission:", submissionUserId);
+                    console.log("Current authenticated user UID:", auth.currentUser.uid);
+
                     if (!submissionUserId) {
                          showMessage('שגיאה: מזהה משתמש ששלח את הדיווח חסר.', 'danger');
-                         console.error("Save failed: Submission userId missing.");
+                         console.error("Save failed: Submission userId missing from submission object.");
                          return false; // Indicate failure
                     }
 
                     const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submissionUserId}/formData`, submission.id);
+                    console.log("Attempting to update doc at path:", docRef.path);
+
                     await window.updateDocFirebaseGlobal(docRef, {
                         referralStatus: referralStatus,
                         otherStatusText: referralStatus === 'other' ? otherStatusText : '', // Clear if not 'other'
@@ -523,6 +570,7 @@
                     });
                     showMessage('הדיווח נשמר בהצלחה!', 'success');
                     console.log("Submission saved successfully.");
+                    setHasUnsavedChanges(false); // Reset changes on successful save
                     return true; // Indicate success
                 } catch (error) {
                     console.error("Error updating submission:", error);
@@ -539,6 +587,9 @@
             // Function to handle sending email (no automatic save here)
             const handleSendEmail = () => {
                 console.log("handleSendEmail called. No automatic save.");
+                if (hasUnsavedChanges) {
+                    showMessage('שים לב: קיימים שינויים שלא נשמרו. אנא לחץ "שמור שינויים" לפני שליחת המייל אם ברצונך לשמור אותם.', 'warning');
+                }
                 if (!submission) {
                     showMessage('אין דיווח לשליחה במייל.', 'danger');
                     return;
@@ -582,6 +633,9 @@
             // Function to handle going back to data.html (no automatic save here)
             const handleGoBack = () => {
                 console.log("handleGoBack called. No automatic save.");
+                if (hasUnsavedChanges) {
+                    showMessage('שים לב: קיימים שינויים שלא נשמרו. אנא לחץ "שמור שינויים" אם ברצונך לשמור אותם לפני החזרה.', 'warning');
+                }
                 window.location.href = 'data.html';
             };
 
