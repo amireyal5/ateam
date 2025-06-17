@@ -20,7 +20,6 @@
         // Added getDoc, setDoc, and updateDoc for user profile and form updates
         import { getFirestore, collection, addDoc, onSnapshot, query, where, getDocs, collectionGroup, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-
         // Global variables provided by the Canvas environment (do not modify these directly)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -639,6 +638,30 @@
         }
 
 
+        // Function to validate Israeli ID Number using the checksum algorithm
+        function validateIsraeliId(id) {
+            id = String(id).trim();
+            if (id.length > 9 || !/^\d+$/.test(id)) {
+                return false;
+            }
+
+            // Pad with leading zeros if less than 9 digits
+            id = id.padStart(9, '0');
+
+            let sum = 0;
+            for (let i = 0; i < 9; i++) {
+                let digit = parseInt(id[i], 10);
+                if (i % 2 === 0) { // Odd positions (0, 2, 4, 6, 8) - multiply by 1
+                    sum += digit;
+                } else { // Even positions (1, 3, 5, 7) - multiply by 2
+                    let doubled = digit * 2;
+                    sum += (doubled > 9) ? (doubled - 9) : doubled;
+                }
+            }
+            return (sum % 10 === 0);
+        }
+
+
         // New Component for Initial Identity Setup
         function IdentitySetupPage({ db, userUid, onIdentitySetupComplete }) {
             const [firstName, setFirstName] = useState('');
@@ -652,6 +675,8 @@
             const [firstNameError, setFirstNameError] = useState(false);
             const [familyNameError, setFamilyNameError] = useState(false);
             const [idNumberError, setIdNumberError] = useState(false);
+            const [idNumberExistsError, setIdNumberExistsError] = useState(false); // New state for existence check
+
 
             // Auto-jump focus after 9 digits ID
             useEffect(() => {
@@ -662,6 +687,7 @@
 
             const handleSaveProfile = async () => {
                 setMessage('');
+                setIdNumberExistsError(false); // Reset existence error
                 let hasError = false;
 
                 if (!firstName.trim()) {
@@ -676,11 +702,19 @@
                 } else {
                     setFamilyNameError(false);
                 }
-                if (!idNumber.trim() || !/^\d{9}$/.test(idNumber)) {
+                
+                // Validate ID format and Israeli checksum
+                const trimmedId = idNumber.trim();
+                if (!trimmedId || !/^\d{9}$/.test(trimmedId)) {
                     setIdNumberError(true);
                     setMessage('מספר תעודת זהות חייב להיות בן 9 ספרות בדיוק.');
                     hasError = true;
-                } else {
+                } else if (!validateIsraeliId(trimmedId)) { // New Israeli ID validation
+                    setIdNumberError(true);
+                    setMessage('מספר תעודת הזהות שהוזן אינו תקין.');
+                    hasError = true;
+                }
+                else {
                     setIdNumberError(false);
                 }
 
@@ -691,16 +725,30 @@
 
                 setLoading(true);
                 try {
+                    // Check if ID number already exists in any formData collection
+                    const idNumberQuery = window.queryFirebaseGlobal(
+                        window.collectionGroupFirebaseGlobal(db, 'formData'),
+                        window.whereFirebaseGlobal('idNumber', '==', trimmedId)
+                    );
+                    const querySnapshot = await window.getDocsFirebaseGlobal(idNumberQuery);
+
+                    if (!querySnapshot.empty) {
+                        setIdNumberExistsError(true);
+                        setMessage('מספר תעודת זהות זה כבר קיים במערכת. אנא וודא שאינך מדווח שוב על אותו אדם.');
+                        setLoading(false);
+                        return;
+                    }
+
                     const profileRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/profile`, 'details');
                     await window.setDocFirebaseGlobal(profileRef, {
                         firstName: firstName.trim(),
                         familyName: familyName.trim(),
-                        idNumber: idNumber.trim(),
+                        idNumber: trimmedId, // Use trimmed and validated ID
                         updatedAt: Date.now()
                     }, { merge: true });
 
                     setMessage('פרטי הזהות נשמרו בהצלחה!');
-                    onIdentitySetupComplete(firstName.trim(), familyName.trim(), idNumber.trim());
+                    onIdentitySetupComplete(firstName.trim(), familyName.trim(), trimmedId);
                 } catch (error) {
                     console.error("Error saving identity:", error);
                     setMessage(`שגיאה בשמירת הפרטים: ${error.message}.`);
@@ -731,7 +779,7 @@
                             required
                             placeholder="הזן שם פרטי"
                         />
-                         {firstNameError && <span className="error-message">שדה חובה</span>}
+                        {firstNameError && <span className="error-message">שדה חובה</span>}
                     </div>
                     <div className={`form-group ${familyNameError ? 'error' : ''}`}>
                         <label htmlFor="setupFamilyName" className="required">שם משפחה:</label>
@@ -744,610 +792,479 @@
                             required
                             placeholder="הזן שם משפחה"
                         />
-                         {familyNameError && <span className="error-message">שדה חובה</span>}
+                        {familyNameError && <span className="error-message">שדה חובה</span>}
                     </div>
-                    <div className={`form-group ${idNumberError ? 'error' : ''}`}>
+                    <div className={`form-group ${idNumberError || idNumberExistsError ? 'error' : ''}`}>
                         <label htmlFor="setupIdNumber" className="required">תעודת זהות (9 ספרות):</label>
                         <input
                             type="text"
                             id="setupIdNumber"
                             value={idNumber}
-                            onChange={(e) => { setIdNumber(e.target.value); setIdNumberError(false); }}
-                            onBlur={() => setIdNumberError(!idNumber.trim() || !/^\d{9}$/.test(idNumber))}
-                            pattern="\d{9}"
-                            title="יש להזין 9 ספרות"
+                            onChange={(e) => { 
+                                const val = e.target.value.replace(/\D/g, '').substring(0, 9); // Only digits, max 9
+                                setIdNumber(val); 
+                                setIdNumberError(false); 
+                                setIdNumberExistsError(false); // Clear existence error on change
+                                setMessage(''); // Clear general message
+                            }}
+                            onBlur={() => {
+                                const trimmedId = idNumber.trim();
+                                if (!trimmedId || !/^\d{9}$/.test(trimmedId)) {
+                                    setIdNumberError(true);
+                                    setMessage('מספר תעודת זהות חייב להיות בן 9 ספרות בדיוק.');
+                                } else if (!validateIsraeliId(trimmedId)) {
+                                    setIdNumberError(true);
+                                    setMessage('מספר תעודת הזהות שהוזן אינו תקין.');
+                                } else {
+                                    setIdNumberError(false);
+                                    setMessage('');
+                                }
+                            }}
                             required
-                            inputMode="numeric"
                             placeholder="הזן תעודת זהות"
+                            inputMode="numeric" // Optimized for numeric input on mobile
                         />
-                        {idNumberError && <span className="error-message">יש להזין 9 ספרות</span>}
+                        {idNumberError && <span className="error-message">{message}</span>}
+                        {idNumberExistsError && <span className="error-message">{message}</span>}
                     </div>
                     <div className="button-container">
                         <button className="action-button" onClick={handleSaveProfile} disabled={loading} ref={saveButtonRef}>
-                            {loading ? 'שומר...' : 'שמור פרטים והמשך'}
+                            {loading ? 'שומר...' : 'שמור והמשך'}
                         </button>
                     </div>
                 </div>
             );
         }
 
-        // Component for the Main Dashboard
-        function MainDashboard({ userId, identityId, onGoToForm, onLogout, isAdminUser }) { 
-            return (
-                <div className="container">
-                    <div className="top-bar">
-                        <h1>ברוך הבא, {identityId || userId}!</h1>
-                        <div className="button-group">
-                             <a href="profile.html" className="action-button secondary" style={{textDecoration: 'none'}}>
-                                <i className="fas fa-user-edit" style={{marginLeft: '5px'}}></i> עדכן פרטים
-                            </a>
-                            <button onClick={onLogout} className="action-button danger">
-                                <i className="fas fa-sign-out-alt" style={{marginLeft: '5px'}}></i> התנתק
-                            </button>
-                        </div>
-                    </div>
-                    <p style={{marginBottom: '30px', fontSize: '1.1em', color: '#555555'}}>
-                        אנא בחר את הפעולה הרצויה:
-                    </p>
-                    <div className="button-container">
-                        <button className="action-button" onClick={onGoToForm}>
-                            <i className="fas fa-file-alt" style={{marginLeft: '5px'}}></i> מילוי טופס חדש
-                        </button>
-                        {isAdminUser && ( 
-                            <a href="data.html" className="action-button secondary" style={{ textDecoration: 'none' }}> 
-                                <i className="fas fa-database" style={{marginLeft: '5px'}}></i> צפייה בכל הנתונים (מנהל)
-                            </a>
-                        )}
-                    </div>
-                    <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888888'}}>
-                        <strong style={{color: '#e74c3c'}}>הערה:</strong> ממשק ה"מנהל" נמצא כעת בדף נפרד (`data.html`).
-                        הגישה לנתונים עצמם מוגבלת למנהלים בלבד באמצעות כללי אבטחה של Firestore,
-                        הדורשים הגדרה של הרשאות אדמין באמצעות Firebase Cloud Functions בצד השרת.
-                    </p>
-                </div>
-            );
-        }
-
-
-        // Component for the Responsive Form
-        function FormComponent({ auth, db, userId, identityId, onLogout, onGoToDashboard }) {
-            const [formData, setFormData] = useState({
-                familyName: '',
-                firstName: '',
-                idNumber: '',
-                age: '',
-                gender: '',
-                phone: '',
-                address: '',
-                residents: '',
-                physicalInjury: 'none', // Default radio to 'none'
-                casualties: 'no', // Default radio to 'no'
-                disconnected: 'no', // Default radio to 'no'
-                evacuationAssistance: 'no', // Default radio to 'no'
-                notes: '',
-            });
+        // Main Form Component for data submission
+        function SubmissionForm({ db, userUid, userName, userFamilyName, userIdNumber, onLogout }) {
+            const [age, setAge] = useState('');
+            const [gender, setGender] = useState('');
+            const [phone, setPhone] = useState('');
+            const [address, setAddress] = useState('');
+            const [residents, setResidents] = useState('');
+            const [physicalInjury, setPhysicalInjury] = useState('');
+            const [casualties, setCasualties] = useState('');
+            const [disconnected, setDisconnected] = useState('');
+            const [evacuationAssistance, setEvacuationAssistance] = useState('');
+            const [notes, setNotes] = useState('');
             const [message, setMessage] = useState('');
-            const [previousSubmissions, setPreviousSubmissions] = useState([]);
-            const [loadingSubmissions, setLoadingSubmissions] = useState(true);
-            const [duplicateFound, setDuplicateFound] = useState(false); // New state for duplicate check
-            const [existingSubmissionInfo, setExistingSubmissionInfo] = useState(null); // New state for existing submission info
-            const [checkingDuplicate, setCheckingDuplicate] = useState(false); // New state for loading indicator
-            const [isListening, setIsListening] = useState(false); // State for speech-to-text
-            const recognitionRef = useRef(null); // Ref for SpeechRecognition object
+            const [loading, setLoading] = useState(false);
+            const [lastSubmittedId, setLastSubmittedId] = useState(null); // Track the last submitted ID for viewing details
+            const [previousSubmissions, setPreviousSubmissions] = useState([]); // State for previous submissions
 
-            // State for validation errors
-            const [errors, setErrors] = useState({});
-            const [editingSubmissionId, setEditingSubmissionId] = useState(null); // Tracks the ID of the submission being edited
+            // State for validation errors for form fields
+            const [ageError, setAgeError] = useState(false);
+            const [genderError, setGenderError] = useState(false);
+            const [phoneError, setPhoneError] = useState(false);
+            const [addressError, setAddressError] = useState(false);
+            const [residentsError, setResidentsError] = useState(false);
+            const [physicalInjuryError, setPhysicalInjuryError] = useState(false);
+            const [casualtiesError, setCasualtiesError] = useState(false);
+            const [disconnectedError, setDisconnectedError] = useState(false);
+            const [evacuationAssistanceError, setEvacuationAssistanceError] = useState(false);
 
-            // Initialize SpeechRecognition
+
+            // Speech Recognition (for 'notes' field)
+            const recognitionRef = useRef(null);
+            const [isListening, setIsListening] = useState(false);
+
             useEffect(() => {
-                if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    recognitionRef.current = new SpeechRecognition();
-                    recognitionRef.current.continuous = false; // Stop after a single utterance
-                    recognitionRef.current.interimResults = false; // Only return final results
+                if ('webkitSpeechRecognition' in window) {
+                    recognitionRef.current = new webkitSpeechRecognition();
+                    recognitionRef.current.continuous = true;
+                    recognitionRef.current.interimResults = true;
                     recognitionRef.current.lang = 'he-IL'; // Set language to Hebrew
 
                     recognitionRef.current.onresult = (event) => {
-                        const transcript = event.results[0][0].transcript;
-                        setFormData(prev => ({ ...prev, notes: prev.notes + (prev.notes ? ' ' : '') + transcript }));
-                        setIsListening(false);
-                    };
-
-                    recognitionRef.current.onerror = (event) => {
-                        console.error('Speech recognition error:', event.error);
-                        setMessage(`שגיאת זיהוי קולי: ${event.error}.`);
-                        setIsListening(false);
+                        let interimTranscript = '';
+                        let finalTranscript = '';
+                        for (let i = event.resultIndex; i < event.results.length; ++i) {
+                            if (event.results[i].isFinal) {
+                                finalTranscript += event.results[i][0].transcript;
+                            } else {
+                                interimTranscript += event.results[i][0].transcript;
+                            }
+                        }
+                        setNotes((prevNotes) => prevNotes + finalTranscript); // Append final results
+                        // You might want to show interimTranscript in a temporary display, but for now, we just append final.
                     };
 
                     recognitionRef.current.onend = () => {
                         setIsListening(false);
+                        console.log('Speech recognition ended.');
+                    };
+
+                    recognitionRef.current.onerror = (event) => {
+                        console.error('Speech recognition error:', event.error);
+                        setIsListening(false);
+                        setMessage(`שגיאת זיהוי דיבור: ${event.error}.`);
                     };
                 } else {
-                    console.warn('Speech Recognition API not supported in this browser.');
+                    console.warn('Speech recognition not supported in this browser.');
                 }
-                return () => {
-                    if (recognitionRef.current) {
-                        recognitionRef.current.stop();
-                    }
-                };
             }, []);
 
-            const startListening = () => {
-                if (recognitionRef.current && !isListening) {
-                    setIsListening(true);
-                    setMessage('מאזין... אנא דבר/י.');
-                    recognitionRef.current.start();
+            const toggleSpeechRecognition = () => {
+                if (!recognitionRef.current) {
+                    setMessage('זיהוי דיבור אינו נתמך בדפדפן זה.');
+                    return;
                 }
-            };
-
-            // Function to reset form fields for new submission
-            const resetForm = () => {
-                setFormData({
-                    familyName: '', firstName: '', idNumber: '', age: '', gender: '',
-                    phone: '', address: '', residents: '', physicalInjury: 'none',
-                    casualties: 'no', disconnected: 'no', evacuationAssistance: 'no', notes: '',
-                });
-                setDuplicateFound(false);
-                setExistingSubmissionInfo(null);
-                setMessage('');
-                setErrors({});
-                setEditingSubmissionId(null); // Exit edit mode
-            };
-
-            // Effect to load submission data when editingSubmissionId changes
-            useEffect(() => {
-                if (editingSubmissionId) {
-                    const submissionToEdit = previousSubmissions.find(sub => sub.id === editingSubmissionId);
-                    if (submissionToEdit) {
-                        setFormData(submissionToEdit);
-                        setMessage('עורך טופס קיים. שימו לב: לא ניתן לשנות תעודת זהות.');
-                    }
+                if (isListening) {
+                    recognitionRef.current.stop();
+                    setIsListening(false);
                 } else {
-                    // Only reset if we are transitioning from edit mode to new form mode
-                    // To prevent clearing inputs when component first mounts or submissions load
-                    if (Object.keys(formData).some(key => formData[key] !== '')) { // Check if form is already filled
-                         resetForm();
-                    }
+                    setNotes(''); // Clear notes before starting new recognition
+                    recognitionRef.current.start();
+                    setIsListening(true);
+                    setMessage('מאזין...');
                 }
-            }, [editingSubmissionId]);
+            };
 
 
-            // Load previous submissions when component mounts or userId changes
+            // Fetch previous submissions for the current user
             useEffect(() => {
-                if (!db || !userId) {
-                    console.warn('Firebase Db או userId אינו זמין עבור טעינת נתונים קודמים.');
-                    setMessage('שגיאה: Firebase Db אינו מאותחל או שאין מזהה משתמש. אנא וודא את הגדרות Firebase.');
-                    setLoadingSubmissions(false);
+                if (!db || !userUid) {
+                    console.warn("Firestore DB or user UID not available for fetching previous submissions.");
                     return;
                 }
 
-                setLoadingSubmissions(true);
-                const appId = window.globalAppId; 
-                const userFormsCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${appId}/users/${userId}/formData`); 
+                const submissionsCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`);
+                const q = window.queryFirebaseGlobal(submissionsCollectionRef);
 
-                const unsubscribe = window.onSnapshotGlobal(userFormsCollectionRef, (snapshot) => { 
-                    const submissions = [];
+                const unsubscribe = window.onSnapshotGlobal(q, (snapshot) => {
+                    const subs = [];
                     snapshot.forEach(doc => {
-                        submissions.push({ id: doc.id, ...doc.data() });
+                        subs.push({ id: doc.id, ...doc.data() });
                     });
-                    submissions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); 
-                    setPreviousSubmissions(submissions);
-                    setLoadingSubmissions(false);
+                    // Sort by timestamp descending to show newest first
+                    subs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                    setPreviousSubmissions(subs);
                 }, (error) => {
                     console.error("Error fetching previous submissions:", error);
-                    setMessage(`שגיאה בטעינת נתונים קודמים: ${error.message}. וודא את כללי האבטחה של Firestore.`);
-                    setLoadingSubmissions(false);
+                    setMessage(`שגיאה באחזור דיווחים קודמים: ${error.message}`);
                 });
 
-                return () => unsubscribe();
-            }, [userId, db]); 
-
-            // New useEffect to check for duplicate ID numbers (only for NEW submissions)
-            useEffect(() => {
-                const checkDuplicateId = async () => {
-                    const idNumber = formData.idNumber.trim();
-                    // Skip duplicate check if in edit mode and ID matches current editing ID
-                    if (editingSubmissionId && idNumber === previousSubmissions.find(sub => sub.id === editingSubmissionId)?.idNumber) {
-                        setDuplicateFound(false);
-                        setExistingSubmissionInfo(null);
-                        setErrors(prev => ({ ...prev, idNumber: '' }));
-                        return;
-                    }
-                    
-                    if (!idNumber || idNumber.length !== 9) { 
-                        setDuplicateFound(false);
-                        setExistingSubmissionInfo(null);
-                        setErrors(prev => ({ ...prev, idNumber: !idNumber.trim() || !/^\d{9}$/.test(idNumber) ? 'יש להזין 9 ספרות' : '' }));
-                        return;
-                    }
-
-                    setCheckingDuplicate(true);
-                    setDuplicateFound(false);
-                    setExistingSubmissionInfo(null);
-                    setMessage(''); 
-                    setErrors(prev => ({ ...prev, idNumber: '' })); 
-
-                    try {
-                        const q = window.queryFirebaseGlobal(
-                            window.collectionGroupFirebaseGlobal(db, 'formData'),
-                            window.whereFirebaseGlobal('idNumber', '==', idNumber)
-                        );
-                        const querySnapshot = await window.getDocsFirebaseGlobal(q);
-
-                        if (!querySnapshot.empty) {
-                            const existingDoc = querySnapshot.docs[0];
-                            // If we're editing, allow the current doc's ID to be considered non-duplicate
-                            if (editingSubmissionId && existingDoc.id === editingSubmissionId) {
-                                setDuplicateFound(false);
-                                setExistingSubmissionInfo(null);
-                            } else {
-                                const data = existingDoc.data();
-                                setDuplicateFound(true);
-                                setExistingSubmissionInfo({
-                                    id: existingDoc.id,
-                                    identity: data.identityId || data.userId, 
-                                    timestamp: data.timestamp
-                                });
-                                setMessage(''); 
-                            }
-                        } else {
-                            setDuplicateFound(false);
-                            setExistingSubmissionInfo(null);
-                            setMessage('');
-                        }
-                    } catch (error) {
-                        console.error("Error checking for duplicate ID:", error);
-                        setMessage('שגיאה בבדיקת כפילות תעודת זהות: ' + error.message);
-                        setDuplicateFound(false);
-                        setExistingSubmissionInfo(null);
-                    } finally {
-                        setCheckingDuplicate(false);
-                    }
-                };
-
-                if (db && formData.idNumber.trim().length === 9) {
-                    const handler = setTimeout(() => { 
-                        checkDuplicateId();
-                    }, 500); 
-
-                    return () => clearTimeout(handler); 
-                } else {
-                    setDuplicateFound(false);
-                    setExistingSubmissionInfo(null);
-                    if (!message.includes('הנתונים נשמרו בהצלחה') && !message.includes('שגיאה בשמירת הנתונים')) {
-                         setMessage('');
-                    }
-                }
-            }, [formData.idNumber, db, editingSubmissionId, previousSubmissions]); 
+                return () => unsubscribe(); // Cleanup on unmount
+            }, [db, userUid]); // Rerun when db or userUid changes
 
 
-            const handleChange = (e) => {
-                const { name, value, type, checked } = e.target;
-                setFormData(prev => ({
-                    ...prev,
-                    [name]: value
-                }));
-                setErrors(prev => ({ ...prev, [name]: '' }));
-            };
-
-            const handleBlur = (e) => {
-                const { name, value } = e.target;
-                if (e.target.required && !value.trim()) {
-                    setErrors(prev => ({ ...prev, [name]: 'שדה חובה' }));
-                } else if (name === 'idNumber' && value.trim() && !/^\d{9}$/.test(value)) {
-                    setErrors(prev => ({ ...prev, idNumber: 'יש להזין 9 ספרות' }));
-                } else if (name === 'phone' && value.trim() && !/^[0-9]{9,10}$/.test(value)) {
-                    setErrors(prev => ({ ...prev, phone: 'יש להזין 9 או 10 ספרות' }));
-                }
-            };
-
-            const handleEditClick = (submission) => {
-                setEditingSubmissionId(submission.id);
-            };
-
-            const handleCancelEdit = () => {
-                resetForm(); // Resets form and exits edit mode
-                setMessage('יצאת ממצב עריכה. הטופס מוכן למילוי חדש.');
-            };
-
+            // Handles form submission
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 setMessage('');
-                
-                let currentErrors = {};
-                // Validate all required fields on submit
-                const requiredFields = ['familyName', 'firstName', 'idNumber'];
-                requiredFields.forEach(field => {
-                    if (!formData[field].trim()) {
-                        currentErrors[field] = 'שדה חובה';
-                    }
-                });
-                if (formData.idNumber.trim() && !/^\d{9}$/.test(formData.idNumber)) {
-                    currentErrors.idNumber = 'יש להזין 9 ספרות';
-                }
-                 if (formData.phone.trim() && !/^[0-9]{9,10}$/.test(formData.phone)) {
-                    currentErrors.phone = 'יש להזין 9 או 10 ספרות';
-                }
+                setLoading(true);
 
-                setErrors(currentErrors);
+                let hasError = false;
 
-                if (Object.keys(currentErrors).length > 0) {
-                    setMessage('אנא תקן את השגיאות בטופס.');
-                    return;
-                }
+                // Validate all fields
+                if (!age.trim() || isNaN(parseInt(age)) || parseInt(age) < 0) { setAgeError(true); hasError = true; } else { setAgeError(false); }
+                if (!gender) { setGenderError(true); hasError = true; } else { setGenderError(false); }
+                if (!phone.trim()) { setPhoneError(true); hasError = true; } else { setPhoneError(false); }
+                if (!address.trim()) { setAddressError(true); hasError = true; } else { setAddressError(false); }
+                if (!residents.trim() || isNaN(parseInt(residents)) || parseInt(residents) < 0) { setResidentsError(true); hasError = true; } else { setResidentsError(false); }
+                if (!physicalInjury) { setPhysicalInjuryError(true); hasError = true; } else { setPhysicalInjuryError(false); }
+                if (!casualties) { setCasualtiesError(true); hasError = true; } else { setCasualtiesError(false); }
+                if (!disconnected) { setDisconnectedError(true); hasError = true; } else { setDisconnectedError(false); }
+                if (!evacuationAssistance) { setEvacuationAssistanceError(true); hasError = true; } else { setEvacuationAssistanceError(false); }
 
-                if (duplicateFound) {
-                    setMessage('לא ניתן לשלוח - טופס עבור תעודת זהות זו כבר מולא.');
-                    return;
-                }
-                
-                if (checkingDuplicate) { 
-                    setMessage('המערכת עדיין בודקת כפילות תעודת זהות. נא המתן.');
-                    return;
-                }
-
-                if (!db || !userId) {
-                    setMessage('שגיאה: Firebase Db אינו מאותחל או שאין מזהה משתמש. אנא התחבר מחדש.');
+                if (hasError) {
+                    setMessage('אנא מלא את כל השדות הנדרשים המסומנים.');
+                    setLoading(false);
                     return;
                 }
 
                 try {
-                    const appId = window.globalAppId; 
-                    const dataToSave = {
-                        ...formData,
-                        userId: userId, 
-                        identityId: identityId, 
-                        timestamp: Date.now() 
-                    };
+                    // Check if ID number exists BEFORE submitting new form
+                    const idNumberQuery = window.queryFirebaseGlobal(
+                        window.collectionGroupFirebaseGlobal(db, 'formData'),
+                        window.whereFirebaseGlobal('idNumber', '==', userIdNumber)
+                    );
+                    const querySnapshot = await window.getDocsFirebaseGlobal(idNumberQuery);
 
-                    if (editingSubmissionId) {
-                        // Update existing document
-                        const docRef = window.docFirebaseGlobal(db, `artifacts/${appId}/users/${userId}/formData`, editingSubmissionId);
-                        await window.updateDocFirebaseGlobal(docRef, dataToSave);
-                        setMessage('הנתונים עודכנו בהצלחה!');
-                    } else {
-                        // Add new document
-                        const userFormsCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${appId}/users/${userId}/formData`); 
-                        await window.addDocFirebaseGlobal(userFormsCollectionRef, dataToSave); 
-                        setMessage('הנתונים נשמרו בהצלחה!');
+                    if (!querySnapshot.empty) {
+                        setMessage('מספר תעודת זהות זה כבר קיים במערכת. אנא וודא שאינך מדווח שוב על אותו אדם. ניתן לצפות או לערוך דרך "צפייה בנתונים".');
+                        setLoading(false);
+                        return;
                     }
-                    resetForm(); 
+
+                    // Create a new document in the user's formData subcollection
+                    const docRef = await window.addDocFirebaseGlobal(
+                        window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`),
+                        {
+                            userId: userUid, // Store the user's UID who submitted the form
+                            identityId: userIdNumber, // Store the user's verified ID number
+                            firstName: userName,
+                            familyName: userFamilyName,
+                            idNumber: userIdNumber, // Redundant but good for quick access in subcollection
+                            age: parseInt(age),
+                            gender,
+                            phone,
+                            address,
+                            residents: parseInt(residents),
+                            physicalInjury,
+                            casualties,
+                            disconnected,
+                            evacuationAssistance,
+                            notes,
+                            timestamp: Date.now(), // Store submission time
+                            referralStatus: 'open', // Default status for new submissions
+                            adminNotes: '',
+                            otherStatusText: ''
+                        }
+                    );
+                    setMessage('הדיווח נשלח בהצלחה!');
+                    setLastSubmittedId(docRef.id); // Store ID of the new submission
+
+                    // Clear form fields after successful submission
+                    setAge('');
+                    setGender('');
+                    setPhone('');
+                    setAddress('');
+                    setResidents('');
+                    setPhysicalInjury('');
+                    setCasualties('');
+                    setDisconnected('');
+                    setEvacuationAssistance('');
+                    setNotes('');
+
                 } catch (error) {
-                    console.error("Error saving/updating document: ", error);
-                    setMessage(`שגיאה בשמירת/עדכון הנתונים: ${error.message}. וודא את כללי האבטחה של Firestore.`);
+                    console.error("Error adding document: ", error);
+                    let displayMessage = `שגיאה בשליחת הדיווח: ${error.message}`;
+                    if (error.code === 'permission-denied') {
+                        displayMessage += " (ייתכן שאין לך הרשאה לכתיבה ל-Firestore).";
+                    }
+                    setMessage(displayMessage);
+                } finally {
+                    setLoading(false);
                 }
             };
-
-            const handleLogoutClick = async () => {
-                onLogout(); 
-            }
 
             return (
                 <div className="container">
                     <div className="top-bar">
-                        <h1>{editingSubmissionId ? 'ערוך טופס קיים' : 'מילוי טופס נתונים'}</h1>
+                        <h1>טופס דיווח חדש</h1>
                         <div className="button-group">
-                            {editingSubmissionId && (
-                                <button onClick={handleCancelEdit} className="action-button secondary">
-                                    <i className="fas fa-times" style={{marginLeft: '5px'}}></i> ביטול עריכה
-                                </button>
-                            )}
-                            <button onClick={onGoToDashboard} className="action-button secondary">
-                                <i className="fas fa-arrow-right" style={{marginLeft: '5px'}}></i> חזור ללוח בקרה
-                            </button>
-                            <button onClick={handleLogoutClick} className="action-button danger">
-                                <i className="fas fa-sign-out-alt" style={{marginLeft: '5px'}}></i> התנתק
+                            <a href="data.html" className="action-button secondary" style={{ textDecoration: 'none' }}>
+                                צפייה בנתונים
+                            </a>
+                            <button onClick={onLogout} className="action-button danger">
+                                התנתק
                             </button>
                         </div>
                     </div>
 
+                    {message && (
+                        <div className={`message-box ${message.includes('הצלחה') ? 'success' : 'danger'}`}>
+                            {message}
+                        </div>
+                    )}
+
                     <form onSubmit={handleSubmit}>
-                        {/* חלק: פרטים אישיים */}
                         <div className="form-section">
-                            <div className="form-grid two-columns">
-                                <div className={`form-group ${errors.familyName ? 'error' : ''}`}>
-                                    <label htmlFor="familyName" className="required">שם משפחה:</label>
-                                    <input
-                                        type="text"
-                                        id="familyName"
-                                        name="familyName"
-                                        value={formData.familyName}
-                                        onChange={handleChange}
-                                        onBlur={handleBlur}
-                                        required
-                                        placeholder="הזן שם משפחה"
-                                    />
-                                    {errors.familyName && <span className="error-message">{errors.familyName}</span>}
+                            <h2>פרטי מדווח</h2>
+                            <div className="form-group">
+                                <label>שם מלא:</label>
+                                <input type="text" value={`${userName} ${userFamilyName}`} readOnly disabled />
+                            </div>
+                            <div className="form-group">
+                                <label>תעודת זהות:</label>
+                                <input type="text" value={userIdNumber} readOnly disabled />
+                            </div>
+                        </div>
+
+                        <div className="form-section">
+                            <h2>פרטי אדם באזור התקרית</h2>
+                            <div className={`form-group ${ageError ? 'error' : ''}`}>
+                                <label htmlFor="age" className="required">גיל:</label>
+                                <input
+                                    type="number"
+                                    id="age"
+                                    value={age}
+                                    onChange={(e) => { setAge(e.target.value); setAgeError(false); }}
+                                    onBlur={() => setAgeError(!age.trim() || isNaN(parseInt(age)) || parseInt(age) < 0)}
+                                    placeholder="הזן גיל"
+                                    min="0"
+                                    required
+                                />
+                                {ageError && <span className="error-message">שדה חובה (מספר חיובי)</span>}
+                            </div>
+                            <div className={`form-group ${genderError ? 'error' : ''}`}>
+                                <label className="required">מין:</label>
+                                <div className="radio-group">
+                                    <label>
+                                        <input type="radio" name="gender" value="male" checked={gender === 'male'} onChange={() => { setGender('male'); setGenderError(false); }} />
+                                        זכר
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="gender" value="female" checked={gender === 'female'} onChange={() => { setGender('female'); setGenderError(false); }} />
+                                        נקבה
+                                    </label>
                                 </div>
-                                <div className={`form-group ${errors.firstName ? 'error' : ''}`}>
-                                    <label htmlFor="firstName" className="required">שם פרטי:</label>
-                                    <input
-                                        type="text"
-                                        id="firstName"
-                                        name="firstName"
-                                        value={formData.firstName}
-                                        onChange={handleChange}
-                                        onBlur={handleBlur}
-                                        required
-                                        placeholder="הזן שם פרטי"
-                                    />
-                                    {errors.firstName && <span className="error-message">{errors.firstName}</span>}
+                                {genderError && <span className="error-message">שדה חובה</span>}
+                            </div>
+                            <div className={`form-group ${phoneError ? 'error' : ''}`}>
+                                <label htmlFor="phone" className="required">טלפון:</label>
+                                <input
+                                    type="tel"
+                                    id="phone"
+                                    value={phone}
+                                    onChange={(e) => { setPhone(e.target.value); setPhoneError(false); }}
+                                    onBlur={() => setPhoneError(!phone.trim())}
+                                    placeholder="הזן מספר טלפון"
+                                    required
+                                />
+                                {phoneError && <span className="error-message">שדה חובה</span>}
+                            </div>
+                            <div className={`form-group ${addressError ? 'error' : ''}`}>
+                                <label htmlFor="address" className="required">כתובת:</label>
+                                <input
+                                    type="text"
+                                    id="address"
+                                    value={address}
+                                    onChange={(e) => { setAddress(e.target.value); setAddressError(false); }}
+                                    onBlur={() => setAddressError(!address.trim())}
+                                    placeholder="הזן כתובת (רחוב, מספר בית, עיר)"
+                                    required
+                                />
+                                {addressError && <span className="error-message">שדה חובה</span>}
+                            </div>
+                            <div className={`form-group ${residentsError ? 'error' : ''}`}>
+                                <label htmlFor="residents" className="required">מספר שוהים בדירה:</label>
+                                <input
+                                    type="number"
+                                    id="residents"
+                                    value={residents}
+                                    onChange={(e) => { setResidents(e.target.value); setResidentsError(false); }}
+                                    onBlur={() => setResidentsError(!residents.trim() || isNaN(parseInt(residents)) || parseInt(residents) < 0)}
+                                    placeholder="מספר נפשות בכתובת"
+                                    min="0"
+                                    required
+                                />
+                                {residentsError && <span className="error-message">שדה חובה (מספר חיובי)</span>}
+                            </div>
+                            <div className={`form-group ${physicalInjuryError ? 'error' : ''}`}>
+                                <label htmlFor="physicalInjury" className="required">האם קיימת פציעה פיזית?</label>
+                                <select
+                                    id="physicalInjury"
+                                    value={physicalInjury}
+                                    onChange={(e) => { setPhysicalInjury(e.target.value); setPhysicalInjuryError(false); }}
+                                    onBlur={() => setPhysicalInjuryError(!physicalInjury)}
+                                    required
+                                >
+                                    <option value="">בחר</option>
+                                    <option value="none">לא (1)</option>
+                                    <option value="light">קלה (2)</option>
+                                    <option value="medium">בינונית (3)</option>
+                                    <option value="severe">קשה (4)</option>
+                                </select>
+                                {physicalInjuryError && <span className="error-message">שדה חובה</span>}
+                            </div>
+                            <div className={`form-group ${casualtiesError ? 'error' : ''}`}>
+                                <label className="required">האם קיימים הרוגים/פצועים?</label>
+                                <div className="radio-group">
+                                    <label>
+                                        <input type="radio" name="casualties" value="yes" checked={casualties === 'yes'} onChange={() => { setCasualties('yes'); setCasualtiesError(false); }} />
+                                        כן
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="casualties" value="no" checked={casualties === 'no'} onChange={() => { setCasualties('no'); setCasualtiesError(false); }} />
+                                        לא
+                                    </label>
                                 </div>
-                                <div className={`form-group ${errors.idNumber ? 'error' : ''}`}>
-                                    <label htmlFor="idNumber" className="required">תעודת זהות:</label>
-                                    <input
-                                        type="text"
-                                        id="idNumber"
-                                        name="idNumber"
-                                        value={formData.idNumber}
-                                        onChange={handleChange}
-                                        onBlur={handleBlur}
-                                        pattern="\d{9}"
-                                        title="יש להזין 9 ספרות"
-                                        required
-                                        placeholder="דוגמה: 123456789"
-                                        inputMode="numeric"
-                                        readOnly={!!editingSubmissionId} // Make read-only in edit mode
-                                    />
-                                    {errors.idNumber && <span className="error-message">{errors.idNumber}</span>}
+                                {casualtiesError && <span className="error-message">שדה חובה</span>}
+                            </div>
+                            <div className={`form-group ${disconnectedError ? 'error' : ''}`}>
+                                <label className="required">האם מנותקי קשר?</label>
+                                <div className="radio-group">
+                                    <label>
+                                        <input type="radio" name="disconnected" value="yes" checked={disconnected === 'yes'} onChange={() => { setDisconnected('yes'); setDisconnectedError(false); }} />
+                                        כן
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="disconnected" value="no" checked={disconnected === 'no'} onChange={() => { setDisconnected('no'); setDisconnectedError(false); }} />
+                                        לא
+                                    </label>
                                 </div>
-                                {/* Display duplicate ID message directly under ID field */}
-                                {checkingDuplicate && <div className="message-box warning">בודק כפילות תעודת זהות...</div>}
-                                {duplicateFound && existingSubmissionInfo && (
-                                    <div className="message-box warning">
-                                        <strong>אזהרה:</strong> טופס עבור תעודת זהות <strong>{formData.idNumber}</strong> כבר מולא.
-                                        מולא על ידי: <strong>{existingSubmissionInfo.identity}</strong>, בתאריך: <strong>{new Date(existingSubmissionInfo.timestamp).toLocaleString('he-IL')}</strong>.
-                                        <br />לא ניתן לשלוח טופס נוסף עבור תעודת זהות זו.
-                                    </div>
-                                )}
-                                <div className="form-group">
-                                    <label htmlFor="age">גיל:</label>
-                                    <input type="number" id="age" name="age" value={formData.age} onChange={handleChange} min="0" max="120" placeholder="הזן גיל" />
+                                {disconnectedError && <span className="error-message">שדה חובה</span>}
+                            </div>
+                            <div className={`form-group ${evacuationAssistanceError ? 'error' : ''}`}>
+                                <label className="required">האם נדרש סיוע בפינוי?</label>
+                                <div className="radio-group">
+                                    <label>
+                                        <input type="radio" name="evacuationAssistance" value="yes" checked={evacuationAssistance === 'yes'} onChange={() => { setEvacuationAssistance('yes'); setEvacuationAssistanceError(false); }} />
+                                        כן
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="evacuationAssistance" value="no" checked={evacuationAssistance === 'no'} onChange={() => { setEvacuationAssistance('no'); setEvacuationAssistanceError(false); }} />
+                                        לא
+                                    </label>
                                 </div>
-                                <div className="form-group">
-                                    <label htmlFor="gender">מין:</label>
-                                    <select id="gender" name="gender" value={formData.gender} onChange={handleChange}>
-                                        <option value="">בחר/י</option>
-                                        <option value="male">זכר</option>
-                                        <option value="female">נקבה</option>
-                                    </select>
-                                </div>
-                                <div className={`form-group ${errors.phone ? 'error' : ''}`}>
-                                    <label htmlFor="phone">טלפון:</label>
-                                    <input
-                                        type="tel"
-                                        id="phone"
-                                        name="phone"
-                                        value={formData.phone}
-                                        onChange={handleChange}
-                                        onBlur={handleBlur}
-                                        pattern="[0-9]{9,10}"
-                                        title="יש להזין 9 או 10 ספרות"
-                                        placeholder="דוגמה: 05X-XXXXXXX"
-                                        inputMode="numeric"
-                                    />
-                                    {errors.phone && <span className="error-message">{errors.phone}</span>}
-                                </div>
-                                <div className="form-group">
-                                    <label htmlFor="address">כתובת:</label>
-                                    <input type="text" id="address" name="address" value={formData.address} onChange={handleChange} placeholder="רחוב, מספר, עיר" />
-                                </div>
-                                <div className="form-group">
-                                    <label htmlFor="residents">מספר שוהים בדירה:</label>
-                                    <input type="number" id="residents" name="residents" value={formData.residents} onChange={handleChange} min="1" placeholder="כמה נפשות בדירה?" />
+                                {evacuationAssistanceError && <span className="error-message">שדה חובה</span>}
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="notes">הערות:</label>
+                                <div className="textarea-with-button">
+                                    <textarea
+                                        id="notes"
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        placeholder="הזן הערות נוספות (ניתן להשתמש בזיהוי דיבור)"
+                                    ></textarea>
+                                    <button
+                                        type="button"
+                                        onClick={toggleSpeechRecognition}
+                                        className={`speech-button ${isListening ? 'listening' : ''}`}
+                                        title="התחל/הפסק זיהוי דיבור"
+                                    >
+                                        <i className={`fas ${isListening ? 'fa-microphone' : 'fa-microphone-alt-slash'}`}></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* חלק: פרטי מצב */}
-                        <div className="form-section">
-                            <div className="form-grid">
-                                <div className="form-group">
-                                    <label>פציעה פיזית:</label>
-                                    <div className="radio-group">
-                                        <label><input type="radio" name="physicalInjury" value="none" checked={formData.physicalInjury === 'none'} onChange={handleChange} /> לא (1)</label>
-                                        <label><input type="radio" name="physicalInjury" value="light" checked={formData.physicalInjury === 'light'} onChange={handleChange} /> קלה (2)</label>
-                                        <label><input type="radio" name="physicalInjury" value="medium" checked={formData.physicalInjury === 'medium'} onChange={handleChange} /> בינונית (3)</label>
-                                        <label><input type="radio" name="physicalInjury" value="severe" checked={formData.physicalInjury === 'severe'} onChange={handleChange} /> קשה (4)</label>
-                                    </div>
-                                </div>
-                                <div className="form-group">
-                                    <label>הרוגים/פצועים:</label>
-                                    <div className="radio-group">
-                                        <label><input type="radio" name="casualties" value="no" checked={formData.casualties === 'no'} onChange={handleChange} /> לא</label>
-                                        <label><input type="radio" name="casualties" value="yes" checked={formData.casualties === 'yes'} onChange={handleChange} /> כן</label>
-                                    </div>
-                                </div>
-                                <div className="form-group">
-                                    <label>מנותקי קשר:</label>
-                                    <div className="radio-group">
-                                        <label><input type="radio" name="disconnected" value="no" checked={formData.disconnected === 'no'} onChange={handleChange} /> לא</label>
-                                        <label><input type="radio" name="disconnected" value="yes" checked={formData.disconnected === 'yes'} onChange={handleChange} /> כן</label>
-                                    </div>
-                                </div>
-                                <div className="form-group">
-                                    <label>זקוק לסיוע בפינוי:</label>
-                                    <div className="radio-group">
-                                        <label><input type="radio" name="evacuationAssistance" value="no" checked={formData.evacuationAssistance === 'no'} onChange={handleChange} /> לא</label>
-                                        <label><input type="radio" name="evacuationAssistance" value="yes" checked={formData.evacuationAssistance === 'yes'} onChange={handleChange} /> כן</label>
-                                    </div>
-                                </div>
-                                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                                    <label htmlFor="notes">הערות:</label>
-                                    <div className="textarea-with-button">
-                                        <textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="הוסף הערות רלוונטיות כאן..."></textarea>
-                                        {('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) && (
-                                            <button type="button" onClick={startListening} className={`speech-button ${isListening ? 'listening' : ''}`} title="הזנה קולית">
-                                                <i className="fas fa-microphone"></i>
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* כפתור שליחה / עדכון */}
-                        {message && !duplicateFound && ( 
-                            <div className={`message-box ${message.includes('הצלחה') || message.includes('עודכנו') ? 'success' : 'danger'}`}>
-                                {message}
-                            </div>
-                        )}
                         <div className="button-container">
-                            <button type="submit" className="action-button" disabled={duplicateFound || checkingDuplicate || Object.keys(errors).some(key => errors[key])}>
-                                {checkingDuplicate ? 'בודק...' : editingSubmissionId ? 'עדכן' : 'שלח'}
+                            <button type="submit" className="action-button" disabled={loading}>
+                                {loading ? 'שולח...' : 'שלח דיווח'}
                             </button>
                         </div>
                     </form>
 
-                    {/* הצגת נתונים קודמים */}
-                    <div className="previous-submissions">
-                        <h2>נתונים קודמים (מזהה משתמש: {identityId})</h2>
-                        {loadingSubmissions ? (
-                            <p>טוען נתונים...</p>
-                        ) : previousSubmissions.length === 0 ? (
-                            <p>טרם נשמרו נתונים עבור משתמש זה.</p>
-                        ) : (
-                            previousSubmissions.map((item, index) => (
+                    {/* Previous Submissions Section (for current user) */}
+                    {previousSubmissions.length > 0 && (
+                        <div className="previous-submissions">
+                            <h2>דיווחים קודמים שלי</h2>
+                            {previousSubmissions.map((item) => (
                                 <div key={item.id} className="submission-item">
-                                    <span><strong>תאריך/שעה:</strong> {new Date(item.timestamp).toLocaleString('he-IL')}</span>
-                                    <span><strong>מזהה הזדהות:</strong> {item.identityId || 'לא הוזן'}</span>
-                                    <span><strong>שם:</strong> {item.firstName} {item.familyName}</span>
-                                    <span><strong>תעודת זהות:</strong> {item.idNumber || 'לא הוזן'}</span>
-                                    <span><strong>גיל:</strong> {item.age}, <strong>מין:</strong> {item.gender}</span>
-                                    <span><strong>טלפון:</strong> {item.phone}</span>
+                                    <span><strong>תאריך:</strong> {new Date(item.timestamp).toLocaleString('he-IL')}</span>
+                                    <span><strong>סטטוס הפניה:</strong> {item.referralStatus === 'closed' ? 'סגורה' : item.referralStatus === 'social_worker' ? 'הועבר לטיפול עו"ס' : item.referralStatus === 'other' ? `הועבר להמשך טיפול אחר: ${item.otherStatusText}` : 'טרם הוגדר'}</span>
                                     <span><strong>כתובת:</strong> {item.address}</span>
-                                    <span><strong>מספר שוהים:</strong> {item.residents}</span>
-                                    <span><strong>פציעה פיזית:</strong> {item.physicalInjury}</span>
-                                    <span><strong>הרוגים/פצועים:</strong> {item.casualties}</span>
-                                    <span><strong>מנותקי קשר:</strong> {item.disconnected}</span>
-                                    <span><strong>זקוק לסיוע בפינוי:</strong> {item.evacuationAssistance}</span>
                                     <span><strong>הערות:</strong> {item.notes || 'אין'}</span>
-                                    <button className="edit-button" onClick={() => handleEditClick(item)}>
-                                        <i className="fas fa-edit" style={{marginLeft: '5px'}}></i> ערוך
-                                    </button>
+                                    <a href={`details.html?id=${item.id}&userId=${item.userId}`} className="edit-button">
+                                        פרטים וטיפול
+                                    </a>
                                 </div>
-                            ))
-                        )}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             );
         }
-        
-        // Main App Component to manage login state and render components
+
+
+        // Main App Component
         function App() {
             const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
-            const [enteredIdentityId, setEnteredIdentityId] = useState(null);
-            const [isAdminUser, setIsAdminUser] = useState(false);
-            const [currentView, setCurrentView] = useState('login'); // 'login', 'identitySetup', 'dashboard', 'form'
+            const [userName, setUserName] = useState('');
+            const [userFamilyName, setUserFamilyName] = useState('');
+            const [userIdNumber, setUserIdNumber] = useState('');
             const logoutTriggeredRef = useRef(false);
 
             useEffect(() => {
                 if (!window.firebaseApp || !window.firebaseAuth || !window.firebaseDb) {
-                    console.error("Global Firebase instances are not available. Please check the initial script tag for Firebase initialization errors.");
-                    setIsAuthReady(true);
+                    console.error("Global Firebase instances are not available. Cannot initialize App component.");
                     return;
                 }
 
@@ -1357,146 +1274,97 @@
                     db: window.firebaseDb
                 });
 
-                const auth = window.firebaseAuth;
-                const db = window.firebaseDb; // Get db instance here
-                const unsubscribe = window.onAuthStateChangedGlobal(auth, async (user) => {
-                    if (user) {
-                        setUserUid(user.uid);
-                        logoutTriggeredRef.current = false;
-
-                        // Check user profile
-                        const profileRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${user.uid}/profile`, 'details');
-                        const profileSnap = await window.getDocFirebaseGlobal(profileRef);
-
-                        let identitySet = false;
-                        if (profileSnap.exists()) {
-                            const profileData = profileSnap.data();
-                            if (profileData.firstName && profileData.familyName && profileData.idNumber) {
-                                setEnteredIdentityId(`${profileData.firstName} ${profileData.familyName}`);
-                                identitySet = true;
+                const unsubscribe = window.onAuthStateChangedGlobal(window.firebaseAuth, async (user) => {
+                    if (!logoutTriggeredRef.current) {
+                        if (user) {
+                            setUserUid(user.uid);
+                            // Attempt to fetch user profile
+                            const profileRef = window.docFirebaseGlobal(window.firebaseDb, `artifacts/${window.globalAppId}/users/${user.uid}/profile`, 'details');
+                            try {
+                                const docSnap = await window.getDocFirebaseGlobal(profileRef);
+                                if (docSnap.exists()) {
+                                    const data = docSnap.data();
+                                    setUserName(data.firstName || '');
+                                    setUserFamilyName(data.familyName || '');
+                                    setUserIdNumber(data.idNumber || '');
+                                } else {
+                                    console.log("No profile found for user, prompt for setup.");
+                                }
+                            } catch (e) {
+                                console.error("Error fetching user profile:", e);
                             }
-                        }
-
-                        // Fetch latest ID token and claims to check admin status
-                        try {
-                            const idTokenResult = await user.getIdTokenResult(true);
-                            setIsAdminUser(idTokenResult.claims.admin === true);
-                            console.log("User claims:", idTokenResult.claims);
-                        } catch (error) {
-                            console.error("Error fetching ID token result:", error);
-                            setIsAdminUser(false);
-                        }
-                        
-                        if (identitySet) {
-                            setCurrentView('dashboard'); // Go to dashboard if profile is complete
                         } else {
-                            setCurrentView('identitySetup'); // Go to identity setup if profile is incomplete
+                            setUserUid(null);
+                            setUserName('');
+                            setUserFamilyName('');
+                            setUserIdNumber('');
                         }
                         setIsAuthReady(true);
-                        console.log("User signed in:", user.uid, "Identity (raw):", user.email || user.uid, "Is Admin:", isAdminUser);
-                    } else {
-                        setUserUid(null);
-                        setEnteredIdentityId(null);
-                        setIsAdminUser(false);
-                        setIsAuthReady(true);
-                        setCurrentView('login');
-                        console.log("User signed out or no user. Auth state processed.");
                     }
                 });
-                return () => unsubscribe();
-            }, [firebaseInstances.db]); // Re-run effect if db instance changes
 
-            const handleLoginSuccess = (user) => {
-                // onAuthStateChanged will handle updating userUid, identityId, and currentView
-                // No direct state updates needed here, just ensures the listener picks up the new user
-            };
+                return () => unsubscribe();
+            }, []);
 
             const handleIdentitySetupComplete = (firstName, familyName, idNumber) => {
-                setEnteredIdentityId(`${firstName} ${familyName}`);
-                setCurrentView('dashboard');
+                setUserName(firstName);
+                setUserFamilyName(familyName);
+                setUserIdNumber(idNumber);
             };
 
             const handleLogout = async () => {
-                try {
-                    if (firebaseInstances.auth) {
-                        logoutTriggeredRef.current = true;
+                logoutTriggeredRef.current = true; // Set the flag to prevent re-login after logout
+                if (firebaseInstances.auth) {
+                    try {
                         await window.signOutFirebaseGlobal(firebaseInstances.auth);
-                    } else {
-                        console.warn("Firebase Auth is not available for logout.");
                         setUserUid(null);
-                        setEnteredIdentityId(null);
-                        setIsAdminUser(false);
-                        logoutTriggeredRef.current = true;
-                        setCurrentView('login');
+                        setUserName('');
+                        setUserFamilyName('');
+                        setUserIdNumber('');
+                        // Redirect to login or home page after logout
+                        window.location.href = 'index.html';
+                    } catch (error) {
+                        console.error("Error signing out:", error);
+                    } finally {
+                        logoutTriggeredRef.current = false; // Reset flag
                     }
-                } catch (error) {
-                    console.error("שגיאה בהתנתקות:", error);
                 }
             };
 
-            const goToForm = () => setCurrentView('form');
-            const goToDashboard = () => setCurrentView('dashboard');
-
-
             if (!isAuthReady) {
+                return <div className="container"><p>טוען הגדרות אבטחה...</p></div>;
+            }
+
+            if (!userUid) {
+                return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={(user) => setUserUid(user.uid)} />;
+            }
+
+            // If user is logged in but profile is not complete
+            if (userUid && (!userName || !userFamilyName || !userIdNumber)) {
                 return (
-                    <div className="container">
-                        <h1>טוען...</h1>
-                        <p>ממתין לאתחול Firebase. אם הודעה זו נשארת זמן רבה, ייתכן שיש בעיה בהגדרות Firebase שלך או בחיבור לאינטרנט.</p>
-                        <p>אנא בדוק את קונסולת המפתחים (F12) לפרטים נוספים.</p>
-                    </div>
+                    <IdentitySetupPage 
+                        db={firebaseInstances.db} 
+                        userUid={userUid} 
+                        onIdentitySetupComplete={handleIdentitySetupComplete} 
+                    />
                 );
             }
 
-            if (!firebaseInstances.auth || !firebaseInstances.db) {
-                return (
-                    <div className="container">
-                        <h1>שגיאה באתחול Firebase!</h1>
-                        <p>לא ניתן להתחבר ל-Firebase. אנא וודא שקובץ `firebaseConfig` שלך מוגדר כראוי בפרויקט Firebase שלך ושהדומיין הנוכחי מורשה (Authentication -> Settings -> Authorized domains).</p>
-                        <p>פרטים נוספים יכולים להימצא בקונסולת המפתחים של הדפדפן (F12).</p>
-                    </div>
-                );
-            }
-
-            switch (currentView) {
-                case 'login':
-                    return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={handleLoginSuccess} />;
-                case 'identitySetup':
-                    return <IdentitySetupPage db={firebaseInstances.db} userUid={userUid} onIdentitySetupComplete={handleIdentitySetupComplete} />;
-                case 'dashboard':
-                    return (
-                        <MainDashboard
-                            userId={userUid}
-                            identityId={enteredIdentityId}
-                            onGoToForm={goToForm}
-                            onLogout={handleLogout}
-                            isAdminUser={isAdminUser}
-                        />
-                    );
-                case 'form':
-                    return (
-                        <FormComponent
-                            auth={firebaseInstances.auth}
-                            db={firebaseInstances.db}
-                            userId={userUid}
-                            identityId={enteredIdentityId}
-                            onLogout={handleLogout}
-                            onGoToDashboard={goToDashboard}
-                        />
-                    );
-                default:
-                    return (
-                        <div className="container">
-                            <h1>שגיאה: תצוגה לא ידועה</h1>
-                            <p>אירעה שגיאה בלתי צפויה במערכת הניווט. אנא רענן את העמוד.</p>
-                            <button className="action-button" onClick={() => window.location.reload()}>רענן</button>
-                        </div>
-                    );
-            }
+            // If user is logged in and profile is complete
+            return (
+                <SubmissionForm
+                    auth={firebaseInstances.auth}
+                    db={firebaseInstances.db}
+                    userUid={userUid}
+                    userName={userName}
+                    userFamilyName={userFamilyName}
+                    userIdNumber={userIdNumber}
+                    onLogout={handleLogout}
+                />
+            );
         }
-
-        const container = document.getElementById('root');
-        const root = ReactDOM.createRoot(container);
+        // Corrected React 18 rendering method
+        const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
