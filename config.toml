@@ -1,4 +1,4 @@
-baseURL = "https://YOUR_USERNAME.github.io/my-hugo-form-app/" # שנה את YOUR_USERNAME ושם המאגר
+baseURL = "https://amireyal5.github.io/ateam/" # שנה את YOUR_USERNAME ושם המאגר
 languageCode = "he-il"
 title = "טופס נתונים"
 theme = "" # השאר ריק
