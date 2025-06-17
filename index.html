@@ -15,24 +15,13 @@
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, collectionGroup, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
         // Global variables provided by the Canvas environment (do not modify these directly)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // --- חובה: הדבק כאן את אובייקט ה-firebaseConfig שלך מ-Firebase Console ---
-        // עליך למצוא אותו בהגדרות הפרויקט שלך ב-Firebase (Project settings -> Your apps -> Web app -> Config).
-        // הוא ייראה בערך ככה:
-        // const myFirebaseConfig = {
-        //     apiKey: "AIzaSy...",
-        //     authDomain: "your-project-id.firebaseapp.com",
-        //     projectId: "your-project-id",
-        //     storageBucket: "your-project-id.appspot.com",
-        //     messagingSenderId: "...",
-        //     appId: "1:...",
-        //     measurementId: "G-..." // אם הוגדר
-        // };
         const myFirebaseConfig = {
             apiKey: "AIzaSyA38-uZwniXXCCK954yjcICl56mwVXbHDk",
             authDomain: "ateam-3cf3d.firebaseapp.com",
@@ -41,7 +30,7 @@
             messagingSenderId: "760383317284",
             appId: "1:760383317284:web:a33ae7d2a89911b77f3fb1",
             measurementId: "G-NCVXFH3R6X"
-        }; // --- האובייקט שהודבק כאן הוא ה-firebaseConfig שלך ---
+        }; 
 
         let firebaseConfig;
         try {
@@ -99,8 +88,6 @@
         window.collectionFirebaseGlobal = collection; 
         window.addDocFirebaseGlobal = addDoc; 
         window.onSnapshotFirebaseGlobal = onSnapshot; 
-        window.collectionGroupFirebaseGlobal = collectionGroup; // New: expose collectionGroup
-        window.queryFirebaseGlobal = query; // New: expose query
 
     </script>
 
@@ -339,36 +326,6 @@
             color: #555;
         }
 
-        /* Table styles for Admin View */
-        .admin-table-container {
-            overflow-x: auto; /* Enable horizontal scrolling for small screens */
-        }
-        .admin-table {
-            width: 100%;
-            border-collapse: collapse; /* Collapse borders for a cleaner look */
-            margin-top: 20px;
-            font-size: 0.9em;
-            text-align: right; /* RTL alignment */
-        }
-        .admin-table th, .admin-table td {
-            border: 1px solid #ddd;
-            padding: 10px 12px;
-            vertical-align: top;
-        }
-        .admin-table th {
-            background-color: #e9ecef;
-            color: #34495e;
-            font-weight: 600;
-            white-space: nowrap; /* Prevent headers from wrapping */
-        }
-        .admin-table tbody tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        .admin-table tbody tr:hover {
-            background-color: #f0f0f0;
-        }
-        /* End Table styles */
-
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .form-grid,
@@ -482,7 +439,7 @@
         }
 
         // Component for the Main Dashboard
-        function MainDashboard({ userId, identityId, onGoToForm, onGoToAdmin, onLogout, isAdminUser }) {
+        function MainDashboard({ userId, identityId, onGoToForm, onLogout, isAdminUser }) { // Removed onGoToAdmin
             return (
                 <div className="container">
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
@@ -499,14 +456,15 @@
                             מילוי טופס חדש
                         </button>
                         {isAdminUser && ( // Show admin button only if isAdminUser is true
-                            <button className="action-button" onClick={onGoToAdmin}>
+                            <a href="data.html" className="action-button" style={{ textDecoration: 'none' }}> {/* Link to data.html */}
                                 צפייה בכל הנתונים (מנהל)
-                            </button>
+                            </a>
                         )}
                     </div>
                     <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
-                        <strong style={{color: '#d9534f'}}>הערה:</strong> ממשק ה"מנהל" מאפשר לכל משתמש מחובר לצפות בנתונים, בהתאם לכללי האבטחה הנוכחיים של Firestore.
-                        כדי להגביל גישה זו למנהלים בלבד, נדרשת הגדרה מתקדמת של הרשאות באמצעות Firebase Cloud Functions בצד השרת.
+                        <strong style={{color: '#d9534f'}}>הערה:</strong> ממשק ה"מנהל" נמצא כעת בדף נפרד (`data.html`).
+                        הגישה לנתונים עצמם מוגבלת למנהלים בלבד באמצעות כללי אבטחה של Firestore,
+                        הדורשים הגדרה של הרשאות אדמין באמצעות Firebase Cloud Functions בצד השרת.
                     </p>
                 </div>
             );
@@ -765,120 +723,7 @@
                 </div>
             );
         }
-
-        // New Component: Admin View to show all submissions
-        function AdminViewComponent({ auth, db, onGoToDashboard }) {
-            const [allSubmissions, setAllSubmissions] = useState([]);
-            const [loadingAllSubmissions, setLoadingAllSubmissions] = useState(true);
-            const [message, setMessage] = useState('');
-
-            useEffect(() => {
-                if (!db || !auth) {
-                    setMessage('שגיאה: שירותי Firebase Db או Auth אינם זמינים.');
-                    setLoadingAllSubmissions(false);
-                    return;
-                }
-                if (!auth.currentUser) {
-                    setMessage('שגיאה: אינך מחובר. אנא התחבר כדי לצפות בנתונים.');
-                    setLoadingAllSubmissions(false);
-                    return;
-                }
-
-                setLoadingAllSubmissions(true);
-                const queryRef = window.queryFirebaseGlobal(window.collectionGroupFirebaseGlobal(db, 'formData'));
-
-                const unsubscribe = window.onSnapshotFirebaseGlobal(queryRef, (snapshot) => {
-                    const submissions = [];
-                    snapshot.forEach(doc => {
-                        submissions.push({ id: doc.id, ...doc.data() });
-                    });
-                    // Sort by timestamp if available, descending
-                    submissions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                    setAllSubmissions(submissions);
-                    setLoadingAllSubmissions(false);
-                }, (error) => {
-                    console.error("Error fetching all submissions:", error);
-                    let errorMessage = `שגיאה באחזור כל הנתונים: ${error.message}.`;
-                    if (error.code === 'permission-denied') {
-                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מ-`formData` רק למשתמשים עם הרשאת מנהל.";
-                    }
-                    setMessage(errorMessage);
-                    setLoadingAllSubmissions(false);
-                });
-
-                return () => unsubscribe();
-            }, [db, auth]);
-
-            return (
-                <div className="container">
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-                        <h1>כל הנתונים שהוגשו</h1>
-                        <button onClick={onGoToDashboard} className="action-button secondary" style={{padding: '10px 20px', fontSize: '0.9em'}}>
-                            חזור ללוח בקרה
-                        </button>
-                    </div>
-
-                    {message && (
-                        <div className={`message-box ${message.includes('הצלחה') ? 'success' : 'danger'}`}>
-                            {message}
-                        </div>
-                    )}
-
-                    {loadingAllSubmissions ? (
-                        <p>טוען את כל הנתונים...</p>
-                    ) : allSubmissions.length === 0 ? (
-                        <p>טרם נשמרו נתונים כלשהם.</p>
-                    ) : (
-                        <div className="admin-table-container">
-                            <table className="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>תאריך/שעה</th>
-                                        <th>מזהה משתמש</th>
-                                        <th>מזהה הזדהות (מייל/UID)</th>
-                                        <th>שם מלא</th>
-                                        <th>תעודת זהות</th> {/* New Header */}
-                                        <th>גיל</th>
-                                        <th>מין</th>
-                                        <th>טלפון</th>
-                                        <th>כתובת</th>
-                                        <th>שוהים בדירה</th>
-                                        <th>פציעה פיזית</th>
-                                        <th>הרוגים/פצועים</th>
-                                        <th>מנותקי קשר</th>
-                                        <th>סיוע בפינוי</th>
-                                        <th>הערות</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {allSubmissions.map((item) => (
-                                        <tr key={item.id}>
-                                            <td>{new Date(item.timestamp).toLocaleString('he-IL')}</td>
-                                            <td>{item.userId}</td>
-                                            <td>{item.identityId || 'לא הוזן'}</td>
-                                            <td>{item.firstName} {item.familyName}</td> {/* Combined Name */}
-                                            <td>{item.idNumber || 'לא הוזן'}</td> {/* Display ID Number */}
-                                            <td>{item.age}</td>
-                                            <td>{item.gender}</td>
-                                            <td>{item.phone}</td>
-                                            <td>{item.address}</td>
-                                            <td>{item.residents}</td>
-                                            <td>{item.physicalInjury}</td>
-                                            <td>{item.casualties === 'yes' ? 'כן' : 'לא'}</td>
-                                            <td>{item.disconnected === 'yes' ? 'כן' : 'לא'}</td>
-                                            <td>{item.evacuationAssistance === 'yes' ? 'כן' : 'לא'}</td>
-                                            <td>{item.notes || 'אין'}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-
+        
         // Main App Component to manage login state and render components
         function App() {
             const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
@@ -886,7 +731,7 @@
             const [userUid, setUserUid] = useState(null);
             const [enteredIdentityId, setEnteredIdentityId] = useState(null);
             const [isAdminUser, setIsAdminUser] = useState(false); // New state for admin status
-            const [currentView, setCurrentView] = useState('login'); // 'login', 'dashboard', 'form', 'admin'
+            const [currentView, setCurrentView] = useState('login'); // 'login', 'dashboard', 'form'
             const logoutTriggeredRef = useRef(false);
 
             useEffect(() => {
@@ -972,7 +817,6 @@
             };
 
             const goToForm = () => setCurrentView('form');
-            const goToAdmin = () => setCurrentView('admin');
             const goToDashboard = () => setCurrentView('dashboard');
 
 
@@ -1007,7 +851,6 @@
                             userId={userUid}
                             identityId={enteredIdentityId}
                             onGoToForm={goToForm}
-                            onGoToAdmin={goToAdmin}
                             onLogout={handleLogout}
                             isAdminUser={isAdminUser} // Pass isAdminUser to MainDashboard
                         />
@@ -1023,15 +866,7 @@
                             onGoToDashboard={goToDashboard}
                         />
                     );
-                case 'admin':
-                    return (
-                        <AdminViewComponent
-                            auth={firebaseInstances.auth}
-                            db={firebaseInstances.db}
-                            onGoToDashboard={goToDashboard}
-                        />
-                    );
-                default:
+                default: // Should not happen, but for safety
                     return (
                         <div className="container">
                             <h1>שגיאה: תצוגה לא ידועה</h1>
