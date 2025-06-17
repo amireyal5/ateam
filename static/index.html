@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>טופס נתונים Hugo</title>
+    <!-- React Libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX compilation directly in the browser (for development only) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Firebase Libraries -->
+    <script type="module">
+        // Import necessary Firebase functions
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, signOut, GoogleAuthProvider, signInWithPopup, signInWithPhoneNumber, RecaptchaVerifier } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment (do not modify these directly)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // Fix: Use __firebase_config directly for parsing
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        // Fix: Correctly refer to __initial_auth_token on the right side
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Initialize Firebase app and services
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Make Firebase instances and global variables available to React components
+        // This is done for simplicity in a single-file demo; in a larger app, use React Context.
+        window.firebaseApp = app;
+        window.firebaseDb = db;
+        window.firebaseAuth = auth;
+        window.appId = appId;
+        window.initialAuthToken = initialAuthToken;
+        window.GoogleAuthProvider = GoogleAuthProvider; // Make GoogleAuthProvider available globally
+        window.signInWithPopup = signInWithPopup;       // Make signInWithPopup available globally
+        window.signOut = signOut;                       // Make signOut available globally
+        window.collection = collection;                 // Make collection available globally (FIX for ReferenceError)
+        window.onSnapshot = onSnapshot;                 // Make onSnapshot available globally (FIX for ReferenceError)
+        window.signInWithPhoneNumber = signInWithPhoneNumber; // Make signInWithPhoneNumber available globally
+        window.RecaptchaVerifier = RecaptchaVerifier;       // Make RecaptchaVerifier available globally
+
+        // Handle initial authentication state:
+        // If a custom token is provided by the environment, try to sign in with it.
+        // Otherwise, sign in anonymously (for basic functionality and user ID).
+        onAuthStateChanged(auth, (user) => {
+            if (!user && initialAuthToken) {
+                signInWithCustomToken(auth, initialAuthToken).catch((error) => {
+                    console.error("Error signing in with custom token:", error);
+                    // Fallback to anonymous if custom token fails
+                    signInAnonymously(auth).catch(e => console.error("Error signing in anonymously as fallback:", e));
+                });
+            } else if (!user && !initialAuthToken) {
+                // If no user and no initial token, sign in anonymously
+                signInAnonymously(auth).catch(e => console.error("Error signing in anonymously:", e));
+            }
+        });
+    </script>
+    <style>
+        /* הגדרות בסיסיות לגוף הדף */
+        body {
+            font-family: 'Inter', Arial, sans-serif; /* שימוש בפונט Inter */
+            background-color: #f0f2f5; /* צבע רקע עדין */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* גובה מינימלי של 100% מגובה המסך */
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box; /* מבטיח שריפוד וגבולות לא יגדילו את הגודל הכולל של האלמנט */
+        }
+
+        /* מכל הטופס והלוגין */
+        .container {
+            background-color: #ffffff; /* רקע לבן */
+            padding: 35px;
+            border-radius: 12px; /* פינות מעוגלות */
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1); /* צל עדין */
+            width: 100%;
+            max-width: 900px; /* רוחב מקסימלי */
+            box-sizing: border-box;
+            border: 1px solid #e0e0e0; /* גבול עדין */
+            text-align: center;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50; /* צבע כהה לכותרת */
+            margin-bottom: 35px;
+            font-size: 2.2em; /* גודל פונט גדול יותר */
+            font-weight: 700; /* עובי פונט מודגש */
+        }
+
+        .form-section {
+            margin-bottom: 30px;
+            padding-bottom: 25px;
+            border-bottom: 1px dashed #cccccc; /* קו הפרדה מקווקו */
+        }
+
+        .form-section:last-of-type {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .form-grid {
+            display: grid;
+            gap: 25px; /* מרווח בין השדות */
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* התאמה אוטומטית של עמודות */
+        }
+
+        .form-grid.two-columns {
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            text-align: right; /* יישור לימין עבור RTL */
+        }
+
+        label {
+            margin-bottom: 10px;
+            color: #34495e; /* צבע כהה לתווית */
+            font-weight: 600; /* עובי פונט בינוני */
+            font-size: 1.05em;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select,
+        input[type="password"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #dcdcdc; /* גבול עדין */
+            border-radius: 8px; /* פינות מעוגלות */
+            box-sizing: border-box;
+            font-size: 1.1em;
+            color: #333;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease; /* אנימציה חלקה במעבר */
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        textarea:focus,
+        select:focus,
+        input[type="password"]:focus {
+            border-color: #3498db; /* צבע כחול בפוקוס */
+            outline: none; /* הסרת קו המתאר ברירת המחדל */
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.2); /* צל בפוקוס */
+        }
+
+        textarea {
+            resize: vertical; /* מאפשר שינוי גודל אנכי בלבד */
+            min-height: 100px; /* גובה מינימלי */
+        }
+
+        .radio-group {
+            display: flex;
+            flex-wrap: wrap; /* מאפשר מעבר שורה לפריטים */
+            gap: 20px; /* מרווח בין כפתורי הרדיו */
+            margin-top: 8px;
+        }
+
+        .radio-group label {
+            margin-bottom: 0;
+            font-weight: normal; /* ביטול מודגש */
+            display: flex;
+            align-items: center;
+            cursor: pointer; /* סמן עכבר יד */
+            color: #444;
+            font-size: 1em;
+        }
+
+        .radio-group input[type="radio"] {
+            margin-left: 8px; /* מרווח משמאל לכפתור עבור RTL */
+            width: auto;
+            transform: scale(1.2); /* הגדלת גודל כפתור הרדיו */
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 15px; /* מרווח בין כפתורים */
+            margin-top: 30px;
+        }
+
+        .action-button {
+            background-color: #28a745; /* צבע ירוק לכפתור */
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease; /* אנימציות למעבר וריחוף */
+            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3); /* צל לכפתור */
+        }
+
+        .action-button.secondary {
+            background-color: #007bff;
+            box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3);
+        }
+
+        .action-button.danger {
+            background-color: #dc3545;
+            box-shadow: 0 4px 10px rgba(220, 53, 69, 0.3);
+        }
+
+        .action-button.google {
+            background-color: #db4437; /* Google red */
+            box-shadow: 0 4px 10px rgba(219, 68, 55, 0.3);
+        }
+
+        .action-button:hover {
+            background-color: #218838; /* צבע ירוק כהה יותר בריחוף */
+            transform: translateY(-2px); /* אפקט קל של ריחוף */
+        }
+
+        .action-button.secondary:hover {
+            background-color: #0069d9;
+        }
+
+        .action-button.danger:hover {
+            background-color: #c82333;
+        }
+
+        .action-button.google:hover {
+            background-color: #c23321;
+        }
+
+        .action-button:active {
+            background-color: #1e7e34; /* צבע ירוק כהה בלחיצה */
+            transform: translateY(0); /* חזרה למצב רגיל בלחיצה */
+        }
+        .action-button.secondary:active {
+            background-color: #0056b3;
+        }
+        .action-button.danger:active {
+            background-color: #bd2130;
+        }
+        .action-button.google:active {
+            background-color: #a72719;
+        }
+
+        .message-box {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            margin-top: 20px;
+            text-align: right;
+            font-size: 1em;
+            font-weight: bold;
+        }
+        .message-box.success {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+
+        .previous-submissions {
+            margin-top: 40px;
+            text-align: right;
+            border-top: 1px dashed #cccccc;
+            padding-top: 25px;
+        }
+        .previous-submissions h2 {
+            color: #2c3e50;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+        }
+        .submission-item {
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: right;
+            line-height: 1.6;
+        }
+        .submission-item strong {
+            color: #34495e;
+        }
+        .submission-item span {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.95em;
+            color: #555;
+        }
+
+        /* Login method selector */
+        .login-method-selector {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .login-method-selector button {
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+        }
+        .login-method-selector button.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .login-method-selector button:hover:not(.active) {
+            background-color: #dee2e6;
+        }
+
+        /* reCAPTCHA container styling */
+        #recaptcha-container {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .form-grid,
+            .form-grid.two-columns {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 25px;
+                margin: 10px;
+            }
+            h1 {
+                font-size: 1.8em;
+                margin-bottom: 25px;
+            }
+            label {
+                font-size: 1em;
+            }
+            input[type="text"],
+            input[type="number"],
+            textarea,
+            select,
+            input[type="password"] {
+                padding: 10px 12px;
+                font-size: 1em;
+            }
+            .form-section {
+                margin-bottom: 20px;
+                padding-bottom: 15px;
+            }
+            .action-button {
+                padding: 12px 25px;
+                font-size: 1.1em;
+            }
+            .previous-submissions h2 {
+                font-size: 1.5em;
+            }
+            .login-method-selector {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+            .radio-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Component for the Login Page
+        function LoginPage({ onLoginSuccess }) {
+            const [loginMethod, setLoginMethod] = useState('idPassword'); // 'idPassword', 'phone', or 'google'
+            const [identityId, setIdentityId] = useState('');
+            const [password, setPassword] = useState('');
+            const [phoneNumber, setPhoneNumber] = useState('');
+            const [otp, setOtp] = useState('');
+            const [verificationId, setVerificationId] = useState(null);
+            const [message, setMessage] = useState('');
+            const [loading, setLoading] = useState(false);
+            
+            // Ref for reCAPTCHA container
+            const recaptchaContainerRef = useRef(null);
+            const recaptchaVerifierInstance = useRef(null); // Store the RecaptchaVerifier instance
+
+            // Hardcoded credentials for demonstration (INSECURE FOR PRODUCTION)
+            const VALID_ID = '123456789';
+            const VALID_PASSWORD = 'password123';
+
+            // Initialize RecaptchaVerifier when phone login method is selected
+            useEffect(() => {
+                if (loginMethod === 'phone' && !recaptchaVerifierInstance.current && recaptchaContainerRef.current) {
+                    try {
+                        const verifier = new window.RecaptchaVerifier(recaptchaContainerRef.current, {
+                            'size': 'invisible', // Invisible reCAPTCHA is generally better UX
+                            'callback': (response) => {
+                                // reCAPTCHA solved, but signInWithPhoneNumber handles this directly
+                            },
+                            'expired-callback': () => {
+                                setMessage('אימות reCAPTCHA פג תוקף, אנא נסה שוב.');
+                                if (recaptchaVerifierInstance.current) {
+                                    recaptchaVerifierInstance.current.render().then(widgetId => {
+                                        recaptchaVerifierInstance.current.reset(widgetId); // Reset to get a new challenge
+                                    });
+                                }
+                            }
+                        }, window.firebaseAuth);
+
+                        verifier.render().then((widgetId) => {
+                            recaptchaContainerRef.current.dataset.widgetId = widgetId; // Store widget ID on the element
+                            recaptchaVerifierInstance.current = verifier; // Store the instance
+                            console.log("reCAPTCHA rendered with widget ID:", widgetId);
+                        });
+                    } catch (error) {
+                        console.error("Error initializing reCAPTCHA:", error);
+                        setMessage(`שגיאה באיתחול reCAPTCHA: ${error.message}. וודא שהפעלת את אימות טלפון בפרויקט Firebase.`);
+                    }
+                } else if (loginMethod !== 'phone' && recaptchaVerifierInstance.current) {
+                    // Clean up reCAPTCHA if switching away from phone login
+                    recaptchaVerifierInstance.current.clear();
+                    recaptchaVerifierInstance.current = null;
+                    if (recaptchaContainerRef.current) {
+                        recaptchaContainerRef.current.innerHTML = ''; // Clear the container
+                    }
+                }
+            }, [loginMethod]); // Re-run when loginMethod changes
+
+            const handleIdPasswordLogin = async (e) => {
+                e.preventDefault();
+                setMessage('');
+                setLoading(true);
+
+                if (identityId === VALID_ID && password === VALID_PASSWORD) {
+                    setMessage('התחברות הצליחה! נא המתן...');
+                    try {
+                        if (!window.firebaseAuth) {
+                            setMessage('שגיאה: Firebase Auth אינו מאותחל.');
+                            setLoading(false);
+                            return;
+                        }
+                        const auth = window.firebaseAuth;
+                        const userCredential = await window.signInAnonymously(auth); // Use signInAnonymously for consistency
+                        onLoginSuccess(userCredential.user.uid, identityId); // Pass the entered ID
+                    } catch (error) {
+                        console.error("Firebase Anonymous Auth error:", error);
+                        setMessage(`שגיאה בהתחברות אנונימית: ${error.message}`);
+                    } finally {
+                        setLoading(false);
+                    }
+                } else {
+                    setMessage('פרטי זיהוי שגויים. נסה שוב.');
+                    setLoading(false);
+                }
+            };
+
+            const handleGoogleLogin = async () => {
+                setMessage('');
+                setLoading(true);
+                try {
+                    if (!window.firebaseAuth || !window.GoogleAuthProvider || !window.signInWithPopup) {
+                        setMessage('שגיאה: Firebase Auth או ספק גוגל אינם זמינים.');
+                        setLoading(false);
+                        return;
+                    }
+                    const auth = window.firebaseAuth;
+                    const provider = new window.GoogleAuthProvider();
+                    const userCredential = await window.signInWithPopup(auth, provider);
+                    setMessage('התחברות עם גוגל הצליחה! נא המתן...');
+                    // Pass a meaningful identifier for Google login, e.g., email or display name
+                    const googleIdentity = userCredential.user.email || userCredential.user.displayName || userCredential.user.uid;
+                    onLoginSuccess(userCredential.user.uid, googleIdentity);
+                } catch (error) {
+                    console.error("Google login error:", error);
+                    let errorMessage = 'שגיאה בהתחברות עם גוגל.';
+                    if (error.code === 'auth/popup-closed-by-user') {
+                        errorMessage = 'התחברות עם גוגל בוטלה.';
+                    } else if (error.code === 'auth/cancelled-popup-request') {
+                        errorMessage = 'בקשת התחברות עם גוגל בוטלה. אנא נסה שוב.';
+                    } else if (error.code === 'auth/unauthorized-domain') {
+                        errorMessage = 'דומיין לא מורשה. וודא שכתובת האתר שלך (GitHub Pages URL) מוגדרת כדומיין מורשה בפרויקט Firebase (Authentication -> Settings -> Authorized domains).';
+                    }
+                    setMessage(errorMessage);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleSendCode = async () => {
+                setMessage('');
+                setLoading(true);
+
+                // Add a check for reCAPTCHA verifier instance
+                if (!recaptchaVerifierInstance.current) {
+                    setMessage("שגיאה: reCAPTCHA לא אותחל כראוי. נסה לרענן את העמוד.");
+                    setLoading(false);
+                    return;
+                }
+
+                // Basic phone number validation
+                if (!phoneNumber || !/^(\+)?\d{7,15}$/.test(phoneNumber)) {
+                    setMessage('אנא הזן מספר טלפון תקין (כולל קידומת בינלאומית, למשל +9725XXXXXXXX).');
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    if (!window.firebaseAuth) {
+                        setMessage('שגיאה: Firebase Auth אינו מאותחל.');
+                        setLoading(false);
+                        return;
+                    }
+                    const auth = window.firebaseAuth;
+
+                    // reCAPTCHA will be triggered automatically by signInWithPhoneNumber with the verifier
+                    const confirmation = await window.signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifierInstance.current);
+                    setVerificationId(confirmation);
+                    setMessage('קוד אימות נשלח לטלפון שלך.');
+                } catch (error) {
+                    console.error("Error sending OTP:", error);
+                    let errorMessage = 'שגיאה בשליחת הקוד. אנא וודא שהפעלת אימות טלפון בפרויקט Firebase ושהמספר תקין.';
+                    if (error.code === 'auth/invalid-phone-number') {
+                        errorMessage = 'מספר טלפון לא תקין. אנא וודא שהוא בפורמט בינלאומי (+972...).';
+                    } else if (error.code === 'auth/missing-phone-number') {
+                        errorMessage = 'אנא הזן מספר טלפון.';
+                    } else if (error.code === 'auth/quota-exceeded') {
+                        errorMessage = 'חריגה ממכסת בקשות. אנא נסה שוב מאוחר יותר.';
+                    } else if (error.code === 'auth/web-context-unauthorized-domain') {
+                         errorMessage = 'שגיאה בהגדרת דומיין Firebase. וודא שכתובת האתר שלך (GitHub Pages URL) מוגדרת כדומיין מורשה בקונסולת Firebase (Authentication -> Settings -> Authorized domains).';
+                    } else if (error.code === 'auth/too-many-requests') {
+                         errorMessage = 'יותר מדי בקשות. אנא נסה שוב מאוחר יותר.';
+                    }
+                    setMessage(errorMessage);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleVerifyCode = async () => {
+                setMessage('');
+                setLoading(true);
+
+                if (!otp || otp.length !== 6) {
+                    setMessage('אנא הזן קוד אימות בן 6 ספרות.');
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    if (!verificationId) {
+                        setMessage('שגיאה: לא נשלח קוד אימות. אנא שלח קוד תחילה.');
+                        setLoading(false);
+                        return;
+                    }
+                    const userCredential = await verificationId.confirm(otp);
+                    setMessage('אימות הצליח! נא המתן...');
+                    onLoginSuccess(userCredential.user.uid, phoneNumber); // Pass phone number as identityId
+                } catch (error) {
+                    console.error("Error verifying OTP:", error);
+                    let errorMessage = 'קוד אימות שגוי או שפג תוקפו. אנא נסה שוב.';
+                    if (error.code === 'auth/invalid-verification-code') {
+                        errorMessage = 'קוד אימות שגוי.';
+                    } else if (error.code === 'auth/code-expired') {
+                        errorMessage = 'קוד האימות פג תוקפו.';
+                    }
+                    setMessage(errorMessage);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <h1>הזדהות</h1>
+
+                    <div className="login-method-selector">
+                        <button
+                            className={loginMethod === 'idPassword' ? 'active' : ''}
+                            onClick={() => setLoginMethod('idPassword')}
+                            disabled={loading}
+                        >
+                            ת"ז וסיסמה
+                        </button>
+                        <button
+                            className={loginMethod === 'phone' ? 'active' : ''}
+                            onClick={() => setLoginMethod('phone')}
+                            disabled={loading}
+                        >
+                            טלפון
+                        </button>
+                        <button
+                            className={loginMethod === 'google' ? 'active' : ''}
+                            onClick={() => setLoginMethod('google')}
+                            disabled={loading}
+                        >
+                            גוגל
+                        </button>
+                    </div>
+
+                    {loginMethod === 'idPassword' && (
+                        <form onSubmit={handleIdPasswordLogin}>
+                            <div className="form-group">
+                                <label htmlFor="loginIdentityId">תעודת זהות:</label>
+                                <input
+                                    type="text"
+                                    id="loginIdentityId"
+                                    value={identityId}
+                                    onChange={(e) => setIdentityId(e.target.value)}
+                                    required
+                                    placeholder="הזן תעודת זהות (דוגמה: 123456789)"
+                                    disabled={loading}
+                                />
+                            </div>
+                            <div className="form-group" style={{marginTop: '20px'}}>
+                                <label htmlFor="loginPassword">סיסמה:</label>
+                                <input
+                                    type="password"
+                                    id="loginPassword"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    placeholder="הזן סיסמה (דוגמה: password123)"
+                                    disabled={loading}
+                                />
+                            </div>
+                            {message && (
+                                <div className={`message-box ${message.includes('הצליחה') ? 'success' : ''}`}>
+                                    {message}
+                                </div>
+                            )}
+                            <div className="button-container">
+                                <button type="submit" className="action-button secondary" disabled={loading}>
+                                    {loading ? 'מתחבר...' : 'התחבר'}
+                                </button>
+                            </div>
+                        </form>
+                    )}
+
+                    {loginMethod === 'phone' && (
+                        <div>
+                            <div className="form-group">
+                                <label htmlFor="phoneNumber">מספר טלפון:</label>
+                                <input
+                                    type="text"
+                                    id="phoneNumber"
+                                    value={phoneNumber}
+                                    onChange={(e) => setPhoneNumber(e.target.value)}
+                                    placeholder="+9725XXXXXXXX"
+                                    disabled={loading || verificationId}
+                                />
+                            </div>
+                            <div className="button-container">
+                                <button className="action-button" onClick={handleSendCode} disabled={loading || verificationId}>
+                                    {loading && !verificationId ? 'שולח קוד...' : 'שלח קוד אימות'}
+                                </button>
+                            </div>
+                            {verificationId && (
+                                <div style={{marginTop: '20px'}}>
+                                    <div className="form-group">
+                                        <label htmlFor="otp">קוד אימות (OTP):</label>
+                                        <input
+                                            type="text"
+                                            id="otp"
+                                            value={otp}
+                                            onChange={(e) => setOtp(e.target.value)}
+                                            placeholder="הזן 6 ספרות"
+                                            maxLength="6"
+                                            disabled={loading}
+                                        />
+                                    </div>
+                                    <div className="button-container">
+                                        <button className="action-button secondary" onClick={handleVerifyCode} disabled={loading}>
+                                            {loading ? 'מאמת...' : 'אמת קוד'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            {message && (
+                                <div className={`message-box ${message.includes('הצליחה') ? 'success' : ''}`}>
+                                    {message}
+                                </div>
+                            )}
+                             <div id="recaptcha-container" ref={recaptchaContainerRef}></div> {/* reCAPTCHA container */}
+                             <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
+                                <strong style={{color: '#d9534f'}}>הערה:</strong> עבור הזדהות בטלפון, עליך לאפשר
+                                מספר טלפון בפרויקט Firebase שלך (Authentication -> Sign-in method)
+                                וכן להוסיף את הדומיין של האתר שלך (GitHub Pages URL) לרשימת הדומיינים המורשים
+                                (Authentication -> Settings -> Authorized domains).
+                            </p>
+                        </div>
+                    )}
+
+                    {loginMethod === 'google' && (
+                        <div>
+                            {message && (
+                                <div className={`message-box ${message.includes('הצליחה') ? 'success' : ''}`}>
+                                    {message}
+                                </div>
+                            )}
+                            <div className="button-container">
+                                <button className="action-button google" onClick={handleGoogleLogin} disabled={loading}>
+                                    {loading ? 'מתחבר עם גוגל...' : 'התחבר עם גוגל'}
+                                </button>
+                            </div>
+                            <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
+                                <strong style={{color: '#d9534f'}}>הערה:</strong> עבור הזדהות עם גוגל, עליך לאפשר
+                                Google Sign-in בפרויקט Firebase שלך (Authentication -> Sign-in method)
+                                וכן להוסיף את הדומיין של האתר שלך (GitHub Pages URL) לרשימת הדומיינים המורשים
+                                (Authentication -> Settings -> Authorized domains).
+                            </p>
+                        </div>
+                    )}
+
+                    {loginMethod !== 'google' && loginMethod !== 'phone' && (
+                         <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
+                             <strong style={{color: '#d9534f'}}>הערה:</strong> הזדהות ת"ז וסיסמה היא לדוגמה בלבד, ולא מאובטחת לסביבת ייצור.
+                         </p>
+                    )}
+                </div>
+            );
+        }
+
+        // Component for the Responsive Form
+        function FormComponent({ userId, identityId, onLogout }) {
+            const [formData, setFormData] = useState({
+                familyName: '',
+                firstName: '',
+                idNumber: '',
+                age: '',
+                gender: '',
+                phone: '',
+                address: '',
+                residents: '',
+                physicalInjury: '',
+                casualties: '',
+                disconnected: '',
+                evacuationAssistance: '',
+                notes: '',
+            });
+            const [message, setMessage] = useState('');
+            const [previousSubmissions, setPreviousSubmissions] = useState([]);
+            const [loadingSubmissions, setLoadingSubmissions] = useState(true);
+
+            // Function to reset form fields
+            const resetForm = () => {
+                setFormData({
+                    familyName: '', firstName: '', idNumber: '', age: '', gender: '',
+                    phone: '', address: '', residents: '', physicalInjury: '',
+                    casualties: '', disconnected: '', evacuationAssistance: '', notes: '',
+                });
+            };
+
+            // Load previous submissions when component mounts or userId changes
+            useEffect(() => {
+                if (!window.firebaseDb || !userId) {
+                    setMessage('שגיאה: Firebase Db אינו מאותחל או שאין מזהה משתמש.');
+                    setLoadingSubmissions(false);
+                    return;
+                }
+
+                setLoadingSubmissions(true);
+                const db = window.firebaseDb;
+                const appId = window.appId;
+                // Construct the user-specific collection path for private data
+                const userFormsCollectionRef = window.collection(db, `artifacts/${appId}/users/${userId}/formData`); // Used window.collection here
+
+                const unsubscribe = window.onSnapshot(userFormsCollectionRef, (snapshot) => { // FIX: Use window.onSnapshot
+                    const submissions = [];
+                    snapshot.forEach(doc => {
+                        submissions.push({ id: doc.id, ...doc.data() });
+                    });
+                    // Sort submissions by a timestamp if available, or just by order of retrieval
+                    // (Assuming no orderBy for Canvas, so sorting clientside)
+                    submissions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Sort by timestamp descending
+                    setPreviousSubmissions(submissions);
+                    setLoadingSubmissions(false);
+                }, (error) => {
+                    console.error("Error fetching previous submissions:", error);
+                    setMessage(`שגיאה בטעינת נתונים קודמים: ${error.message}`);
+                    setLoadingSubmissions(false);
+                });
+
+                // Cleanup subscription on unmount
+                return () => unsubscribe();
+            }, [userId]); // Re-run when userId changes
+
+            const handleChange = (e) => {
+                const { name, value, type, checked } = e.target;
+                if (type === 'radio') {
+                    setFormData(prev => ({
+                        ...prev,
+                        [name]: value
+                    }));
+                } else {
+                    setFormData(prev => ({
+                        ...prev,
+                        [name]: value
+                    }));
+                }
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setMessage('');
+
+                if (!window.firebaseDb || !userId) {
+                    setMessage('שגיאה: Firebase Db אינו מאותחל או שאין מזהה משתמש. אנא התחבר מחדש.');
+                    return;
+                }
+
+                try {
+                    const db = window.firebaseDb;
+                    const appId = window.appId;
+
+                    // Data to save to Firestore
+                    const dataToSave = {
+                        ...formData,
+                        userId: userId, // Link data to the Firebase anonymous UID
+                        identityId: identityId, // Store the ID entered during "login"
+                        timestamp: Date.now() // Add a timestamp for sorting
+                    };
+
+                    // Construct the user-specific collection path for private data
+                    const userFormsCollectionRef = window.collection(db, `artifacts/${appId}/users/${userId}/formData`); // Used window.collection here
+
+                    await addDoc(userFormsCollectionRef, dataToSave);
+                    setMessage('הנתונים נשמרו בהצלחה!');
+                    resetForm(); // Clear the form after successful submission
+                } catch (error) {
+                    console.error("Error adding document: ", error);
+                    setMessage(`שגיאה בשמירת הנתונים: ${error.message}`);
+                }
+            };
+
+            const handleLogout = async () => {
+                try {
+                    await window.signOut(window.firebaseAuth);
+                    onLogout(); // Notify parent App component to change state and show login page
+                    setMessage('התנתקת בהצלחה.');
+                } catch (error) {
+                    console.error("Error logging out:", error);
+                    setMessage(`שגיאה בהתנתקות: ${error.message}`);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+                        <h1>טופס נתונים</h1>
+                        <button onClick={handleLogout} className="action-button danger" style={{padding: '10px 20px', fontSize: '0.9em'}}>
+                            התנתק
+                        </button>
+                    </div>
+
+                    <form onSubmit={handleSubmit}>
+                        {/* חלק: פרטים אישיים */}
+                        <div className="form-section">
+                            <div className="form-grid two-columns">
+                                <div className="form-group">
+                                    <label htmlFor="familyName">שם משפחה:</label>
+                                    <input type="text" id="familyName" name="familyName" value={formData.familyName} onChange={handleChange} required placeholder="הזן שם משפחה" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="firstName">שם פרטי:</label>
+                                    <input type="text" id="firstName" name="firstName" value={formData.firstName} onChange={handleChange} required placeholder="הזן שם פרטי" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="idNumber">תעודת זהות:</label>
+                                    <input type="text" id="idNumber" name="idNumber" value={formData.idNumber} onChange={handleChange} pattern="\d{9}" title="יש להזין 9 ספרות" required placeholder="דוגמה: 123456789" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="age">גיל:</label>
+                                    <input type="number" id="age" name="age" value={formData.age} onChange={handleChange} min="0" max="120" placeholder="הזן גיל" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="gender">מין:</label>
+                                    <select id="gender" name="gender" value={formData.gender} onChange={handleChange}>
+                                        <option value="">בחר/י</option>
+                                        <option value="male">זכר</option>
+                                        <option value="female">נקבה</option>
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="phone">טלפון:</label>
+                                    <input type="text" id="phone" name="phone" value={formData.phone} onChange={handleChange} pattern="[0-9]{9,10}" title="יש להזין 9 או 10 ספרות" placeholder="דוגמה: 05X-XXXXXXX" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="address">כתובת:</label>
+                                    <input type="text" id="address" name="address" value={formData.address} onChange={handleChange} placeholder="רחוב, מספר, עיר" />
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="residents">מספר שוהים בדירה:</label>
+                                    <input type="number" id="residents" name="residents" value={formData.residents} onChange={handleChange} min="1" placeholder="כמה נפשות בדירה?" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* חלק: פרטי מצב */}
+                        <div className="form-section">
+                            <div className="form-grid">
+                                <div className="form-group">
+                                    <label>פציעה פיזית:</label>
+                                    <div className="radio-group">
+                                        <label><input type="radio" name="physicalInjury" value="none" checked={formData.physicalInjury === 'none'} onChange={handleChange} /> לא (1)</label>
+                                        <label><input type="radio" name="physicalInjury" value="light" checked={formData.physicalInjury === 'light'} onChange={handleChange} /> קלה (2)</label>
+                                        <label><input type="radio" name="physicalInjury" value="medium" checked={formData.physicalInjury === 'medium'} onChange={handleChange} /> בינונית (3)</label>
+                                        <label><input type="radio" name="physicalInjury" value="severe" checked={formData.physicalInjury === 'severe'} onChange={handleChange} /> קשה (4)</label>
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label>הרוגים/פצועים:</label>
+                                    <div className="radio-group">
+                                        <label><input type="radio" name="casualties" value="no" checked={formData.casualties === 'no'} onChange={handleChange} /> לא</label>
+                                        <label><input type="radio" name="casualties" value="yes" checked={formData.casualties === 'yes'} onChange={handleChange} /> כן</label>
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label>מנותקי קשר:</label>
+                                    <div className="radio-group">
+                                        <label><input type="radio" name="disconnected" value="no" checked={formData.disconnected === 'no'} onChange={handleChange} /> לא</label>
+                                        <label><input type="radio" name="disconnected" value="yes" checked={formData.disconnected === 'yes'} onChange={handleChange} /> כן</label>
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label>זקוק לסיוע בפינוי:</label>
+                                    <div className="radio-group">
+                                        <label><input type="radio" name="evacuationAssistance" value="no" checked={formData.evacuationAssistance === 'no'} onChange={handleChange} /> לא</label>
+                                        <label><input type="radio" name="evacuationAssistance" value="yes" checked={formData.evacuationAssistance === 'yes'} onChange={handleChange} /> כן</label>
+                                    </div>
+                                </div>
+                                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                    <label htmlFor="notes">הערות:</label>
+                                    <textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="הוסף הערות רלוונטיות כאן..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* כפתור שליחה */}
+                        {message && (
+                            <div className={`message-box ${message.includes('הצלחה') ? 'success' : ''}`}>
+                                {message}
+                            </div>
+                        )}
+                        <div className="button-container">
+                            <button type="submit" className="action-button">שלח</button>
+                        </div>
+                    </form>
+
+                    {/* הצגת נתונים קודמים */}
+                    <div className="previous-submissions">
+                        <h2>נתונים קודמים (מזהה משתמש: {userId})</h2>
+                        {loadingSubmissions ? (
+                            <p>טוען נתונים...</p>
+                        ) : previousSubmissions.length === 0 ? (
+                            <p>טרם נשמרו נתונים עבור משתמש זה.</p>
+                        ) : (
+                            previousSubmissions.map((item, index) => (
+                                <div key={item.id} className="submission-item">
+                                    <span><strong>תאריך/שעה:</strong> {new Date(item.timestamp).toLocaleString('he-IL')}</span>
+                                    <span><strong>מזהה הזדהות:</strong> {item.identityId || 'לא הוזן'}</span>
+                                    <span><strong>שם:</strong> {item.firstName} {item.familyName}</span>
+                                    <span><strong>גיל:</strong> {item.age}, <strong>מין:</strong> {item.gender}</span>
+                                    <span><strong>טלפון:</strong> {item.phone}</span>
+                                    <span><strong>כתובת:</strong> {item.address}</span>
+                                    <span><strong>מספר שוהים:</strong> {item.residents}</span>
+                                    <span><strong>פציעה פיזית:</strong> {item.physicalInjury}</span>
+                                    <span><strong>הרוגים/פצועים:</strong> {item.casualties}</span>
+                                    <span><strong>מנותקי קשר:</strong> {item.disconnected}</span>
+                                    <span><strong>זקוק לסיוע בפינוי:</strong> {item.evacuationAssistance}</span>
+                                    <span><strong>הערות:</strong> {item.notes || 'אין'}</span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // Main App Component to manage login state and render components
+        function App() {
+            const [isAuthReady, setIsAuthReady] = useState(false);
+            const [userUid, setUserUid] = useState(null);
+            const [enteredIdentityId, setEnteredIdentityId] = useState(null); // Stores the ID from the login page
+
+            // Initialize Firebase Auth listener
+            useEffect(() => {
+                if (window.firebaseAuth) {
+                    const unsubscribe = window.firebaseAuth.onAuthStateChanged(user => {
+                        if (user) {
+                            setUserUid(user.uid);
+                            // If it's a new sign-in, try to get a meaningful identifier
+                            if (user.isAnonymous) {
+                                // For anonymous, keep previous entered identity if exists, or use UID as fallback
+                                if (!enteredIdentityId) { // Only set if not already set by a specific login method
+                                     setEnteredIdentityId(user.uid);
+                                }
+                            } else if (user.email) {
+                                setEnteredIdentityId(user.email);
+                            } else if (user.phoneNumber) {
+                                setEnteredIdentityId(user.phoneNumber);
+                            } else if (user.displayName) {
+                                setEnteredIdentityId(user.displayName);
+                            } else {
+                                setEnteredIdentityId(user.uid);
+                            }
+                            setIsAuthReady(true);
+                        } else {
+                            setUserUid(null);
+                            setEnteredIdentityId(null); // Clear identity on logout
+                            setIsAuthReady(true);
+                        }
+                    });
+                    return () => unsubscribe();
+                } else {
+                    console.error("Firebase Auth is not available.");
+                    setIsAuthReady(true); // Still set ready to avoid infinite loading
+                }
+            }, []);
+
+            const handleLoginSuccess = (uid, id) => {
+                setUserUid(uid);
+                setEnteredIdentityId(id);
+            };
+
+            const handleLogout = () => {
+                setUserUid(null);
+                setEnteredIdentityId(null);
+            };
+
+            if (!isAuthReady) {
+                return (
+                    <div className="container">
+                        <h1>טוען...</h1>
+                        <p>ממתין לאימות Firebase.</p>
+                    </div>
+                );
+            }
+
+            // Render Login page if not authenticated, otherwise render the Form
+            return userUid && enteredIdentityId ? (
+                <FormComponent userId={userUid} identityId={enteredIdentityId} onLogout={handleLogout} />
+            ) : (
+                <LoginPage onLoginSuccess={handleLoginSuccess} />
+            );
+        }
+
+        // Render the App component into the 'root' div
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container); // Create a root
+        root.render(<App />); // Render the App component using the root
+    </script>
+</body>
+</html>
