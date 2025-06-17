@@ -54,47 +54,94 @@
         }
 
         // Initialize Firebase app and services
-        let app;
-        let auth;
-        let db;
+        let app = null; // Initialize to null
+        let auth = null; // Initialize to null
+        let db = null;   // Initialize to null
 
         try {
             if (Object.keys(firebaseConfig).length === 0) {
                 console.error("Firebase config is empty. Cannot initialize Firebase.");
             } else {
                 app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                console.log("Firebase initialized in global script for data.html.");
+                console.log("Firebase app initialized successfully.");
+                
+                try {
+                    auth = getAuth(app);
+                    console.log("Firebase Auth service initialized successfully.");
+                } catch (authError) {
+                    console.error("Failed to initialize Firebase Auth:", authError);
+                    auth = null; // Ensure auth is null if initialization fails
+                }
+
+                try {
+                    db = getFirestore(app);
+                    console.log("Firebase Firestore service initialized successfully.");
+                } catch (dbError) {
+                    console.error("Failed to initialize Firebase Firestore:", dbError);
+                    db = null; // Ensure db is null if initialization fails
+                }
             }
         } catch (error) {
-            console.error("Failed to initialize Firebase in global script for data.html:", error);
+            console.error("An unexpected error occurred during Firebase app initialization:", error);
             app = null;
             auth = null;
             db = null;
         }
 
         // Expose Firebase instances and functions globally for React to access
-        // IMPORTANT: The React components below will primarily use props for these functions,
-        // but they are still exposed globally for direct console debugging or other scripts.
+        // Ensure these are only exposed if successfully initialized
         window.firebaseApp = app;
         window.firebaseAuth = auth;
         window.firebaseDb = db;
         window.globalAppId = appId; 
 
-        // Expose specific Firebase functions globally
-        window.onAuthStateChangedGlobal = onAuthStateChanged;
-        window.signOutFirebaseGlobal = signOut; 
-        window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
-        window.sendPasswordResetEmailGlobal = sendPasswordResetEmail; 
-        window.collectionGroupFirebaseGlobal = collectionGroup; 
-        window.queryFirebaseGlobal = query; 
-        window.onSnapshotGlobal = onSnapshot; 
-        window.docFirebaseGlobal = doc; 
-        window.updateDocFirebaseGlobal = updateDoc; 
-        window.whereFirebaseGlobal = where; 
-        window.getDocsFirebaseGlobal = getDocs; 
-        window.collectionFirebaseGlobal = collection; // Added for completeness, though not always used directly by name
+        // Expose specific Firebase functions globally ONLY IF their parent service is initialized
+        if (auth) {
+            window.onAuthStateChangedGlobal = onAuthStateChanged;
+            window.signOutFirebaseGlobal = signOut; 
+            window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
+            window.sendPasswordResetEmailGlobal = sendPasswordResetEmail; 
+        } else {
+            console.warn("Firebase Auth not initialized. Auth related global functions will not be available.");
+            // Provide dummy functions to prevent "not a function" errors, logging a warning instead.
+            window.onAuthStateChangedGlobal = (authInstance, callback) => {
+                console.error("onAuthStateChangedGlobal: Firebase Auth is not initialized. Cannot attach listener.");
+                // Immediately call callback with null user to indicate no auth, if it makes sense for the flow
+                // This might prevent a perpetual loading state if the React component depends on it firing.
+                setTimeout(() => callback(null), 0); 
+                return () => {}; // Return a dummy unsubscribe function
+            };
+            window.signOutFirebaseGlobal = () => { console.error("signOutFirebaseGlobal: Firebase Auth is not initialized."); return Promise.reject(new Error("Auth not initialized")); };
+            window.signInWithEmailAndPasswordGlobal = () => { console.error("signInWithEmailAndPasswordGlobal: Firebase Auth is not initialized."); return Promise.reject(new Error("Auth not initialized")); };
+            window.sendPasswordResetEmailGlobal = () => { console.error("sendPasswordResetEmailGlobal: Firebase Auth is not initialized."); return Promise.reject(new Error("Auth not initialized")); };
+        }
+
+        if (db) {
+            window.collectionGroupFirebaseGlobal = collectionGroup; 
+            window.queryFirebaseGlobal = query; 
+            window.onSnapshotGlobal = onSnapshot; 
+            window.docFirebaseGlobal = doc; 
+            window.updateDocFirebaseGlobal = updateDoc; 
+            window.whereFirebaseGlobal = where; 
+            window.getDocsFirebaseGlobal = getDocs; 
+            window.collectionFirebaseGlobal = collection;
+        } else {
+            console.warn("Firebase Firestore not initialized. Firestore related global functions will not be available.");
+            // Provide dummy functions for Firestore to prevent "not a function" errors
+            window.collectionGroupFirebaseGlobal = () => { console.error("collectionGroupFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
+            window.queryFirebaseGlobal = () => { console.error("queryFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
+            window.onSnapshotGlobal = (q, callback, errorCallback) => {
+                console.error("onSnapshotGlobal: Firebase Firestore is not initialized. Cannot attach listener.");
+                // Immediately call error callback if available
+                if (errorCallback) setTimeout(() => errorCallback(new Error("Firestore not initialized")), 0);
+                return () => {}; // Return a dummy unsubscribe function
+            };
+            window.docFirebaseGlobal = () => { console.error("docFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
+            window.updateDocFirebaseGlobal = () => { console.error("updateDocFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
+            window.whereFirebaseGlobal = () => { console.error("whereFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
+            window.getDocsFirebaseGlobal = () => { console.error("getDocsFirebaseGlobal: Firebase Firestore is not initialized."); return Promise.reject(new Error("Firestore not initialized")); };
+            window.collectionFirebaseGlobal = () => { console.error("collectionFirebaseGlobal: Firebase Firestore is not initialized."); throw new Error("Firestore not initialized"); };
+        }
     </script>
 
     <style>
@@ -1280,7 +1327,7 @@
                 let csvContent = BOM + headers.join(',') + '\n';
                 csvContent += rows.map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
 
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;');
                 const link = document.createElement('a');
                 if (link.download !== undefined) {
                     const url = URL.createObjectURL(blob);
@@ -1429,7 +1476,11 @@
 
         // Main App Component for data.html
         function App() {
-            const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
+            const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null,
+                docFirebaseGlobal: null, getDocFirebaseGlobal: null, updateDocFirebaseGlobal: null, 
+                collectionGroupFirebaseGlobal: null, queryFirebaseGlobal: null, onSnapshotGlobal: null, 
+                whereFirebaseGlobal: null, getDocsFirebaseGlobal: null
+            });
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
             const [selectedSubmissionId, setSelectedSubmissionId] = useState(null); // New state to manage detail view
@@ -1437,8 +1488,11 @@
             const logoutTriggeredRef = useRef(false);
 
             useEffect(() => {
-                let intervalId;
-                const checkFirebaseGlobals = () => {
+                let cleanupFunction = null;
+                let pollInterval = null; // Declare pollInterval here
+
+                const initializeFirebaseAndAuth = () => {
+                    // Check if the core Firebase instances and essential Firestore functions are available globally
                     if (window.firebaseApp && window.firebaseAuth && window.firebaseDb &&
                         typeof window.docFirebaseGlobal !== 'undefined' &&
                         typeof window.getDocFirebaseGlobal !== 'undefined' &&
@@ -1448,33 +1502,51 @@
                         typeof window.onSnapshotGlobal !== 'undefined' &&
                         typeof window.whereFirebaseGlobal !== 'undefined' &&
                         typeof window.getDocsFirebaseGlobal !== 'undefined') {
-
-                        clearInterval(intervalId); // Stop polling
                         
+                        // All globals are present, proceed with setting React state and auth listener
                         setFirebaseInstances({
                             app: window.firebaseApp,
                             auth: window.firebaseAuth,
                             db: window.firebaseDb,
+                            docFirebaseGlobal: window.docFirebaseGlobal,
+                            getDocFirebaseGlobal: window.getDocFirebaseGlobal,
+                            updateDocFirebaseGlobal: window.updateDocFirebaseGlobal,
+                            collectionGroupFirebaseGlobal: window.collectionGroupFirebaseGlobal,
+                            queryFirebaseGlobal: window.queryFirebaseGlobal,
+                            onSnapshotGlobal: window.onSnapshotGlobal,
+                            whereFirebaseGlobal: window.whereFirebaseGlobal,
+                            getDocsFirebaseGlobal: window.getDocsFirebaseGlobal,
                         });
 
                         const auth = window.firebaseAuth;
-                        const unsubscribe = window.onAuthStateChangedGlobal(auth, (firebaseUser) => {
+                        cleanupFunction = window.onAuthStateChangedGlobal(auth, (firebaseUser) => {
                             setUserUid(firebaseUser);
-                            setIsAuthReady(true); // Now truly ready
+                            setIsAuthReady(true); // Firebase and Auth state are now truly ready
                         });
-                        return () => unsubscribe(); // Return cleanup function for auth listener
+                        return true; // Indicate successful initialization
                     } else {
-                        // console.log("Waiting for global Firebase functions to be fully available..."); // Keep this for debugging if needed
+                        // console.log("Waiting for global Firebase functions to be fully available...");
+                        return false; // Indicate that initialization is not complete
                     }
                 };
 
-                intervalId = setInterval(checkFirebaseGlobals, 100); // Check every 100ms
+                pollInterval = setInterval(() => {
+                    if (initializeFirebaseAndAuth()) { // If initialization was successful, clear the interval
+                        clearInterval(pollInterval);
+                    }
+                }, 100); // Poll every 100ms
 
-                // Cleanup interval if component unmounts
-                return () => clearInterval(intervalId);
+                // Cleanup interval and auth listener when component unmounts
+                return () => {
+                    clearInterval(pollInterval);
+                    if (cleanupFunction) {
+                        cleanupFunction();
+                    }
+                };
             }, []); // Empty dependency array, runs once on mount
 
             const handleLogin = async (uid, identity) => {
+                // After successful login, reload the page to ensure full state re-initialization
                 window.location.reload();
             };
 
@@ -1500,39 +1572,43 @@
                 setSelectedSubmissionUserId(null);
             };
 
-
+            // Display loading state until isAuthReady is true
             if (!isAuthReady) {
                 return (
                     <div className="container">
                         <h1>טוען דף נתונים...</h1>
                         <p>ממתין לאימות Firebase.</p>
+                        <p>אם המתנה ארוכה מדי, וודא שחבילות Firebase נטענו כראוי ושהגדרות הפרויקט נכונות. בדוק את קונסולת המפתחים (F12) לפרטים נוספים.</p>
                     </div>
                 );
             }
 
-            if (!firebaseInstances.auth || !firebaseInstances.db) {
+            // After isAuthReady, check if core Firebase services are actually initialized
+            // This caters to a scenario where `onAuthStateChangedGlobal` might fire
+            // but `firebaseInstances.app` or `db` are still null due to earlier initialization failure.
+            if (!firebaseInstances.app || !firebaseInstances.auth || !firebaseInstances.db) {
                  return (
                     <div className="container">
                         <h1>שגיאה באתחול Firebase!</h1>
                         <p>לא ניתן להתחבר ל-Firebase. אנא וודא שקובץ `firebaseConfig` שלך מוגדר כראוי בפרויקט Firebase שלך ושהדומיין הנוכחי מורשה (Authentication -> Settings -> Authorized domains).</p>
-                        <p>ייתכן גם שפונקציות מסוימות של Firebase Firestore לא נטענו כראוי. פרטים נוספים יכולים להימצא בקונסולת המפתחים של הדפדפן (F12).</p>
+                        <p>פרטים נוספים יכולים להימצא בקונסולת המפתחים של הדפדפן (F12).</p>
                     </div>
                 );
             }
 
+            // If not logged in, show login page
             if (!userUid) { 
                 return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={handleLogin} />;
             }
 
-            // Render SubmissionDetailView if a submission is selected, otherwise AdminViewComponent
+            // If a submission is selected, render the detail view
             if (selectedSubmissionId && selectedSubmissionUserId) {
                 return (
                     <SubmissionDetailView
                         db={firebaseInstances.db}
-                        // Pass global functions directly as props
-                        docFirebaseGlobal={window.docFirebaseGlobal}
-                        getDocFirebaseGlobal={window.getDocFirebaseGlobal}
-                        updateDocFirebaseGlobal={window.updateDocFirebaseGlobal}
+                        docFirebaseGlobal={firebaseInstances.docFirebaseGlobal} // Use from state
+                        getDocFirebaseGlobal={firebaseInstances.getDocFirebaseGlobal} // Use from state
+                        updateDocFirebaseGlobal={firebaseInstances.updateDocFirebaseGlobal} // Use from state
                         submissionId={selectedSubmissionId}
                         userUid={selectedSubmissionUserId} 
                         onClose={handleCloseSubmissionDetail}
@@ -1540,6 +1616,7 @@
                 );
             }
 
+            // Otherwise, render the admin table view
             return (
                 <AdminViewComponent
                     auth={firebaseInstances.auth}
@@ -1547,15 +1624,14 @@
                     userUid={userUid.uid}
                     onLogout={handleLogout}
                     onSelectSubmission={handleSelectSubmission}
-                    // Pass global functions directly as props
-                    docFirebaseGlobal={window.docFirebaseGlobal}
-                    getDocFirebaseGlobal={window.getDocFirebaseGlobal}
-                    updateDocFirebaseGlobal={window.updateDocFirebaseGlobal}
-                    collectionGroupFirebaseGlobal={window.collectionGroupFirebaseGlobal}
-                    queryFirebaseGlobal={window.queryFirebaseGlobal}
-                    onSnapshotGlobal={window.onSnapshotGlobal}
-                    whereFirebaseGlobal={window.whereFirebaseGlobal}
-                    getDocsFirebaseGlobal={window.getDocsFirebaseGlobal}
+                    docFirebaseGlobal={firebaseInstances.docFirebaseGlobal} // Use from state
+                    getDocFirebaseGlobal={firebaseInstances.getDocFirebaseGlobal} // Use from state
+                    updateDocFirebaseGlobal={firebaseInstances.updateDocFirebaseGlobal} // Use from state
+                    collectionGroupFirebaseGlobal={firebaseInstances.collectionGroupFirebaseGlobal} // Use from state
+                    queryFirebaseGlobal={firebaseInstances.queryFirebaseGlobal} // Use from state
+                    onSnapshotGlobal={firebaseInstances.onSnapshotGlobal} // Use from state
+                    whereFirebaseGlobal={firebaseInstances.whereFirebaseGlobal} // Use from state
+                    getDocsFirebaseGlobal={firebaseInstances.getDocsFirebaseGlobal} // Use from state
                 />
             );
         }
