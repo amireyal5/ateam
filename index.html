@@ -60,7 +60,7 @@
                 window.firebaseApp = null;
                 window.firebaseDb = null;
                 window.firebaseAuth = null;
-                window.appId = appId; // appId should still be available
+                window.appId = appId;
                 window.initialAuthToken = initialAuthToken;
                 window.GoogleAuthProvider = null;
                 window.signInWithPopup = null;
@@ -81,29 +81,16 @@
                 window.firebaseAuth = auth;
                 window.appId = appId;
                 window.initialAuthToken = initialAuthToken;
-                window.GoogleAuthProvider = GoogleAuthProvider; // Make GoogleAuthProvider available globally
-                window.signInWithPopup = signInWithPopup;       // Make signInWithPopup available globally
-                window.signOut = signOut;                       // Make signOut available globally
-                window.collection = collection;                 // Make collection available globally
-                window.onSnapshot = onSnapshot;                 // Make onSnapshot available globally
-                window.signInWithPhoneNumber = signInWithPhoneNumber; // Make signInWithPhoneNumber available globally
-                window.RecaptchaVerifier = RecaptchaVerifier;       // Make RecaptchaVerifier available globally
+                window.GoogleAuthProvider = GoogleAuthProvider;
+                window.signInWithPopup = signInWithPopup;
+                window.signOut = signOut;
+                window.collection = collection;
+                window.onSnapshot = onSnapshot;
+                window.signInWithPhoneNumber = signInWithPhoneNumber;
+                window.RecaptchaVerifier = RecaptchaVerifier;
 
-                // Handle initial authentication state:
-                // If a custom token is provided by the environment, try to sign in with it.
-                // Otherwise, sign in anonymously (for basic functionality and user ID).
-                onAuthStateChanged(auth, (user) => {
-                    if (!user && initialAuthToken) {
-                        signInWithCustomToken(auth, initialAuthToken).catch((error) => {
-                            console.error("Error signing in with custom token:", error);
-                            // Fallback to anonymous if custom token fails
-                            signInAnonymously(auth).catch(e => console.error("Error signing in anonymously as fallback:", e));
-                        });
-                    } else if (!user && !initialAuthToken) {
-                        // If no user and no initial token, sign in anonymously
-                        signInAnonymously(auth).catch(e => console.error("Error signing in anonymously:", e));
-                    }
-                });
+                // REMOVED initial onAuthStateChanged logic from here.
+                // It will now be handled by the React App component for better state management.
             }
         } catch (error) {
             console.error("Failed to initialize Firebase:", error);
@@ -461,8 +448,6 @@
             const recaptchaContainerRef = useRef(null);
             const recaptchaVerifierInstance = useRef(null); // Store the RecaptchaVerifier instance
 
-            // Removed hardcoded ID/password credentials
-
             // Initialize RecaptchaVerifier when phone login method is selected
             useEffect(() => {
                 if (loginMethod === 'phone' && !recaptchaVerifierInstance.current && recaptchaContainerRef.current) {
@@ -505,8 +490,6 @@
                     }
                 }
             }, [loginMethod]); // Re-run when loginMethod changes
-
-            // Removed handleIdPasswordLogin function
 
             const handleGoogleLogin = async () => {
                 setMessage('');
@@ -1033,49 +1016,105 @@
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
             const [enteredIdentityId, setEnteredIdentityId] = useState(null); // Stores the ID from the login page
+            const logoutTriggeredRef = useRef(false); // Ref to track if logout was manually triggered
 
-            // Initialize Firebase Auth listener
+            // Initialize Firebase Auth listener and handle initial login
             useEffect(() => {
-                // Check if firebaseAuth is initialized and available globally
-                if (window.firebaseAuth) {
-                    const unsubscribe = window.firebaseAuth.onAuthStateChanged(user => {
-                        if (user) {
-                            setUserUid(user.uid);
-                            // Set a meaningful identifier for the user based on login method
-                            if (user.email) {
-                                setEnteredIdentityId(user.email);
-                            } else if (user.phoneNumber) {
-                                setEnteredIdentityId(user.phoneNumber);
-                            } else if (user.displayName) {
-                                setEnteredIdentityId(user.displayName);
-                            } else if (user.isAnonymous) {
-                                // For anonymous, use UID as fallback as no other info
-                                setEnteredIdentityId(user.uid);
-                            } else {
-                                setEnteredIdentityId(user.uid); // Fallback to UID
-                            }
-                            setIsAuthReady(true);
-                        } else {
-                            setUserUid(null);
-                            setEnteredIdentityId(null); // Clear identity on logout
-                            setIsAuthReady(true);
-                        }
-                    });
-                    return () => unsubscribe();
-                } else {
-                    console.error("Firebase Auth is not available. Please check Firebase initialization in the <script type='module'> block.");
-                    setIsAuthReady(true); // Still set ready to avoid infinite loading, but indicate failure.
+                if (!window.firebaseAuth) {
+                    console.error("Firebase Auth is not available. Please check Firebase initialization.");
+                    setIsAuthReady(true);
+                    return;
                 }
-            }, []); // Empty dependency array means this effect runs once on mount
+
+                const auth = window.firebaseAuth;
+                const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        // User is signed in
+                        setUserUid(user.uid);
+                        // Set a meaningful identifier for the user based on login method
+                        if (user.email) {
+                            setEnteredIdentityId(user.email);
+                        } else if (user.phoneNumber) {
+                            setEnteredIdentityId(user.phoneNumber);
+                        } else if (user.displayName) {
+                            setEnteredIdentityId(user.displayName);
+                        } else {
+                            // Fallback for anonymous or other types.
+                            // Only update enteredIdentityId if it's currently null,
+                            // to preserve an identity passed from LoginPage actions.
+                            if (!enteredIdentityId) { // This relies on the CLOSURE of enteredIdentityId at the time effect runs
+                                setEnteredIdentityId(user.uid);
+                            }
+                        }
+                        setIsAuthReady(true);
+                        logoutTriggeredRef.current = false; // Reset logout flag when a user is signed in
+                    } else {
+                        // User is signed out or no user is signed in initially
+                        setUserUid(null);
+                        setEnteredIdentityId(null); // Clear identity on logout
+
+                        // Only attempt to sign in anonymously/with custom token if not a manual logout
+                        if (!logoutTriggeredRef.current) {
+                            if (window.initialAuthToken) {
+                                try {
+                                    await window.signInWithCustomToken(auth, window.initialAuthToken);
+                                    console.log("Signed in with custom token on initial load.");
+                                } catch (error) {
+                                    console.error("Error signing in with custom token on initial load:", error);
+                                    // Fallback to anonymous if custom token fails on initial load
+                                    try {
+                                        await window.signInAnonymously(auth);
+                                        console.log("Signed in anonymously as fallback after custom token failure.");
+                                    } catch (e) {
+                                        console.error("Error signing in anonymously as fallback on initial load:", e);
+                                    }
+                                }
+                            } else {
+                                // If no user and no initial token, sign in anonymously by default
+                                try {
+                                    await window.signInAnonymously(auth);
+                                    console.log("Signed in anonymously on initial load (no custom token).");
+                                } catch (e) {
+                                    console.error("Error signing in anonymously on initial load:", e);
+                                }
+                            }
+                        }
+                        setIsAuthReady(true); // Always set ready once initial auth state is processed
+                    }
+                });
+
+                return () => {
+                    unsubscribe(); // Clean up the listener on unmount
+                };
+            }, [enteredIdentityId]); // Added enteredIdentityId to dependency array, but with careful conditional update inside.
 
             const handleLoginSuccess = (uid, id) => {
                 setUserUid(uid);
                 setEnteredIdentityId(id);
+                logoutTriggeredRef.current = false; // Ensure flag is false after successful login
             };
 
-            const handleLogout = () => {
-                setUserUid(null);
-                setEnteredIdentityId(null);
+            const handleLogout = async () => {
+                try {
+                    if (window.firebaseAuth && window.signOut) {
+                        logoutTriggeredRef.current = true; // Set flag BEFORE signing out
+                        await window.signOut(window.firebaseAuth);
+                        // The onAuthStateChanged listener will now fire and update state to logged out.
+                        // No need to manually call onLogout() here, as onAuthStateChanged handles it.
+                        setMessage(`התנתקת בהצלחה.`); 
+                    } else {
+                        console.warn("Firebase Auth או פונקציית התנתקות אינם זמינים.");
+                        setMessage("שגיאה: לא ניתן להתנתק. שירותי Firebase אינם זמינים.");
+                        // Fallback if Firebase is truly unavailable, force logout locally:
+                        setUserUid(null);
+                        setEnteredIdentityId(null);
+                        logoutTriggeredRef.current = true; // Ensure this is also set for immediate local change
+                        // The `App` component will re-render the login page.
+                    }
+                } catch (error) {
+                    console.error("שגיאה בהתנתקות:", error);
+                    setMessage(`שגיאה בהתנתקות: ${error.message}`);
+                }
             };
 
             // Display loading or error message if Firebase is not ready/initialized
