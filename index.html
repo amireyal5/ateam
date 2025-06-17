@@ -18,34 +18,8 @@
 
         // Global variables provided by the Canvas environment (do not modify these directly)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-        // --- חובה: הדבק כאן את אובייקט ה-firebaseConfig שלך מ-Firebase Console ---
-        // עליך למצוא אותו בהגדרות הפרויקט שלך ב-Firebase (Project settings -> Your apps -> Web app -> Config).
-        // הוא ייראה בערך ככה:
-        // const myFirebaseConfig = {
-        //     apiKey: "AIzaSy...",
-        //     authDomain: "your-project-id.firebaseapp.com",
-        //     projectId: "your-project-id",
-        //     storageBucket: "your-project-id.appspot.com",
-        //     messagingSenderId: "...",
-        //     appId: "1:...",
-        //     measurementId: "G-..." // אם הוגדר
-        // };
-        const myFirebaseConfig = {
-            apiKey: "AIzaSyA38-uZwniXXCCK954yjcICl56mwVXbHDk",
-            authDomain: "ateam-3cf3d.firebaseapp.com",
-            projectId: "ateam-3cf3d",
-            storageBucket: "ateam-3cf3d.firebasestorage.app",
-            messagingSenderId: "760383317284",
-            appId: "1:760383317284:web:a33ae7d2a89911b77f3fb1",
-            measurementId: "G-NCVXFH3R6X"
-        }; // --- האובייקט שהודבק כאן הוא ה-firebaseConfig שלך ---
-
-        // אם __firebase_config זמין מהסביבה (כמו ב-Canvas), השתמש בו. אחרת, השתמש ב-myFirebaseConfig שהדבקת.
-        const firebaseConfig = typeof __app_id !== 'undefined' && typeof __firebase_config !== 'undefined' && Object.keys(JSON.parse(__firebase_config)).length > 0
-            ? JSON.parse(__firebase_config)
-            : myFirebaseConfig;
-
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        // FIX: Correctly refer to __initial_auth_token on the right side
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let app;
@@ -53,22 +27,10 @@
         let db;
 
         try {
-            // Check if firebaseConfig is valid and not empty after all attempts
+            // Check if firebaseConfig is valid
             if (Object.keys(firebaseConfig).length === 0) {
-                console.error("Firebase config is empty. Please ensure __firebase_config is defined by the environment or paste your config manually in myFirebaseConfig.");
-                // Ensure global variables are null if initialization fails
-                window.firebaseApp = null;
-                window.firebaseDb = null;
-                window.firebaseAuth = null;
-                window.appId = appId;
-                window.initialAuthToken = initialAuthToken;
-                window.GoogleAuthProvider = null;
-                window.signInWithPopup = null;
-                window.signOut = null;
-                window.collection = null;
-                window.onSnapshot = null;
-                window.signInWithPhoneNumber = null;
-                window.RecaptchaVerifier = null;
+                console.error("Firebase config is empty. Please ensure __firebase_config is defined.");
+                // We'll proceed with null values for app, auth, db to avoid further errors.
             } else {
                 // Initialize Firebase app and services
                 app = initializeApp(firebaseConfig);
@@ -81,16 +43,29 @@
                 window.firebaseAuth = auth;
                 window.appId = appId;
                 window.initialAuthToken = initialAuthToken;
-                window.GoogleAuthProvider = GoogleAuthProvider;
-                window.signInWithPopup = signInWithPopup;
-                window.signOut = signOut;
-                window.collection = collection;
-                window.onSnapshot = onSnapshot;
-                window.signInWithPhoneNumber = signInWithPhoneNumber;
-                window.RecaptchaVerifier = RecaptchaVerifier;
+                window.GoogleAuthProvider = GoogleAuthProvider; // Make GoogleAuthProvider available globally
+                window.signInWithPopup = signInWithPopup;       // Make signInWithPopup available globally
+                window.signOut = signOut;                       // Make signOut available globally
+                window.collection = collection;                 // Make collection available globally
+                window.onSnapshot = onSnapshot;                 // Make onSnapshot available globally
+                window.signInWithPhoneNumber = signInWithPhoneNumber; // Make signInWithPhoneNumber available globally
+                window.RecaptchaVerifier = RecaptchaVerifier;       // Make RecaptchaVerifier available globally
 
-                // REMOVED initial onAuthStateChanged logic from here.
-                // It will now be handled by the React App component for better state management.
+                // Handle initial authentication state:
+                // If a custom token is provided by the environment, try to sign in with it.
+                // Otherwise, sign in anonymously (for basic functionality and user ID).
+                onAuthStateChanged(auth, (user) => {
+                    if (!user && initialAuthToken) {
+                        signInWithCustomToken(auth, initialAuthToken).catch((error) => {
+                            console.error("Error signing in with custom token:", error);
+                            // Fallback to anonymous if custom token fails
+                            signInAnonymously(auth).catch(e => console.error("Error signing in anonymously as fallback:", e));
+                        });
+                    } else if (!user && !initialAuthToken) {
+                        // If no user and no initial token, sign in anonymously
+                        signInAnonymously(auth).catch(e => console.error("Error signing in anonymously:", e));
+                    }
+                });
             }
         } catch (error) {
             console.error("Failed to initialize Firebase:", error);
@@ -436,8 +411,9 @@
 
         // Component for the Login Page
         function LoginPage({ onLoginSuccess }) {
-            // Changed default login method to 'anonymous'
-            const [loginMethod, setLoginMethod] = useState('anonymous'); // 'anonymous', 'phone', or 'google'
+            const [loginMethod, setLoginMethod] = useState('idPassword'); // 'idPassword', 'phone', or 'google'
+            const [identityId, setIdentityId] = useState('');
+            const [password, setPassword] = useState('');
             const [phoneNumber, setPhoneNumber] = useState('');
             const [otp, setOtp] = useState('');
             const [verificationId, setVerificationId] = useState(null);
@@ -447,6 +423,10 @@
             // Ref for reCAPTCHA container
             const recaptchaContainerRef = useRef(null);
             const recaptchaVerifierInstance = useRef(null); // Store the RecaptchaVerifier instance
+
+            // Hardcoded credentials for demonstration (INSECURE FOR PRODUCTION)
+            const VALID_ID = '123456789';
+            const VALID_PASSWORD = 'password123';
 
             // Initialize RecaptchaVerifier when phone login method is selected
             useEffect(() => {
@@ -491,6 +471,34 @@
                 }
             }, [loginMethod]); // Re-run when loginMethod changes
 
+            const handleIdPasswordLogin = async (e) => {
+                e.preventDefault();
+                setMessage('');
+                setLoading(true);
+
+                if (identityId === VALID_ID && password === VALID_PASSWORD) {
+                    setMessage('התחברות הצליחה! נא המתן...');
+                    try {
+                        if (!window.firebaseAuth) {
+                            setMessage('שגיאה: Firebase Auth אינו מאותחל. אנא וודא את הגדרות Firebase.');
+                            setLoading(false);
+                            return;
+                        }
+                        const auth = window.firebaseAuth;
+                        const userCredential = await window.signInAnonymously(auth); // Use signInAnonymously for consistency
+                        onLoginSuccess(userCredential.user.uid, identityId); // Pass the entered ID
+                    } catch (error) {
+                        console.error("Firebase Anonymous Auth error:", error);
+                        setMessage(`שגיאה בהתחברות אנונימית: ${error.message}`);
+                    } finally {
+                        setLoading(false);
+                    }
+                } else {
+                    setMessage('פרטי זיהוי שגויים. נסה שוב.');
+                    setLoading(false);
+                }
+            };
+
             const handleGoogleLogin = async () => {
                 setMessage('');
                 setLoading(true);
@@ -519,27 +527,6 @@
                         errorMessage = 'דומיין לא מורשה. וודא שכתובת האתר שלך (GitHub Pages URL) מוגדרת כדומיין מורשה בפרויקט Firebase (Authentication -> Settings -> Authorized domains).';
                     }
                     setMessage(errorMessage);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleAnonymousLogin = async () => {
-                setMessage('');
-                setLoading(true);
-                try {
-                    if (!window.firebaseAuth) {
-                        setMessage('שגיאה: Firebase Auth אינו מאותחל. אנא וודא את הגדרות Firebase.');
-                        setLoading(false);
-                        return;
-                    }
-                    const auth = window.firebaseAuth;
-                    const userCredential = await window.signInAnonymously(auth);
-                    setMessage('התחברת כאורח (אנונימי)! נא המתן...');
-                    onLoginSuccess(userCredential.user.uid, userCredential.user.uid); // Use UID as identifier for anonymous
-                } catch (error) {
-                    console.error("Firebase Anonymous Auth error:", error);
-                    setMessage(`שגיאה בהתחברות אנונימית: ${error.message}`);
                 } finally {
                     setLoading(false);
                 }
@@ -634,11 +621,11 @@
 
                     <div className="login-method-selector">
                         <button
-                            className={loginMethod === 'anonymous' ? 'active' : ''}
-                            onClick={() => setLoginMethod('anonymous')}
+                            className={loginMethod === 'idPassword' ? 'active' : ''}
+                            onClick={() => setLoginMethod('idPassword')}
                             disabled={loading}
                         >
-                            כניסה כאורח (אנונימי)
+                            ת"ז וסיסמה
                         </button>
                         <button
                             className={loginMethod === 'phone' ? 'active' : ''}
@@ -656,23 +643,43 @@
                         </button>
                     </div>
 
-                    {loginMethod === 'anonymous' && (
-                        <div>
+                    {loginMethod === 'idPassword' && (
+                        <form onSubmit={handleIdPasswordLogin}>
+                            <div className="form-group">
+                                <label htmlFor="loginIdentityId">תעודת זהות:</label>
+                                <input
+                                    type="text"
+                                    id="loginIdentityId"
+                                    value={identityId}
+                                    onChange={(e) => setIdentityId(e.target.value)}
+                                    required
+                                    placeholder="הזן תעודת זהות (דוגמה: 123456789)"
+                                    disabled={loading}
+                                />
+                            </div>
+                            <div className="form-group" style={{marginTop: '20px'}}>
+                                <label htmlFor="loginPassword">סיסמה:</label>
+                                <input
+                                    type="password"
+                                    id="loginPassword"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    placeholder="הזן סיסמה (דוגמה: password123)"
+                                    disabled={loading}
+                                />
+                            </div>
                             {message && (
                                 <div className={`message-box ${message.includes('הצליחה') ? 'success' : ''}`}>
                                     {message}
                                 </div>
                             )}
                             <div className="button-container">
-                                <button className="action-button secondary" onClick={handleAnonymousLogin} disabled={loading}>
-                                    {loading ? 'מתחבר כאורח...' : 'התחבר כאורח'}
+                                <button type="submit" className="action-button secondary" disabled={loading}>
+                                    {loading ? 'מתחבר...' : 'התחבר'}
                                 </button>
                             </div>
-                            <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
-                                <strong style={{color: '#d9534f'}}>הערה:</strong> הזדהות אנונימית מאפשרת גישה מהירה, אך אינה משייכת את הנתונים למשתמש קבוע.
-                                המידע ישויך למזהה משתמש אנונימי.
-                            </p>
-                        </div>
+                        </form>
                     )}
 
                     {loginMethod === 'phone' && (
@@ -748,6 +755,12 @@
                                 (Authentication -> Settings -> Authorized domains).
                             </p>
                         </div>
+                    )}
+
+                    {loginMethod !== 'google' && loginMethod !== 'phone' && (
+                         <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
+                             <strong style={{color: '#d9534f'}}>הערה:</strong> הזדהות ת"ז וסיסמה היא לדוגמה בלבד, ולא מאובטחת לסביבת ייצור.
+                         </p>
                     )}
                 </div>
             );
@@ -871,7 +884,7 @@
                        await window.signOut(window.firebaseAuth);
                     }
                     onLogout(); // Notify parent App component to change state and show login page
-                    setMessage(`התנתקת בהצלחה. ${identityId ? 'מזהה שהוזן: ' + identityId : ''}`);
+                    setMessage('התנתקת בהצלחה.');
                 } catch (error) {
                     console.error("Error logging out:", error);
                     setMessage(`שגיאה בהתנתקות: ${error.message}`);
@@ -1016,105 +1029,51 @@
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
             const [enteredIdentityId, setEnteredIdentityId] = useState(null); // Stores the ID from the login page
-            const logoutTriggeredRef = useRef(false); // Ref to track if logout was manually triggered
 
-            // Initialize Firebase Auth listener and handle initial login
+            // Initialize Firebase Auth listener
             useEffect(() => {
-                if (!window.firebaseAuth) {
-                    console.error("Firebase Auth is not available. Please check Firebase initialization.");
-                    setIsAuthReady(true);
-                    return;
-                }
-
-                const auth = window.firebaseAuth;
-                const unsubscribe = onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        // User is signed in
-                        setUserUid(user.uid);
-                        // Set a meaningful identifier for the user based on login method
-                        if (user.email) {
-                            setEnteredIdentityId(user.email);
-                        } else if (user.phoneNumber) {
-                            setEnteredIdentityId(user.phoneNumber);
-                        } else if (user.displayName) {
-                            setEnteredIdentityId(user.displayName);
-                        } else {
-                            // Fallback for anonymous or other types.
-                            // Only update enteredIdentityId if it's currently null,
-                            // to preserve an identity passed from LoginPage actions.
-                            if (!enteredIdentityId) { // This relies on the CLOSURE of enteredIdentityId at the time effect runs
-                                setEnteredIdentityId(user.uid);
-                            }
-                        }
-                        setIsAuthReady(true);
-                        logoutTriggeredRef.current = false; // Reset logout flag when a user is signed in
-                    } else {
-                        // User is signed out or no user is signed in initially
-                        setUserUid(null);
-                        setEnteredIdentityId(null); // Clear identity on logout
-
-                        // Only attempt to sign in anonymously/with custom token if not a manual logout
-                        if (!logoutTriggeredRef.current) {
-                            if (window.initialAuthToken) {
-                                try {
-                                    await window.signInWithCustomToken(auth, window.initialAuthToken);
-                                    console.log("Signed in with custom token on initial load.");
-                                } catch (error) {
-                                    console.error("Error signing in with custom token on initial load:", error);
-                                    // Fallback to anonymous if custom token fails on initial load
-                                    try {
-                                        await window.signInAnonymously(auth);
-                                        console.log("Signed in anonymously as fallback after custom token failure.");
-                                    } catch (e) {
-                                        console.error("Error signing in anonymously as fallback on initial load:", e);
-                                    }
+                // Check if firebaseAuth is initialized and available globally
+                if (window.firebaseAuth) {
+                    const unsubscribe = window.firebaseAuth.onAuthStateChanged(user => {
+                        if (user) {
+                            setUserUid(user.uid);
+                            // Set a meaningful identifier for the user based on login method
+                            if (user.email) {
+                                setEnteredIdentityId(user.email);
+                            } else if (user.phoneNumber) {
+                                setEnteredIdentityId(user.phoneNumber);
+                            } else if (user.displayName) {
+                                setEnteredIdentityId(user.displayName);
+                            } else if (user.isAnonymous) {
+                                // For anonymous, keep previous entered identity if exists, or use UID as fallback
+                                if (!enteredIdentityId) { // Only set if not already set by a specific login method
+                                     setEnteredIdentityId(user.uid);
                                 }
                             } else {
-                                // If no user and no initial token, sign in anonymously by default
-                                try {
-                                    await window.signInAnonymously(auth);
-                                    console.log("Signed in anonymously on initial load (no custom token).");
-                                } catch (e) {
-                                    console.error("Error signing in anonymously on initial load:", e);
-                                }
+                                setEnteredIdentityId(user.uid); // Fallback to UID
                             }
+                            setIsAuthReady(true);
+                        } else {
+                            setUserUid(null);
+                            setEnteredIdentityId(null); // Clear identity on logout
+                            setIsAuthReady(true);
                         }
-                        setIsAuthReady(true); // Always set ready once initial auth state is processed
-                    }
-                });
-
-                return () => {
-                    unsubscribe(); // Clean up the listener on unmount
-                };
-            }, [enteredIdentityId]); // Added enteredIdentityId to dependency array, but with careful conditional update inside.
+                    });
+                    return () => unsubscribe();
+                } else {
+                    console.error("Firebase Auth is not available. Please check Firebase initialization in the <script type='module'> block.");
+                    setIsAuthReady(true); // Still set ready to avoid infinite loading, but indicate failure.
+                }
+            }, []); // Empty dependency array means this effect runs once on mount
 
             const handleLoginSuccess = (uid, id) => {
                 setUserUid(uid);
                 setEnteredIdentityId(id);
-                logoutTriggeredRef.current = false; // Ensure flag is false after successful login
             };
 
-            const handleLogout = async () => {
-                try {
-                    if (window.firebaseAuth && window.signOut) {
-                        logoutTriggeredRef.current = true; // Set flag BEFORE signing out
-                        await window.signOut(window.firebaseAuth);
-                        // The onAuthStateChanged listener will now fire and update state to logged out.
-                        // No need to manually call onLogout() here, as onAuthStateChanged handles it.
-                        setMessage(`התנתקת בהצלחה.`); 
-                    } else {
-                        console.warn("Firebase Auth או פונקציית התנתקות אינם זמינים.");
-                        setMessage("שגיאה: לא ניתן להתנתק. שירותי Firebase אינם זמינים.");
-                        // Fallback if Firebase is truly unavailable, force logout locally:
-                        setUserUid(null);
-                        setEnteredIdentityId(null);
-                        logoutTriggeredRef.current = true; // Ensure this is also set for immediate local change
-                        // The `App` component will re-render the login page.
-                    }
-                } catch (error) {
-                    console.error("שגיאה בהתנתקות:", error);
-                    setMessage(`שגיאה בהתנתקות: ${error.message}`);
-                }
+            const handleLogout = () => {
+                setUserUid(null);
+                setEnteredIdentityId(null);
             };
 
             // Display loading or error message if Firebase is not ready/initialized
