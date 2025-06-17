@@ -460,7 +460,7 @@
             const [submission, setSubmission] = useState(null);
             const [loading, setLoading] = useState(true);
             const [message, setMessage] = useState('');
-            const [messageType, setMessageType] = useState(''); // Added for dynamic message styling
+            const [messageType, setMessageType] = useState('');
             
             // Editable states for the reported person's details
             const [reportedPersonFirstName, setReportedPersonFirstName] = useState('');
@@ -558,52 +558,59 @@
                 const unsubscribe = window.onSnapshotFirebaseGlobal(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
-                        setSubmission({ id: docSnap.id, userId: submissionUserId, ...data }); // Ensure userId is captured here
+                        // Defensive check: Ensure data is not null/undefined even if docSnap.exists() is true
+                        if (data) { 
+                            setSubmission({ id: docSnap.id, userId: submissionUserId, ...data }); // Ensure userId is captured here
 
-                        // Initialize reported person's fields with fallback for old data structure
-                        setReportedPersonFirstName(data.reportedPersonFirstName || data.firstName || ''); 
-                        setReportedPersonFamilyName(data.reportedPersonFamilyName || data.familyName || ''); 
-                        setReportedPersonIdNumber(data.reportedPersonIdNumber || data.idNumber || ''); 
+                            // Initialize reported person's fields with fallback for old data structure
+                            setReportedPersonFirstName(data.reportedPersonFirstName || data.firstName || ''); 
+                            setReportedPersonFamilyName(data.reportedPersonFamilyName || data.familyName || ''); 
+                            setReportedPersonIdNumber(data.reportedPersonIdNumber || data.idNumber || ''); 
 
-                        // Initialize other fields
-                        setAge(data.age || '');
-                        setGender(data.gender || '');
-                        setPhone(data.phone || '');
-                        setAddress(data.address || '');
-                        setResidents(data.residents || '');
-                        setPhysicalInjury(data.physicalInjury || '');
-                        setCasualties(data.casualties || '');
-                        setDisconnected(data.disconnected || '');
-                        setEvacuationAssistance(data.evacuationAssistance || '');
-                        setNotes(data.notes || '');
+                            // Initialize other fields
+                            setAge(data.age || '');
+                            setGender(data.gender || '');
+                            setPhone(data.phone || '');
+                            setAddress(data.address || '');
+                            setResidents(data.residents || '');
+                            setPhysicalInjury(data.physicalInjury || '');
+                            setCasualties(data.casualties || '');
+                            setDisconnected(data.disconnected || '');
+                            setEvacuationAssistance(data.evacuationAssistance || '');
+                            setNotes(data.notes || '');
 
-                        setReferralStatus(data.referralStatus || '');
-                        setOtherStatusText(data.otherStatusText || '');
-                        setAdminNotes(data.adminNotes || '');
-                        
-                        // Store original values when data is freshly loaded for comparison
-                        originalReportedPersonFirstNameRef.current = data.reportedPersonFirstName || data.firstName || '';
-                        originalReportedPersonFamilyNameRef.current = data.reportedPersonFamilyName || data.familyName || '';
-                        originalReportedPersonIdNumberRef.current = data.reportedPersonIdNumber || data.idNumber || '';
-                        originalAgeRef.current = data.age || '';
-                        originalGenderRef.current = data.gender || '';
-                        originalPhoneRef.current = data.phone || '';
-                        originalAddressRef.current = data.address || '';
-                        originalResidentsRef.current = data.residents || '';
-                        originalPhysicalInjuryRef.current = data.physicalInjury || '';
-                        originalCasualtiesRef.current = data.casualties || '';
-                        originalDisconnectedRef.current = data.disconnected || '';
-                        originalEvacuationAssistanceRef.current = data.evacuationAssistance || '';
-                        originalNotesRef.current = data.notes || '';
+                            setReferralStatus(data.referralStatus || '');
+                            setOtherStatusText(data.otherStatusText || '');
+                            setAdminNotes(data.adminNotes || '');
+                            
+                            // Store original values when data is freshly loaded for comparison
+                            originalReportedPersonFirstNameRef.current = data.reportedPersonFirstName || data.firstName || '';
+                            originalReportedPersonFamilyNameRef.current = data.reportedPersonFamilyName || data.familyName || '';
+                            originalReportedPersonIdNumberRef.current = data.reportedPersonIdNumber || data.idNumber || '';
+                            originalAgeRef.current = data.age || '';
+                            originalGenderRef.current = data.gender || '';
+                            originalPhoneRef.current = data.phone || '';
+                            originalAddressRef.current = data.address || '';
+                            originalResidentsRef.current = data.residents || '';
+                            originalPhysicalInjuryRef.current = data.physicalInjury || '';
+                            originalCasualtiesRef.current = data.casualties || '';
+                            originalDisconnectedRef.current = data.disconnected || '';
+                            originalEvacuationAssistanceRef.current = data.evacuationAssistance || '';
+                            originalNotesRef.current = data.notes || '';
 
-                        originalReferralStatusRef.current = data.referralStatus || '';
-                        originalOtherStatusTextRef.current = data.otherStatusText || '';
-                        originalAdminNotesRef.current = data.adminNotes || '';
-                        
-                        setHasUnsavedChanges(false); // Reset unsaved changes flag on fresh load
-                        // Only clear message if it was NOT an error message from a previous attempt
-                        if (messageType !== 'danger') {
-                            showMessage(''); // Clear any previous general messages on successful data load
+                            originalReferralStatusRef.current = data.referralStatus || '';
+                            originalOtherStatusTextRef.current = data.otherStatusText || '';
+                            originalAdminNotesRef.current = data.adminNotes || '';
+                            
+                            setHasUnsavedChanges(false); // Reset unsaved changes flag on fresh load
+                            // Only clear message if it was NOT an error message from a previous attempt
+                            if (messageType !== 'danger') {
+                                showMessage(''); // Clear any previous general messages on successful data load
+                            }
+                        } else {
+                            // This scenario is highly unlikely with docSnap.exists() true, but for robustness
+                            showMessage('שגיאה: נתוני הדיווח ריקים או אינם תקינים.', 'danger');
+                            setSubmission(null);
                         }
                     } else {
                         showMessage('שגיאה: דיווח לא נמצא.', 'danger');
@@ -1100,7 +1107,7 @@
                     db: window.firebaseDb
                 });
 
-                const unsubscribe = window.onAuthStateChangedGlobal(window.firebaseAuth, async (user) => {
+                const unsubscribe = window.onAuthStateChangedGlobal(window.firebaseAuth, (user) => {
                     if (!logoutTriggeredRef.current) {
                         if (user) {
                             setUserUid(user.uid);
@@ -1120,8 +1127,7 @@
                     try {
                         await window.signOutFirebaseGlobal(firebaseInstances.auth);
                         setUserUid(null);
-                        // Redirect to login or home page after logout
-                        window.location.href = 'index.html';
+                        window.location.href = 'index.html'; // Redirect to login page after logout
                     } catch (error) {
                         console.error("Error signing out:", error);
                     } finally {
@@ -1131,7 +1137,11 @@
             };
 
             if (!isAuthReady) {
-                return <div className="container"><p>טוען הגדרות אבטחה...</p></div>;
+                return (
+                    <div className="container">
+                        <p>טוען הגדרות אבטחה...</p>
+                    </div>
+                );
             }
 
             if (!userUid) {
