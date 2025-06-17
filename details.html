@@ -462,11 +462,12 @@
                 return () => unsubscribe();
             }, [db, auth]); // Re-run if db or auth instances change
 
+            // Function to save current form data to Firestore
             const handleUpdateSubmission = async () => {
                 setMessage('');
                 if (!db || !submission) {
                     setMessage('שגיאה: Firebase Db אינו מאותחל או שאין דיווח לטפל בו.');
-                    return;
+                    return false; // Indicate failure
                 }
 
                 try {
@@ -474,7 +475,7 @@
                     const submissionUserId = submission.userId; 
                     if (!submissionUserId) {
                          setMessage('שגיאה: מזהה משתמש ששלח את הדיווח חסר.');
-                         return;
+                         return false; // Indicate failure
                     }
 
                     const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submissionUserId}/formData`, submission.id);
@@ -486,6 +487,7 @@
                         lastUpdatedAt: Date.now() // Timestamp of last update
                     });
                     setMessage('הדיווח נשמר בהצלחה!');
+                    return true; // Indicate success
                 } catch (error) {
                     console.error("Error updating submission:", error);
                     let errorMessage = `שגיאה בשמירת דיווח: ${error.message}.`;
@@ -493,18 +495,22 @@
                         errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים כתיבה לנתיב זה עבור המשתמש המחובר.";
                     }
                     setMessage(errorMessage);
+                    return false; // Indicate failure
                 }
             };
 
-            const handleSendEmail = () => {
-                if (!submission) {
-                    setMessage('אין דיווח לשליחה במייל.');
-                    return;
-                }
+            // Function to handle sending email, saves first
+            const handleSendEmailAndSave = async () => {
+                const saved = await handleUpdateSubmission(); // Attempt to save
+                if (saved) { // Only proceed if save was successful
+                    if (!submission) {
+                        setMessage('אין דיווח לשליחה במייל.');
+                        return;
+                    }
 
-                // Construct email subject and body
-                const subject = `טיפול בדיווח תקרית - ת"ז: ${submission.idNumber}`;
-                const body = `
+                    // Construct email subject and body
+                    const subject = `טיפול בדיווח תקרית - ת"ז: ${submission.idNumber}`;
+                    const body = `
 פרטי דיווח תקרית:
 --------------------
 שם מלא: ${submission.firstName || ''} ${submission.familyName || ''}
@@ -525,11 +531,21 @@
 
 תאריך דיווח: ${new Date(submission.timestamp).toLocaleString('he-IL')}
 מזהה דיווח: ${submission.id}
-                `;
+                    `;
 
-                const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                window.location.href = mailtoLink;
+                    const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                    window.location.href = mailtoLink;
+                }
             };
+
+            // Function to handle going back to data.html, saves first
+            const handleGoBackAndSave = async () => {
+                const saved = await handleUpdateSubmission(); // Attempt to save
+                if (saved) { // Only proceed if save was successful
+                    window.location.href = 'data.html';
+                }
+            };
+
 
             if (loading) {
                 return <div className="container"><p>טוען פרטי דיווח...</p></div>;
@@ -644,12 +660,13 @@
                         <button className="action-button" onClick={handleUpdateSubmission}>
                             שמור שינויים
                         </button>
-                        <button className="action-button secondary" onClick={handleSendEmail}>
+                        <button className="action-button secondary" onClick={handleSendEmailAndSave}>
                             שלח במייל
                         </button>
-                        <a href="data.html" className="action-button danger" style={{textDecoration: 'none'}}>
+                        {/* Changed <a> to <button> for consistent save behavior */}
+                        <button className="action-button danger" onClick={handleGoBackAndSave}>
                             חזור לכל הנתונים
-                        </a>
+                        </button>
                     </div>
                 </div>
             );
