@@ -31,12 +31,34 @@
         //     appId: "1:...",
         //     measurementId: "G-..." // אם הוגדר
         // };
-        const myFirebaseConfig = {}; // --- הדבק את האובייקט שהעתקת כאן במקום הסוגריים המסולסלים הריקים {} ---
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyA38-uZwniXXCCK954yjcICl56mwVXbHDk",
+            authDomain: "ateam-3cf3d.firebaseapp.com",
+            projectId: "ateam-3cf3d",
+            storageBucket: "ateam-3cf3d.firebasestorage.app",
+            messagingSenderId: "760383317284",
+            appId: "1:760383317284:web:a33ae7d2a89911b77f3fb1",
+            measurementId: "G-NCVXFH3R6X"
+        }; // --- האובייקט שהודבק כאן הוא ה-firebaseConfig שלך ---
 
-        // אם __firebase_config זמין מהסביבה (כמו ב-Canvas), השתמש בו. אחרת, השתמש ב-myFirebaseConfig שהדבקת.
-        const firebaseConfig = typeof __app_id !== 'undefined' && typeof __firebase_config !== 'undefined' && Object.keys(JSON.parse(__firebase_config)).length > 0
-            ? JSON.parse(__firebase_config)
-            : myFirebaseConfig;
+        let firebaseConfig;
+        try {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config !== null && String(__firebase_config).trim() !== '') {
+                const parsedConfig = JSON.parse(__firebase_config);
+                if (Object.keys(parsedConfig).length > 0) {
+                    firebaseConfig = parsedConfig;
+                } else {
+                    firebaseConfig = myFirebaseConfig;
+                    console.warn("Environmental __firebase_config was empty after parsing. Falling back to hardcoded myFirebaseConfig.");
+                }
+            } else {
+                firebaseConfig = myFirebaseConfig;
+                console.log("Environmental __firebase_config not found or is empty. Using hardcoded myFirebaseConfig.");
+            }
+        } catch (e) {
+            console.error("Error parsing __firebase_config, falling back to hardcoded config:", e);
+            firebaseConfig = myFirebaseConfig;
+        }
 
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -52,7 +74,7 @@
                 window.firebaseApp = null;
                 window.firebaseDb = null;
                 window.firebaseAuth = null;
-                window.appId = appId; // appId should still be available
+                window.appId = appId;
                 window.initialAuthToken = initialAuthToken;
                 window.GoogleAuthProvider = null;
                 window.signInWithPopup = null;
@@ -73,29 +95,21 @@
                 window.firebaseAuth = auth;
                 window.appId = appId;
                 window.initialAuthToken = initialAuthToken;
-                window.GoogleAuthProvider = GoogleAuthProvider; // Make GoogleAuthProvider available globally
-                window.signInWithPopup = signInWithPopup;       // Make signInWithPopup available globally
-                window.signOut = signOut;                       // Make signOut available globally
-                window.collection = collection;                 // Make collection available globally
-                window.onSnapshot = onSnapshot;                 // Make onSnapshot available globally
-                window.signInWithPhoneNumber = signInWithPhoneNumber; // Make signInWithPhoneNumber available globally
-                window.RecaptchaVerifier = RecaptchaVerifier;       // Make RecaptchaVerifier available globally
+                window.GoogleAuthProvider = GoogleAuthProvider;
+                window.signInWithPopup = signInWithPopup;
+                window.signOut = signOut;
+                window.collection = collection;
+                window.onSnapshot = onSnapshot;
+                window.signInWithPhoneNumber = signInWithPhoneNumber;
+                window.RecaptchaVerifier = RecaptchaVerifier;
+                // Expose onAuthStateChanged globally
+                window.onAuthStateChanged = onAuthStateChanged;
+                // Expose signInWithCustomToken and signInAnonymously globally
+                window.signInWithCustomToken = signInWithCustomToken;
+                window.signInAnonymously = signInAnonymously;
 
-                // Handle initial authentication state:
-                // If a custom token is provided by the environment, try to sign in with it.
-                // Otherwise, sign in anonymously (for basic functionality and user ID).
-                onAuthStateChanged(auth, (user) => {
-                    if (!user && initialAuthToken) {
-                        signInWithCustomToken(auth, initialAuthToken).catch((error) => {
-                            console.error("Error signing in with custom token:", error);
-                            // Fallback to anonymous if custom token fails
-                            signInAnonymously(auth).catch(e => console.error("Error signing in anonymously as fallback:", e));
-                        });
-                    } else if (!user && !initialAuthToken) {
-                        // If no user and no initial token, sign in anonymously
-                        signInAnonymously(auth).catch(e => console.error("Error signing in anonymously:", e));
-                    }
-                });
+                // REMOVED initial onAuthStateChanged logic from here.
+                // It will now be handled by the React App component for better state management.
             }
         } catch (error) {
             console.error("Failed to initialize Firebase:", error);
@@ -112,6 +126,9 @@
             window.onSnapshot = null;
             window.signInWithPhoneNumber = null;
             window.RecaptchaVerifier = null;
+            window.onAuthStateChanged = null; // Also set this to null on error
+            window.signInWithCustomToken = null; // Also set this to null on error
+            window.signInAnonymously = null; // Also set this to null on error
         }
     </script>
     <style>
@@ -453,8 +470,6 @@
             const recaptchaContainerRef = useRef(null);
             const recaptchaVerifierInstance = useRef(null); // Store the RecaptchaVerifier instance
 
-            // Removed hardcoded ID/password credentials
-
             // Initialize RecaptchaVerifier when phone login method is selected
             useEffect(() => {
                 if (loginMethod === 'phone' && !recaptchaVerifierInstance.current && recaptchaContainerRef.current) {
@@ -497,8 +512,6 @@
                     }
                 }
             }, [loginMethod]); // Re-run when loginMethod changes
-
-            // Removed handleIdPasswordLogin function
 
             const handleGoogleLogin = async () => {
                 setMessage('');
@@ -880,7 +893,7 @@
                        await window.signOut(window.firebaseAuth);
                     }
                     onLogout(); // Notify parent App component to change state and show login page
-                    setMessage('התנתקת בהצלחה.');
+                    setMessage(`התנתקת בהצלחה. ${identityId ? 'מזהה שהוזן: ' + identityId : ''}`);
                 } catch (error) {
                     console.error("Error logging out:", error);
                     setMessage(`שגיאה בהתנתקות: ${error.message}`);
@@ -1025,49 +1038,99 @@
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
             const [enteredIdentityId, setEnteredIdentityId] = useState(null); // Stores the ID from the login page
+            const logoutTriggeredRef = useRef(false); // Ref to track if logout was manually triggered
 
-            // Initialize Firebase Auth listener
+            // Initialize Firebase Auth listener and handle initial login
             useEffect(() => {
-                // Check if firebaseAuth is initialized and available globally
-                if (window.firebaseAuth) {
-                    const unsubscribe = window.firebaseAuth.onAuthStateChanged(user => {
-                        if (user) {
-                            setUserUid(user.uid);
-                            // Set a meaningful identifier for the user based on login method
-                            if (user.email) {
-                                setEnteredIdentityId(user.email);
-                            } else if (user.phoneNumber) {
-                                setEnteredIdentityId(user.phoneNumber);
-                            } else if (user.displayName) {
-                                setEnteredIdentityId(user.displayName);
-                            } else if (user.isAnonymous) {
-                                // For anonymous, use UID as fallback as no other info
-                                setEnteredIdentityId(user.uid);
-                            } else {
-                                setEnteredIdentityId(user.uid); // Fallback to UID
-                            }
-                            setIsAuthReady(true);
-                        } else {
-                            setUserUid(null);
-                            setEnteredIdentityId(null); // Clear identity on logout
-                            setIsAuthReady(true);
-                        }
-                    });
-                    return () => unsubscribe();
-                } else {
-                    console.error("Firebase Auth is not available. Please check Firebase initialization in the <script type='module'> block.");
-                    setIsAuthReady(true); // Still set ready to avoid infinite loading, but indicate failure.
+                // Check if Firebase Auth is available
+                if (!window.firebaseAuth || !window.onAuthStateChanged || !window.signInWithCustomToken || !window.signInAnonymously) {
+                    console.error("Firebase Auth functions are not available. Please check Firebase initialization.");
+                    setIsAuthReady(true); // Mark as ready to show error message
+                    return;
                 }
-            }, []); // Empty dependency array means this effect runs once on mount
+
+                const auth = window.firebaseAuth;
+                const onAuthStateChangedGlobal = window.onAuthStateChanged; // Use the globally exposed function
+
+                const unsubscribe = onAuthStateChangedGlobal(auth, async (user) => {
+                    if (user) {
+                        // User is signed in
+                        setUserUid(user.uid);
+                        let newIdentityId = user.uid; // Default to UID
+                        if (user.email) {
+                            newIdentityId = user.email;
+                        } else if (user.phoneNumber) {
+                            newIdentityId = user.phoneNumber;
+                        } else if (user.displayName) {
+                            newIdentityId = user.displayName;
+                        }
+                        setEnteredIdentityId(newIdentityId);
+                        setIsAuthReady(true);
+                        logoutTriggeredRef.current = false; // Reset logout flag when a user is signed in
+                        console.log("User signed in:", user.uid, "Identity:", newIdentityId);
+                    } else {
+                        // User is signed out or no user is signed in initially
+                        setUserUid(null);
+                        setEnteredIdentityId(null); // Clear identity on logout
+
+                        // Only attempt to sign in anonymously/with custom token if not a manual logout
+                        if (!logoutTriggeredRef.current) {
+                            if (window.initialAuthToken) {
+                                try {
+                                    await window.signInWithCustomToken(auth, window.initialAuthToken);
+                                    console.log("Signed in with custom token on initial load.");
+                                } catch (error) {
+                                    console.error("Error signing in with custom token on initial load:", error);
+                                    try {
+                                        await window.signInAnonymously(auth);
+                                        console.log("Signed in anonymously as fallback after custom token failure.");
+                                    } catch (e) {
+                                        console.error("Error signing in anonymously as fallback on initial load:", e);
+                                    }
+                                }
+                            } else {
+                                try {
+                                    await window.signInAnonymously(auth);
+                                    console.log("Signed in anonymously on initial load (no custom token).");
+                                } catch (e) {
+                                    console.error("Error signing in anonymously on initial load:", e);
+                                }
+                            }
+                        }
+                        setIsAuthReady(true); // Always set ready once initial auth state is processed, regardless of outcome
+                        console.log("User signed out or no user. Auth state processed.");
+                    }
+                });
+
+                return () => {
+                    unsubscribe(); // Clean up the listener on unmount
+                };
+            }, []); // Empty dependency array: run once on mount
 
             const handleLoginSuccess = (uid, id) => {
                 setUserUid(uid);
                 setEnteredIdentityId(id);
+                logoutTriggeredRef.current = false; // Ensure flag is false after successful login
             };
 
-            const handleLogout = () => {
-                setUserUid(null);
-                setEnteredIdentityId(null);
+            const handleLogout = async () => {
+                try {
+                    if (window.firebaseAuth && window.signOut) {
+                        logoutTriggeredRef.current = true; // Set flag BEFORE signing out
+                        await window.signOut(window.firebaseAuth);
+                        // The onAuthStateChanged listener will now fire and update state to logged out.
+                        setMessage(`התנתקת בהצלחה.`); 
+                    } else {
+                        console.warn("Firebase Auth או פונקציית התנתקות אינם זמינים.");
+                        setMessage("שגיאה: לא ניתן להתנתק. שירותי Firebase אינם זמינים.");
+                        setUserUid(null);
+                        setEnteredIdentityId(null);
+                        logoutTriggeredRef.current = true;
+                    }
+                } catch (error) {
+                    console.error("שגיאה בהתנתקות:", error);
+                    setMessage(`שגיאה בהתנתקות: ${error.message}`);
+                }
             };
 
             // Display loading or error message if Firebase is not ready/initialized
