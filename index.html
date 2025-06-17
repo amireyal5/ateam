@@ -34,7 +34,7 @@
         const myFirebaseConfig = {}; // --- הדבק את האובייקט שהעתקת כאן במקום הסוגריים המסולסלים הריקים {} ---
 
         // אם __firebase_config זמין מהסביבה (כמו ב-Canvas), השתמש בו. אחרת, השתמש ב-myFirebaseConfig שהדבקת.
-        const firebaseConfig = typeof __firebase_config !== 'undefined' && Object.keys(JSON.parse(__firebase_config)).length > 0
+        const firebaseConfig = typeof __app_id !== 'undefined' && typeof __firebase_config !== 'undefined' && Object.keys(JSON.parse(__firebase_config)).length > 0
             ? JSON.parse(__firebase_config)
             : myFirebaseConfig;
 
