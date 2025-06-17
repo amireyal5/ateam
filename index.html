@@ -16,7 +16,7 @@
     <script type="module">
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         // Added getDoc and setDoc for user profile management
         import { getFirestore, collection, addDoc, onSnapshot, query, where, getDocs, collectionGroup, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -87,9 +87,10 @@
         window.onAuthStateChangedGlobal = onAuthStateChanged;
         window.signOutFirebaseGlobal = signOut; 
         window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
+        window.sendPasswordResetEmailGlobal = sendPasswordResetEmail; /* Exposed for password reset */
         window.collectionFirebaseGlobal = collection; 
         window.addDocFirebaseGlobal = addDoc; 
-        window.onSnapshotGlobal = onSnapshot; /* Changed from onSnapshotFirebaseGlobal to onSnapshotGlobal as this is more specific to the new design */
+        window.onSnapshotGlobal = onSnapshot; 
         window.queryFirebaseGlobal = query; 
         window.whereFirebaseGlobal = where; 
         window.getDocsFirebaseGlobal = getDocs; 
@@ -423,11 +424,13 @@
         const { useState, useEffect, useRef } = React;
 
         // Component for the Login Page - now with Email/Password login
+        // Added ForgotPasswordModal component
         function LoginPage({ auth, onLoginSuccess }) {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
             const [message, setMessage] = useState('');
             const [loading, setLoading] = useState(false);
+            const [showForgotPassword, setShowForgotPassword] = useState(false);
             
             const handleLogin = async () => {
                 setMessage('');
@@ -440,8 +443,7 @@
                     }
                     const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password); 
                     setMessage('התחברות הצליחה! נא המתן...');
-                    // onLoginSuccess will now trigger the profile check in App component
-                    onLoginSuccess(userCredential.user); // Pass the full user object
+                    onLoginSuccess(userCredential.user);
                 } catch (error) {
                     console.error("Login error:", error);
                     let errorMessage = 'שגיאה בהתחברות. וודא מייל וסיסמה.';
@@ -475,16 +477,88 @@
                         <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="הזן סיסמה" required />
                     </div>
                     <div className="button-container">
-                        <button className="action-button" onClick={handleLogin} disabled={loading}> {/* Changed to primary button style */}
+                        <button className="action-button" onClick={handleLogin} disabled={loading}>
                             {loading ? 'מתחבר...' : 'התחבר'}
                         </button>
+                        <a href="#" className="action-button secondary" onClick={(e) => { e.preventDefault(); setShowForgotPassword(true); }} style={{textDecoration: 'none'}}>
+                            שכחת סיסמה?
+                        </a>
                     </div>
                     <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
-                        <strong style={{color: '#F44336'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
+                        <strong style={{color: '#e74c3c'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
                     </p>
+
+                    {showForgotPassword && (
+                        <ForgotPasswordModal auth={auth} onClose={() => setShowForgotPassword(false)} />
+                    )}
                 </div>
             );
         }
+
+        // New Component for Forgot Password Modal
+        function ForgotPasswordModal({ auth, onClose }) {
+            const [email, setEmail] = useState('');
+            const [message, setMessage] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const handleResetPassword = async () => {
+                setMessage('');
+                setLoading(true);
+                if (!email) {
+                    setMessage('אנא הזן כתובת מייל.');
+                    setLoading(false);
+                    return;
+                }
+                try {
+                    if (!auth) {
+                        setMessage('שגיאה: שירותי Firebase Auth אינם זמינים.');
+                        setLoading(false);
+                        return;
+                    }
+                    await window.sendPasswordResetEmailGlobal(auth, email);
+                    setMessage('אם קיים חשבון עם המייל הזה, קישור לאיפוס סיסמה נשלח אליו. נא לבדוק גם את תיקיית הספאם.');
+                } catch (error) {
+                    console.error("Password reset error:", error);
+                    // Crucially, we give a generic message to avoid email enumeration
+                    setMessage('אם קיים חשבון עם המייל הזה, קישור לאיפוס סיסמה נשלח אליו. נא לבדוק גם את תיקיית הספאם.');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
+                    justifyContent: 'center', alignItems: 'center', zIndex: 1000
+                }}>
+                    <div className="container" style={{maxWidth: '350px', padding: '20px'}}>
+                        <h2>איפוס סיסמה</h2>
+                        {message && (
+                            <div className={`message-box ${message.includes('קישור לאיפוס') ? 'success' : 'danger'}`}>
+                                {message}
+                            </div>
+                        )}
+                        <p style={{marginBottom: '15px', fontSize: '0.9em', color: '#555'}}>
+                            הזן את כתובת המייל שלך וקישור לאיפוס סיסמה יישלח אליך.
+                        </p>
+                        <div className="form-group">
+                            <label htmlFor="resetEmail">מייל:</label>
+                            <input type="email" id="resetEmail" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="הזן מייל רשום" required />
+                        </div>
+                        <div className="button-container">
+                            <button className="action-button" onClick={handleResetPassword} disabled={loading}>
+                                {loading ? 'שולח...' : 'שלח קישור לאיפוס'}
+                            </button>
+                            <button className="action-button secondary" onClick={onClose} disabled={loading}>
+                                ביטול
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
 
         // New Component for Initial Identity Setup
         function IdentitySetupPage({ db, userUid, onIdentitySetupComplete }) {
