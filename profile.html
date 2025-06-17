@@ -486,7 +486,10 @@
                         originalAdminNotesRef.current = data.adminNotes || '';
                         
                         setHasUnsavedChanges(false); // Reset unsaved changes flag on fresh load
-                        showMessage(''); // Clear any previous error messages on successful data load
+                        // Only clear message if it was NOT an error message from a previous attempt
+                        if (messageType !== 'danger') {
+                            showMessage(''); // Clear any previous general messages on successful data load
+                        }
                     } else {
                         showMessage('שגיאה: דיווח לא נמצא.', 'danger');
                         setSubmission(null);
