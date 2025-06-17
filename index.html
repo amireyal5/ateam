@@ -9,6 +9,8 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <!-- Babel for JSX compilation directly in the browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <!-- Firebase Libraries - Initialized here and exposed globally -->
     <script type="module">
@@ -87,7 +89,7 @@
         window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
         window.collectionFirebaseGlobal = collection; 
         window.addDocFirebaseGlobal = addDoc; 
-        window.onSnapshotFirebaseGlobal = onSnapshot; 
+        window.onSnapshotGlobal = onSnapshot; /* Changed from onSnapshotFirebaseGlobal to onSnapshotGlobal as this is more specific to the new design */
         window.queryFirebaseGlobal = query; 
         window.whereFirebaseGlobal = where; 
         window.getDocsFirebaseGlobal = getDocs; 
@@ -100,333 +102,316 @@
     </script>
 
     <style>
-        /* הגדרות בסיסיות לגוף הדף */
+        /* General styles */
         body {
-            font-family: 'Inter', Arial, sans-serif; /* שימוש בפונט Inter */
-            background-color: #f8f8f8; /* צבע רקע אפור בהיר מאוד */
+            font-family: Arial, sans-serif; /* Adjusted font to match image's simplicity */
+            background-color: #f0f2f5; /* Light grey background from image */
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh; /* גובה מינימלי של 100% מגובה המסך */
+            min-height: 100vh;
             margin: 0;
-            padding: 5px; /* צמצום ריפוד כדי להתאים למסכים קטנים */
-            box-sizing: border-box; /* מבטיח שריפוד וגבולות לא יגדילו את הגודל הכולל של האלמנט */
+            padding: 0; /* Remove padding from body for full width container on mobile */
+            box-sizing: border-box;
         }
 
-        /* מכל הטופס והלוגין */
+        /* Container for forms/pages */
         .container {
-            background-color: #ffffff; /* רקע לבן */
-            padding: 25px; /* ריפוד מוגדל במקצת */
-            border-radius: 8px; /* פינות מעוגלות קטנות יותר */
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); /* צל עדין מאוד */
+            background-color: #ffffff; /* White background for the form container */
+            padding: 24px; /* Adjust padding to match image */
+            border-radius: 8px; /* Subtle rounded corners */
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); /* Very subtle shadow for depth */
             width: 100%;
-            max-width: 750px; /* רוחב מקסימלי מוגדל */
+            max-width: 400px; /* Reduced max-width to match narrower form in image */
             box-sizing: border-box;
-            border: 1px solid #e0e0e0; /* גבול אפור עדין */
-            text-align: right; /* יישור לימין לכל התוכן בתוך הקונטיינר */
+            text-align: right; /* RTL alignment */
+            margin: 0 auto; /* Center on larger screens, but stretch on mobile */
+        }
+        @media (max-width: 480px) {
+            .container {
+                padding: 16px; /* Smaller padding on very small screens */
+                border-radius: 0; /* No rounded corners on very small screens for full bleed */
+                box-shadow: none; /* No shadow on very small screens */
+            }
         }
 
         h1 {
             text-align: center;
-            color: #333333; /* צבע כהה לכותרת */
-            margin-bottom: 25px; /* מרווח תחתון מוגדל */
-            font-size: 1.8em; /* גודל פונט מוגדל לכותרת */
-            font-weight: 700; /* עובי פונט מודגש */
+            color: #333333;
+            margin-bottom: 24px;
+            font-size: 1.8em; /* Adjusted for image's prominence */
+            font-weight: bold;
         }
 
+        /* Form sections (if applicable, for multi-part forms) */
         .form-section {
-            margin-bottom: 20px; /* מרווח תחתון מוגדל */
-            padding-bottom: 15px; /* ריפוד תחתון מוגדל */
-            border-bottom: 1px dashed #cccccc; /* קו הפרדה מקווקו */
+            margin-bottom: 24px; /* Increased margin between sections */
+            padding-bottom: 16px;
+            border-bottom: 1px solid #eeeeee; /* Lighter separator */
         }
-
         .form-section:last-of-type {
             border-bottom: none;
             padding-bottom: 0;
         }
 
-        .form-grid {
-            display: grid;
-            gap: 15px; /* מרווח מוגדל בין השדות */
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* רוחב מינימלי מוגדל */
-        }
-
-        .form-grid.two-columns {
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* רוחב מינימלי מוגדל לשתי עמודות */
-        }
-
+        /* Form groups (label + input) */
         .form-group {
             display: flex;
             flex-direction: column;
-            text-align: right; /* יישור לימין עבור RTL */
-            position: relative; /* עבור הודעות שגיאה */
+            margin-bottom: 20px; /* Increased margin between form groups */
+            text-align: right;
+            position: relative;
         }
 
         label {
-            margin-bottom: 8px; /* מרווח תחתון מוגדל */
-            color: #333333; /* צבע כהה לתווית */
-            font-weight: 600; /* עובי פונט בינוני */
-            font-size: 1.05em; /* גודל פונט מוגדל לתוויות */
+            color: #666666; /* Lighter grey for labels */
+            font-size: 0.9em; /* Smaller font for labels, as in image */
+            margin-bottom: 8px; /* Space between label and input */
+            font-weight: normal; /* Labels are not bold in the image */
         }
-        /* סימון שדות חובה */
+        /* Required field asterisk */
         label.required::after {
             content: ' *';
-            color: #F44336; /* אדום ברור לכוכבית */
-            font-weight: bold;
+            color: #F44336; /* Red for required asterisk */
+            font-weight: normal; /* Ensure asterisk matches label font weight */
+            margin-right: 2px; /* Small space after label */
         }
-
 
         input[type="text"],
         input[type="number"],
         input[type="tel"],
         textarea,
         select,
-        input[type="password"] {
+        input[type="password"],
+        input[type="email"] {
             width: 100%;
-            padding: 10px 12px; /* ריפוד מוגדל */
-            border: 1px solid #cccccc; /* גבול אפור בהיר */
-            border-radius: 6px; /* פינות מעוגלות במקצת */
+            padding: 12px 16px; /* Generous padding for comfortable touch */
+            border: 1px solid #dddddd; /* Light grey border for inputs */
+            border-radius: 6px; /* Softly rounded corners */
             box-sizing: border-box;
-            font-size: 1em; /* גודל פונט סטנדרטי */
-            color: #333333; /* צבע טקסט כהה */
-            transition: border-color 0.2s ease; /* מעבר עדין לגבול */
+            font-size: 1em; /* Standard font size */
+            color: #333333; /* Dark text for readability */
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
-
         input[type="text"]:focus,
         input[type="number"]:focus,
         input[type="tel"]:focus,
         textarea:focus,
         select:focus,
-        input[type="password"]:focus {
-            border-color: #888888; /* צבע אפור בינוני בפוקוס */
-            outline: none; /* הסרת קו המתאר ברירת המחדל */
-            box-shadow: none; /* הסרת צל בפוקוס */
+        input[type="password"]:focus,
+        input[type="email"]:focus {
+            border-color: #999999; /* Darker grey on focus */
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.2); /* Subtle focus ring */
         }
-        
-        /* סגנון שגיאה לשדות קלט */
+        /* Error state for inputs */
         .form-group.error input,
         .form-group.error textarea,
         .form-group.error select {
-            border-color: #F44336; /* גבול אדום לשדה שגיאה */
+            border-color: #F44336; /* Red border for error */
         }
         .error-message {
-            color: #F44336; /* צבע אדום להודעת שגיאה */
+            color: #F44336; /* Red text for error messages */
             font-size: 0.8em;
             margin-top: 4px;
             text-align: right;
         }
 
-
         textarea {
-            resize: vertical; /* מאפשר שינוי גודל אנכי בלבד */
-            min-height: 80px; /* גובה מינימלי מוגדל */
+            resize: vertical;
+            min-height: 90px; /* Slightly taller for more input */
         }
 
-        .radio-group {
+        /* Checkbox/Radio group */
+        .checkbox-group, .radio-group {
             display: flex;
             flex-wrap: wrap;
-            gap: 12px; /* מרווח מוגדל בין כפתורי הרדיו */
+            gap: 12px;
             margin-top: 8px;
-            justify-content: flex-end; /* יישור לימין של כפתורי הרדיו */
+            justify-content: flex-end; /* RTL alignment */
+            font-size: 0.9em; /* Smaller font for options */
         }
-
-        .radio-group label {
-            margin-bottom: 0;
-            font-weight: normal;
+        .checkbox-group label, .radio-group label {
             display: flex;
             align-items: center;
             cursor: pointer;
-            color: #555555; /* צבע אפור לתווית רדיו */
-            font-size: 0.95em; /* גודל פונט מוגדל */
+            color: #333333;
+            font-weight: normal;
+            margin-bottom: 0; /* Override form-group margin */
         }
-
-        .radio-group input[type="radio"] {
-            margin-left: 6px; /* מרווח משמאל לכפתור עבור RTL */
+        .checkbox-group input[type="checkbox"], .radio-group input[type="radio"] {
+            margin-left: 8px; /* Space from text for RTL */
             width: auto;
-            transform: scale(1.05); /* הגדלה עדינה */
+            transform: scale(1); /* Standard size */
         }
 
+        /* Button container */
         .button-container {
             display: flex;
-            justify-content: center;
-            gap: 12px; /* מרווח מוגדל בין כפתורים */
-            margin-top: 30px; /* מרווח עליון מוגדל */
+            flex-direction: column; /* Stack buttons vertically as in image */
+            gap: 12px; /* Space between stacked buttons */
+            margin-top: 24px; /* Space from form elements */
         }
 
+        /* Action buttons */
         .action-button {
-            background-color: #444444; /* אפור כהה (כפתור ראשי) */
+            background-color: #3498db; /* Primary blue from image */
             color: white;
-            padding: 12px 25px; /* ריפוד מוגדל */
+            padding: 14px 20px; /* Generous padding for primary button */
             border: none;
-            border-radius: 6px; /* פינות מעוגלות */
-            font-size: 1.05em; /* גודל פונט מוגדל */
-            font-weight: 600;
+            border-radius: 6px; /* Rounded corners */
+            font-size: 1.1em; /* Larger font for main buttons */
+            font-weight: bold;
             cursor: pointer;
-            transition: background-color 0.2s ease, opacity 0.2s ease; /* מעבר עדין */
-            box-shadow: none; /* ביטול צל */
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: none; /* Default to no shadow */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px; /* Space between text and icon */
+        }
+        .action-button:hover {
+            background-color: #2980b9; /* Darker blue on hover */
+            box-shadow: none; /* No shadow change on hover */
+        }
+        .action-button:active {
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Subtle shadow on click */
+            transform: translateY(1px); /* Slight press effect */
         }
 
         .action-button.secondary {
-            background-color: #888888; /* אפור בינוני (כפתור משני) */
+            background-color: #ffffff; /* White background for secondary button */
+            color: #666666; /* Grey text for secondary */
+            border: 1px solid #dddddd; /* Light border */
+            box-shadow: none;
+        }
+        .action-button.secondary:hover {
+            background-color: #f0f0f0; /* Lighter grey on hover */
+            color: #333333;
+        }
+        .action-button.secondary:active {
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
 
         .action-button.danger {
-            background-color: #bbbbbb; /* אפור בהיר (כפתור התנתקות/סכנה) */
-            color: #333333; /* טקסט כהה לכפתור בהיר */
-        }
-
-        .action-button:hover {
-            background-color: #555555; /* אפור כהה יותר בריחוף */
-            opacity: 1; /* ללא שינוי שקיפות נוסף */
-        }
-        .action-button.secondary:hover {
-            background-color: #999999;
+            background-color: #e74c3c; /* Red for danger/logout */
+            color: white;
         }
         .action-button.danger:hover {
-            background-color: #cccccc;
+            background-color: #c0392b;
         }
 
-        .action-button:active {
-            opacity: 0.8; /* שינוי שקיפות בלחיצה */
-            transform: none; /* ביטול אפקט קל של ריחוף */
-        }
-
+        /* Message box styles */
         .message-box {
-            background-color: #f0f0f0; /* רקע אפור בהיר מאוד להודעות */
-            color: #333333; /* טקסט כהה */
-            padding: 12px; /* ריפוד מוגדל */
-            border: 1px solid #cccccc; /* גבול אפור */
+            background-color: #f8f8f8; /* Light grey background */
+            color: #333333; /* Dark text */
+            padding: 12px;
+            border: 1px solid #cccccc; /* Light grey border */
             border-radius: 6px;
-            margin-top: 15px; /* מרווח עליון מוגדל */
+            margin-top: 16px;
             text-align: right;
             font-size: 0.9em;
             font-weight: normal;
         }
         .message-box.success {
-            background-color: #e6ffe6; /* ירוק עדין מאוד */
-            color: #2e7d32; /* ירוק כהה יותר */
+            background-color: #e6ffe6; /* Very light green */
+            color: #2e7d32; /* Dark green */
             border-color: #a3e6a3;
         }
         .message-box.danger { 
-            background-color: #ffe6e6; /* אדום עדין מאוד */
-            color: #c62828; /* אדום כהה יותר */
+            background-color: #ffe6e6; /* Very light red */
+            color: #c62828; /* Dark red */
             border-color: #e6a3a3;
         }
-         .message-box.warning {
-            background-color: #fffacd; /* צהוב עדין */
-            color: #a87200; /* חום-כתום כהה */
+        .message-box.warning {
+            background-color: #fffacd; /* Light yellow */
+            color: #a87200; /* Dark yellow/orange */
             border-color: #ffd966;
         }
 
-
+        /* Previous submissions section */
         .previous-submissions {
-            margin-top: 30px; /* מרווח עליון מוגדל */
+            margin-top: 32px; /* More space from the form */
+            padding-top: 24px;
+            border-top: 1px solid #eeeeee; /* Lighter separator */
             text-align: right;
-            border-top: 1px dashed #cccccc;
-            padding-top: 20px; /* ריפוד עליון מוגדל */
         }
         .previous-submissions h2 {
             color: #333333;
-            font-size: 1.5em; /* גודל פונט מוגדל */
-            margin-bottom: 15px; /* מרווח תחתון מוגדל */
+            font-size: 1.4em;
+            margin-bottom: 16px;
         }
         .submission-item {
-            background-color: #f9f9f9; /* רקע בהיר יותר */
-            border: 1px solid #e0e0e0;
-            border-radius: 8px; /* פינות מעוגלות */
-            padding: 15px; /* ריפוד מוגדל */
-            margin-bottom: 10px; /* מרווח תחתון מוגדל */
+            background-color: #fdfdfd; /* Off-white background */
+            border: 1px solid #e0e0e0; /* Light grey border */
+            border-radius: 8px;
+            padding: 16px; /* More padding */
+            margin-bottom: 12px; /* More space between items */
             text-align: right;
-            line-height: 1.6; /* מרווח שורות מוגדל */
-            font-size: 0.9em; /* גודל פונט מוגדל */
+            line-height: 1.6;
+            font-size: 0.9em;
+            color: #555555;
         }
         .submission-item strong {
-            color: #444444;
+            color: #333333;
         }
         .submission-item span {
             display: block;
-            margin-bottom: 4px; /* מרווח תחתון מוגדל */
-            font-size: 0.85em; /* גודל פונט מוגדל */
+            margin-bottom: 4px;
+            font-size: 0.85em;
             color: #666666;
         }
-
-        /* רספונסיביות - התאמה למסכים קטנים (עד 768 פיקסלים) */
-        @media (max-width: 768px) {
-            .form-grid,
-            .form-grid.two-columns {
-                grid-template-columns: 1fr; /* כל השדות נערמים לעמודה אחת */
-            }
-            .container {
-                padding: 15px; /* ריפוד מותאם למסכים קטנים */
-                margin: 0; /* ללא מרווחים צדדיים */
-                border-radius: 0; /* ללא פינות מעוגלות למסכים קטנים מאוד */
-                box-shadow: none; /* ללא צל */
-            }
-            h1 {
-                font-size: 1.6em; /* הקטנה נוספת של כותרת */
-                margin-bottom: 15px;
-            }
-            label {
-                font-size: 1em; /* גודל פונט לתוויות מותאם */
-            }
-            input[type="text"],
-            input[type="number"],
-            input[type="tel"],
-            textarea,
-            select,
-            input[type="password"] {
-                padding: 8px 10px; /* ריפוד מותאם בשדות קלט */
-                font-size: 0.95em;
-            }
-            textarea {
-                min-height: 60px; /* התאמת גובה שדה טקסט */
-            }
-            .form-section {
-                margin-bottom: 15px;
-                padding-bottom: 10px;
-            }
-            .action-button {
-                padding: 10px 20px;
-                font-size: 1em;
-            }
-            .previous-submissions h2 {
-                font-size: 1.3em;
-            }
-            .submission-item {
-                padding: 12px;
-                font-size: 0.85em;
-            }
+        /* Top bar for dashboard/form pages */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px; /* Space below top bar */
         }
-
-        /* רספונסיביות - התאמה למסכים קטנים מאוד (עד 480 פיקסלים) */
-        @media (max-width: 480px) {
-            body {
-                padding: 0; /* הסרת כל הריפוד מגוף הדף */
-            }
+        .top-bar h1 {
+            margin-bottom: 0; /* Reset h1 margin */
+            text-align: right; /* Align h1 to right in top bar */
+            font-size: 1.6em; /* Slightly smaller h1 in top bar */
+        }
+        .top-bar .button-group {
+            display: flex;
+            gap: 8px;
+        }
+        .top-bar .action-button {
+            padding: 8px 16px; /* Smaller buttons in top bar */
+            font-size: 0.9em;
+        }
+        
+        /* Specific Mobile adjustments */
+        @media (max-width: 768px) {
             .container {
-                padding: 10px; /* ריפוד מינימלי ביותר לקונטיינר */
-                border: none; /* ללא גבול */
+                max-width: 100%; /* Ensure full width on smaller screens */
             }
-            h1 {
-                font-size: 1.2em;
+            .form-grid.two-columns {
+                grid-template-columns: 1fr; /* Stack into single column */
             }
-            .radio-group {
-                flex-direction: column;
-                gap: 5px;
-                align-items: flex-end; /* יישור לימין לתוויות של כפתורי הרדיו */
+            .top-bar {
+                flex-direction: column; /* Stack top bar elements */
+                align-items: flex-end;
+                gap: 12px;
             }
-            .radio-group label {
-                width: 100%; /* רוחב מלא לתוויות כפתורי רדיו ללחיצה קלה */
+            .top-bar h1 {
+                width: 100%; /* Full width for h1 */
+                text-align: center; /* Center align title when stacked */
+                font-size: 1.4em;
+            }
+            .top-bar .button-group {
+                width: 100%;
+                justify-content: center; /* Center buttons */
+                flex-wrap: wrap; /* Allow buttons to wrap */
+            }
+            .top-bar .action-button {
+                flex-grow: 1; /* Make buttons expand to fill space */
+                max-width: calc(50% - 4px); /* Max width for two buttons per row */
             }
             .action-button {
-                font-size: 0.9em;
-                padding: 8px 15px;
-            }
-             .previous-submissions {
-                padding-top: 10px;
-            }
-             .submission-item {
-                padding: 10px;
+                padding: 12px 16px; /* Adjust button padding */
+                font-size: 1em;
             }
         }
     </style>
@@ -490,7 +475,7 @@
                         <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="הזן סיסמה" required />
                     </div>
                     <div className="button-container">
-                        <button className="action-button secondary" onClick={handleLogin} disabled={loading}>
+                        <button className="action-button" onClick={handleLogin} disabled={loading}> {/* Changed to primary button style */}
                             {loading ? 'מתחבר...' : 'התחבר'}
                         </button>
                     </div>
@@ -637,14 +622,14 @@
         function MainDashboard({ userId, identityId, onGoToForm, onLogout, isAdminUser }) { 
             return (
                 <div className="container">
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+                    <div className="top-bar">
                         <h1>ברוך הבא, {identityId || userId}!</h1>
-                        <div style={{display: 'flex', gap: '10px'}}>
-                             <a href="profile.html" className="action-button secondary" style={{padding: '10px 20px', fontSize: '0.9em', textDecoration: 'none'}}>
-                                עדכן פרטים
+                        <div className="button-group">
+                             <a href="profile.html" className="action-button secondary" style={{textDecoration: 'none'}}>
+                                <i className="fas fa-user-edit" style={{marginLeft: '5px'}}></i> עדכן פרטים
                             </a>
-                            <button onClick={onLogout} className="action-button danger" style={{padding: '10px 20px', fontSize: '0.9em'}}>
-                                התנתק
+                            <button onClick={onLogout} className="action-button danger">
+                                <i className="fas fa-sign-out-alt" style={{marginLeft: '5px'}}></i> התנתק
                             </button>
                         </div>
                     </div>
@@ -652,17 +637,17 @@
                         אנא בחר את הפעולה הרצויה:
                     </p>
                     <div className="button-container">
-                        <button className="action-button secondary" onClick={onGoToForm}>
-                            מילוי טופס חדש
+                        <button className="action-button" onClick={onGoToForm}>
+                            <i className="fas fa-file-alt" style={{marginLeft: '5px'}}></i> מילוי טופס חדש
                         </button>
                         {isAdminUser && ( 
-                            <a href="data.html" className="action-button" style={{ textDecoration: 'none' }}> 
-                                צפייה בכל הנתונים (מנהל)
+                            <a href="data.html" className="action-button secondary" style={{ textDecoration: 'none' }}> 
+                                <i className="fas fa-database" style={{marginLeft: '5px'}}></i> צפייה בכל הנתונים (מנהל)
                             </a>
                         )}
                     </div>
                     <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888888'}}>
-                        <strong style={{color: '#F44336'}}>הערה:</strong> ממשק ה"מנהל" נמצא כעת בדף נפרד (`data.html`).
+                        <strong style={{color: '#e74c3c'}}>הערה:</strong> ממשק ה"מנהל" נמצא כעת בדף נפרד (`data.html`).
                         הגישה לנתונים עצמם מוגבלת למנהלים בלבד באמצעות כללי אבטחה של Firestore,
                         הדורשים הגדרה של הרשאות אדמין באמצעות Firebase Cloud Functions בצד השרת.
                     </p>
@@ -682,10 +667,10 @@
                 phone: '',
                 address: '',
                 residents: '',
-                physicalInjury: '',
-                casualties: '',
-                disconnected: '',
-                evacuationAssistance: '',
+                physicalInjury: 'none', // Default radio to 'none'
+                casualties: 'no', // Default radio to 'no'
+                disconnected: 'no', // Default radio to 'no'
+                evacuationAssistance: 'no', // Default radio to 'no'
                 notes: '',
             });
             const [message, setMessage] = useState('');
@@ -702,8 +687,8 @@
             const resetForm = () => {
                 setFormData({
                     familyName: '', firstName: '', idNumber: '', age: '', gender: '',
-                    phone: '', address: '', residents: '', physicalInjury: '',
-                    casualties: '', disconnected: '', evacuationAssistance: '', notes: '',
+                    phone: '', address: '', residents: '', physicalInjury: 'none',
+                    casualties: 'no', disconnected: 'no', evacuationAssistance: 'no', notes: '',
                 });
                 setDuplicateFound(false); // Reset duplicate status
                 setExistingSubmissionInfo(null); // Clear existing submission info
@@ -725,7 +710,7 @@
                 // Construct the user-specific collection path for private data
                 const userFormsCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${appId}/users/${userId}/formData`); // Access from global
 
-                const unsubscribe = window.onSnapshotFirebaseGlobal(userFormsCollectionRef, (snapshot) => { // Access from global
+                const unsubscribe = window.onSnapshotGlobal(userFormsCollectionRef, (snapshot) => { // Access from global
                     const submissions = [];
                     snapshot.forEach(doc => {
                         submissions.push({ id: doc.id, ...doc.data() });
@@ -905,14 +890,14 @@
 
             return (
                 <div className="container">
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+                    <div className="top-bar">
                         <h1>מילוי טופס נתונים</h1>
-                        <div style={{display: 'flex', gap: '10px'}}>
-                            <button onClick={onGoToDashboard} className="action-button secondary" style={{padding: '10px 20px', fontSize: '0.9em'}}>
-                                חזור ללוח בקרה
+                        <div className="button-group">
+                            <button onClick={onGoToDashboard} className="action-button secondary">
+                                <i className="fas fa-arrow-right" style={{marginLeft: '5px'}}></i> חזור ללוח בקרה
                             </button>
-                            <button onClick={handleLogoutClick} className="action-button danger" style={{padding: '10px 20px', fontSize: '0.9em'}}>
-                                התנתק
+                            <button onClick={handleLogoutClick} className="action-button danger">
+                                <i className="fas fa-sign-out-alt" style={{marginLeft: '5px'}}></i> התנתק
                             </button>
                         </div>
                     </div>
