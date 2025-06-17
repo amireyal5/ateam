@@ -15,7 +15,8 @@
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, where, getDocs, collectionGroup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Added getDoc and setDoc for user profile management
+        import { getFirestore, collection, addDoc, onSnapshot, query, where, getDocs, collectionGroup, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
         // Global variables provided by the Canvas environment (do not modify these directly)
@@ -87,10 +88,13 @@
         window.collectionFirebaseGlobal = collection; 
         window.addDocFirebaseGlobal = addDoc; 
         window.onSnapshotFirebaseGlobal = onSnapshot; 
-        window.queryFirebaseGlobal = query; // Exposed for duplicate check
-        window.whereFirebaseGlobal = where; // Exposed for duplicate check
-        window.getDocsFirebaseGlobal = getDocs; // Exposed for duplicate check
-        window.collectionGroupFirebaseGlobal = collectionGroup; // Exposed for duplicate check
+        window.queryFirebaseGlobal = query; 
+        window.whereFirebaseGlobal = where; 
+        window.getDocsFirebaseGlobal = getDocs; 
+        window.collectionGroupFirebaseGlobal = collectionGroup; 
+        window.docFirebaseGlobal = doc; // Exposed for profile management
+        window.getDocFirebaseGlobal = getDoc; // Exposed for profile management
+        window.setDocFirebaseGlobal = setDoc; // Exposed for profile management
 
 
     </script>
@@ -424,8 +428,8 @@
                     }
                     const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password); 
                     setMessage('התחברות הצליחה! נא המתן...');
-                    const identity = userCredential.user.email || userCredential.user.uid; 
-                    onLoginSuccess(userCredential.user.uid, identity);
+                    // onLoginSuccess will now trigger the profile check in App component
+                    onLoginSuccess(userCredential.user); // Pass the full user object
                 } catch (error) {
                     console.error("Login error:", error);
                     let errorMessage = 'שגיאה בהתחברות. וודא מייל וסיסמה.';
@@ -470,15 +474,91 @@
             );
         }
 
+        // New Component for Initial Identity Setup
+        function IdentitySetupPage({ db, userUid, onIdentitySetupComplete }) {
+            const [firstName, setFirstName] = useState('');
+            const [familyName, setFamilyName] = useState('');
+            const [idNumber, setIdNumber] = useState('');
+            const [message, setMessage] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const handleSaveProfile = async () => {
+                setMessage('');
+                if (!firstName || !familyName || !idNumber) {
+                    setMessage('אנא מלא את כל השדות הנדרשים: שם פרטי, שם משפחה ומספר תעודת זהות.');
+                    return;
+                }
+                 if (!/^\d{9}$/.test(idNumber)) {
+                    setMessage('מספר תעודת זהות חייב להיות בן 9 ספרות בדיוק.');
+                    return;
+                }
+
+                setLoading(true);
+                try {
+                    const profileRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/profile`, 'details');
+                    await window.setDocFirebaseGlobal(profileRef, {
+                        firstName: firstName,
+                        familyName: familyName,
+                        idNumber: idNumber,
+                        updatedAt: Date.now()
+                    }, { merge: true }); // Use merge to avoid overwriting other potential fields
+
+                    setMessage('פרטי הזהות נשמרו בהצלחה!');
+                    onIdentitySetupComplete(firstName, familyName, idNumber);
+                } catch (error) {
+                    console.error("Error saving identity:", error);
+                    setMessage(`שגיאה בשמירת הפרטים: ${error.message}.`);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <h1>השלמת פרטי זהות</h1>
+                    {message && (
+                        <div className={`message-box ${message.includes('הצלחה') ? 'success' : 'danger'}`}>
+                            {message}
+                        </div>
+                    )}
+                    <p style={{marginBottom: '20px', color: '#555'}}>
+                        נראה שזו הכניסה הראשונה שלך, או שפרטי הזהות שלך חסרים. אנא הזן אותם להמשך שימוש במערכת.
+                    </p>
+                    <div className="form-group">
+                        <label htmlFor="setupFirstName">שם פרטי:</label>
+                        <input type="text" id="setupFirstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required placeholder="הזן שם פרטי" />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="setupFamilyName">שם משפחה:</label>
+                        <input type="text" id="setupFamilyName" value={familyName} onChange={(e) => setFamilyName(e.target.value)} required placeholder="הזן שם משפחה" />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="setupIdNumber">תעודת זהות (9 ספרות):</label>
+                        <input type="text" id="setupIdNumber" value={idNumber} onChange={(e) => setIdNumber(e.target.value)} pattern="\d{9}" title="יש להזין 9 ספרות" required inputMode="numeric" placeholder="הזן תעודת זהות" />
+                    </div>
+                    <div className="button-container">
+                        <button className="action-button" onClick={handleSaveProfile} disabled={loading}>
+                            {loading ? 'שומר...' : 'שמור פרטים והמשך'}
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
         // Component for the Main Dashboard
         function MainDashboard({ userId, identityId, onGoToForm, onLogout, isAdminUser }) { 
             return (
                 <div className="container">
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
                         <h1>ברוך הבא, {identityId || userId}!</h1>
-                        <button onClick={onLogout} className="action-button danger" style={{padding: '10px 20px', fontSize: '0.9em'}}>
-                            התנתק
-                        </button>
+                        <div style={{display: 'flex', gap: '10px'}}>
+                             <a href="profile.html" className="action-button secondary" style={{padding: '10px 20px', fontSize: '0.9em', textDecoration: 'none'}}>
+                                עדכן פרטים
+                            </a>
+                            <button onClick={onLogout} className="action-button danger" style={{padding: '10px 20px', fontSize: '0.9em'}}>
+                                התנתק
+                            </button>
+                        </div>
                     </div>
                     <p style={{marginBottom: '30px', fontSize: '1.1em', color: '#555'}}>
                         אנא בחר את הפעולה הרצויה:
@@ -682,7 +762,7 @@
                     const dataToSave = {
                         ...formData,
                         userId: userId, // Link data to the Firebase anonymous UID
-                        identityId: identityId, // Store the ID entered during "login"
+                        identityId: identityId, // Store the FULL NAME as identity for new forms
                         timestamp: Date.now() // Add a timestamp for sorting
                     };
 
@@ -797,7 +877,7 @@
                                 <div className="form-group">
                                     <label>זקוק לסיוע בפינוי:</label>
                                     <div className="radio-group">
-                                        <label><input type="radio" name="evacuationAssistance" value="no" checked={formData.evacuationAssacuationAssistance === 'no'} onChange={handleChange} /> לא</label>
+                                        <label><input type="radio" name="evacuationAssistance" value="no" checked={formData.evacuationAssistance === 'no'} onChange={handleChange} /> לא</label>
                                         <label><input type="radio" name="evacuationAssistance" value="yes" checked={formData.evacuationAssistance === 'yes'} onChange={handleChange} /> כן</label>
                                     </div>
                                 </div>
@@ -823,7 +903,7 @@
 
                     {/* הצגת נתונים קודמים */}
                     <div className="previous-submissions">
-                        <h2>נתונים קודמים (מזהה משתמש: {userId})</h2>
+                        <h2>נתונים קודמים (מזהה משתמש: {identityId})</h2> {/* Changed to identityId */}
                         {loadingSubmissions ? (
                             <p>טוען נתונים...</p>
                         ) : previousSubmissions.length === 0 ? (
@@ -857,9 +937,9 @@
             const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
-            const [enteredIdentityId, setEnteredIdentityId] = useState(null);
+            const [enteredIdentityId, setEnteredIdentityId] = useState(null); // This will now store the full name if available
             const [isAdminUser, setIsAdminUser] = useState(false);
-            const [currentView, setCurrentView] = useState('login');
+            const [currentView, setCurrentView] = useState('login'); // 'login', 'identitySetup', 'dashboard', 'form'
             const logoutTriggeredRef = useRef(false);
 
             useEffect(() => {
@@ -876,20 +956,26 @@
                 });
 
                 const auth = window.firebaseAuth;
+                const db = window.firebaseDb; // Get db instance here
                 const unsubscribe = window.onAuthStateChangedGlobal(auth, async (user) => {
                     if (user) {
                         setUserUid(user.uid);
-                        let newIdentityId = user.email;
-                        if (!newIdentityId && user.phoneNumber) {
-                            newIdentityId = user.phoneNumber;
-                        } else if (!newIdentityId && user.displayName) {
-                            newIdentityId = user.displayName;
-                        } else if (!newIdentityId) {
-                            newIdentityId = user.uid;
-                        }
-                        setEnteredIdentityId(newIdentityId);
                         logoutTriggeredRef.current = false;
 
+                        // Check user profile
+                        const profileRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${user.uid}/profile`, 'details');
+                        const profileSnap = await window.getDocFirebaseGlobal(profileRef);
+
+                        let identitySet = false;
+                        if (profileSnap.exists()) {
+                            const profileData = profileSnap.data();
+                            if (profileData.firstName && profileData.familyName && profileData.idNumber) {
+                                setEnteredIdentityId(`${profileData.firstName} ${profileData.familyName}`);
+                                identitySet = true;
+                            }
+                        }
+
+                        // Fetch latest ID token and claims to check admin status
                         try {
                             const idTokenResult = await user.getIdTokenResult(true);
                             setIsAdminUser(idTokenResult.claims.admin === true);
@@ -899,9 +985,13 @@
                             setIsAdminUser(false);
                         }
                         
-                        setCurrentView('dashboard');
+                        if (identitySet) {
+                            setCurrentView('dashboard'); // Go to dashboard if profile is complete
+                        } else {
+                            setCurrentView('identitySetup'); // Go to identity setup if profile is incomplete
+                        }
                         setIsAuthReady(true);
-                        console.log("User signed in:", user.uid, "Identity:", newIdentityId, "Is Admin:", isAdminUser);
+                        console.log("User signed in:", user.uid, "Identity (raw):", user.email || user.uid, "Is Admin:", isAdminUser);
                     } else {
                         setUserUid(null);
                         setEnteredIdentityId(null);
@@ -912,12 +1002,16 @@
                     }
                 });
                 return () => unsubscribe();
-            }, []);
+            }, [firebaseInstances.db]); // Re-run effect if db instance changes
 
-            const handleLoginSuccess = (uid, id) => {
-                setUserUid(uid);
-                setEnteredIdentityId(id);
-                logoutTriggeredRef.current = false;
+            const handleLoginSuccess = (user) => {
+                // onAuthStateChanged will handle updating userUid, identityId, and currentView
+                // No direct state updates needed here, just ensures the listener picks up the new user
+            };
+
+            const handleIdentitySetupComplete = (firstName, familyName, idNumber) => {
+                setEnteredIdentityId(`${firstName} ${familyName}`);
+                setCurrentView('dashboard');
             };
 
             const handleLogout = async () => {
@@ -965,6 +1059,8 @@
             switch (currentView) {
                 case 'login':
                     return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={handleLoginSuccess} />;
+                case 'identitySetup':
+                    return <IdentitySetupPage db={firebaseInstances.db} userUid={userUid} onIdentitySetupComplete={handleIdentitySetupComplete} />;
                 case 'dashboard':
                     return (
                         <MainDashboard
