@@ -14,7 +14,7 @@
     <script type="module">
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"; // Removed Google-specific imports
         import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
@@ -83,8 +83,7 @@
         // Expose specific Firebase functions globally with distinct names
         window.onAuthStateChangedGlobal = onAuthStateChanged;
         window.signOutFirebaseGlobal = signOut; 
-        window.GoogleAuthProviderFirebaseGlobal = GoogleAuthProvider; 
-        window.signInWithPopupFirebaseGlobal = signInWithPopup; 
+        window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword; // Added
         window.collectionFirebaseGlobal = collection; 
         window.addDocFirebaseGlobal = addDoc; 
         window.onSnapshotFirebaseGlobal = onSnapshot; 
@@ -380,12 +379,14 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Component for the Login Page - now only with Google login
+        // Component for the Login Page - now with Email/Password login
         function LoginPage({ auth, onLoginSuccess }) {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
             const [message, setMessage] = useState('');
             const [loading, setLoading] = useState(false);
             
-            const handleGoogleLogin = async () => {
+            const handleLogin = async () => { // Changed function name from handleGoogleLogin
                 setMessage('');
                 setLoading(true);
                 try {
@@ -394,20 +395,21 @@
                         setLoading(false);
                         return;
                     }
-                    const provider = new window.GoogleAuthProviderFirebaseGlobal(); // Access from global
-                    const userCredential = await window.signInWithPopupFirebaseGlobal(auth, provider); // Access from global
-                    setMessage('התחברות עם גוגל הצליחה! נא המתן...');
-                    const googleIdentity = userCredential.user.email || userCredential.user.displayName || userCredential.user.uid;
-                    onLoginSuccess(userCredential.user.uid, googleIdentity);
+                    // Using signInWithEmailAndPassword instead of Google Sign-in
+                    const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password); 
+                    setMessage('התחברות הצליחה! נא המתן...');
+                    // Use user's email as identity if available, otherwise UID
+                    const identity = userCredential.user.email || userCredential.user.uid; 
+                    onLoginSuccess(userCredential.user.uid, identity);
                 } catch (error) {
-                    console.error("Google login error:", error);
-                    let errorMessage = 'שגיאה בהתחברות עם גוגל.';
-                    if (error.code === 'auth/popup-closed-by-user') {
-                        errorMessage = 'התחברות עם גוגל בוטלה.';
-                    } else if (error.code === 'auth/cancelled-popup-request') {
-                        errorMessage = 'בקשת התחברות עם גוגל בוטלה. אנא נסה שוב.';
-                    } else if (error.code === 'auth/unauthorized-domain') {
-                        errorMessage = 'דומיין לא מורשה. וודא שכתובת האתר שלך (GitHub Pages URL) מוגדרת כדומיין מורשה בפרויקט Firebase (Authentication -> Settings -> Authorized domains).';
+                    console.error("Login error:", error);
+                    let errorMessage = 'שגיאה בהתחברות. וודא מייל וסיסמה.';
+                    if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+                        errorMessage = 'מייל או סיסמה שגויים.';
+                    } else if (error.code === 'auth/invalid-email') {
+                        errorMessage = 'פורמט מייל לא תקין.';
+                    } else if (error.code === 'auth/user-disabled') {
+                        errorMessage = 'המשתמש הושבת. פנה למנהל המערכת.';
                     }
                     setMessage(errorMessage);
                 } finally {
@@ -423,23 +425,28 @@
                             {message}
                         </div>
                     )}
+                    <div className="form-group">
+                        <label htmlFor="email">מייל:</label>
+                        <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="הזן מייל" required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="password">סיסמה:</label>
+                        <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="הזן סיסמה" required />
+                    </div>
                     <div className="button-container">
-                        <button className="action-button google" onClick={handleGoogleLogin} disabled={loading}>
-                            {loading ? 'מתחבר עם גוגל...' : 'התחבר עם גוגל'}
+                        <button className="action-button secondary" onClick={handleLogin} disabled={loading}> {/* Changed class from google to secondary */}
+                            {loading ? 'מתחבר...' : 'התחבר'} {/* Changed button text */}
                         </button>
                     </div>
                     <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
-                        <strong style={{color: '#d9534f'}}>הערה:</strong> עליך לאפשר
-                        Google Sign-in בפרויקט Firebase שלך (Authentication -> Sign-in method)
-                        וכן להוסיף את הדומיין של האתר שלך (GitHub Pages URL) לרשימת הדומיינים המורשים
-                        (Authentication -> Settings -> Authorized domains).
+                        <strong style={{color: '#d9534f'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
                     </p>
                 </div>
             );
         }
 
         // Component for the Main Dashboard
-        function MainDashboard({ userId, identityId, onGoToForm, onLogout, isAdminUser }) { // Removed onGoToAdmin
+        function MainDashboard({ userId, identityId, onGoToForm, onLogout, isAdminUser }) { 
             return (
                 <div className="container">
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
@@ -455,8 +462,8 @@
                         <button className="action-button secondary" onClick={onGoToForm}>
                             מילוי טופס חדש
                         </button>
-                        {isAdminUser && ( // Show admin button only if isAdminUser is true
-                            <a href="data.html" className="action-button" style={{ textDecoration: 'none' }}> {/* Link to data.html */}
+                        {isAdminUser && ( 
+                            <a href="data.html" className="action-button" style={{ textDecoration: 'none' }}> 
                                 צפייה בכל הנתונים (מנהל)
                             </a>
                         )}
@@ -825,7 +832,7 @@
                 return (
                     <div className="container">
                         <h1>טוען...</h1>
-                        <p>ממתין לאתחול Firebase. אם הודעה זו נשארת זמן רב, ייתכן שיש בעיה בהגדרות Firebase שלך או בחיבור לאינטרנט.</p>
+                        <p>ממתין לאתחול Firebase. אם הודעה זו נשארת זמן רבה, ייתכן שיש בעיה בהגדרות Firebase שלך או בחיבור לאינטרנט.</p>
                         <p>אנא בדוק את קונסולת המפתחים (F12) לפרטים נוספים.</p>
                     </div>
                 );
