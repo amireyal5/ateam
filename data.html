@@ -17,7 +17,7 @@
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc, where, getDocs, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
         // Global variables provided by the Canvas environment (do not modify these directly)
@@ -75,6 +75,8 @@
         }
 
         // Expose Firebase instances and functions globally for React to access
+        // IMPORTANT: The React components below will primarily use props for these functions,
+        // but they are still exposed globally for direct console debugging or other scripts.
         window.firebaseApp = app;
         window.firebaseAuth = auth;
         window.firebaseDb = db;
@@ -92,7 +94,7 @@
         window.updateDocFirebaseGlobal = updateDoc; 
         window.whereFirebaseGlobal = where; 
         window.getDocsFirebaseGlobal = getDocs; 
-
+        window.collectionFirebaseGlobal = collection; // Added for completeness, though not always used directly by name
     </script>
 
     <style>
@@ -505,7 +507,8 @@
              padding-top: 0;
         }
         .submission-detail-container .form-group select,
-        .submission-detail-container .form-group input[type="text"] {
+        .submission-detail-container .form-group input[type="text"],
+        .submission-detail-container .form-group textarea { /* Added textarea for detail view */
             width: auto; /* Allow select/input to size to content */
             min-width: 180px; /* Minimum width for dropdown */
             display: inline-block; /* Keep on same line as label */
@@ -518,6 +521,33 @@
             margin-bottom: 0;
             margin-left: 10px;
         }
+        /* Specific for Speech-to-Text in detail view */
+        .submission-detail-container .form-group .speech-button {
+            background-color: #6c757d; 
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 12px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background-color 0.2s ease;
+            box-shadow: none;
+            display: inline-flex; /* Use inline-flex to keep it inline */
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle; /* Align with input */
+            height: 42px; /* Match input height */
+        }
+        .submission-detail-container .form-group .speech-button.listening {
+            background-color: #dc3545; /* Red when listening */
+        }
+        .submission-detail-container .form-group .speech-button:hover {
+            background-color: #5a6268;
+        }
+        .submission-detail-container .form-group .speech-button.listening:hover {
+            background-color: #c82333;
+        }
+
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
@@ -588,10 +618,16 @@
                 margin-bottom: 5px;
             }
             .submission-detail-container .form-group select,
-            .submission-detail-container .form-group input[type="text"] {
+            .submission-detail-container .form-group input[type="text"],
+            .submission-detail-container .form-group textarea {
                 width: 100%;
                 margin-right: 0;
                 min-width: unset;
+            }
+            .submission-detail-container .form-group .speech-button {
+                width: 100%;
+                padding: 10px 0;
+                height: auto; /* Allow height to adjust for stacked layout */
             }
         }
         @media (max-width: 480px) {
@@ -758,7 +794,7 @@
 
 
         // Submission Detail View Component
-        function SubmissionDetailView({ db, submissionId, userUid, onClose }) {
+        function SubmissionDetailView({ db, submissionId, userUid, onClose, docFirebaseGlobal, getDocFirebaseGlobal, updateDocFirebaseGlobal }) {
             const [submissionData, setSubmissionData] = useState(null);
             const [loading, setLoading] = useState(true);
             const [message, setMessage] = useState('');
@@ -834,8 +870,8 @@
                     }
                     setLoading(true);
                     try {
-                        const submissionRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`, submissionId);
-                        const docSnap = await window.getDocFirebaseGlobal(submissionRef);
+                        const submissionRef = docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`, submissionId);
+                        const docSnap = await getDocFirebaseGlobal(submissionRef);
 
                         if (docSnap.exists()) {
                             const data = docSnap.data();
@@ -854,7 +890,7 @@
                     }
                 };
                 fetchSubmission();
-            }, [db, submissionId, userUid]);
+            }, [db, submissionId, userUid, docFirebaseGlobal, getDocFirebaseGlobal]);
 
             const handleSaveUpdates = async () => {
                 if (!db || !submissionId || !userUid) {
@@ -864,8 +900,8 @@
                 setLoading(true);
                 setMessage('');
                 try {
-                    const submissionRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`, submissionId);
-                    await window.updateDocFirebaseGlobal(submissionRef, {
+                    const submissionRef = docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`, submissionId);
+                    await updateDocFirebaseGlobal(submissionRef, {
                         followUpNotes: followUpNotes,
                         status: status,
                         transferredTo: status === 'transferred-other' ? transferredTo : '', // Clear if not 'other'
@@ -1024,7 +1060,7 @@
 
 
         // Admin View Component to show all submissions
-        function AdminViewComponent({ auth, db, userUid, onLogout, onSelectSubmission }) {
+        function AdminViewComponent({ auth, db, userUid, onLogout, onSelectSubmission, docFirebaseGlobal, getDocFirebaseGlobal, updateDocFirebaseGlobal, collectionGroupFirebaseGlobal, queryFirebaseGlobal, onSnapshotGlobal, whereFirebaseGlobal, getDocsFirebaseGlobal }) {
             const [allSubmissions, setAllSubmissions] = useState([]);
             const [loadingAllSubmissions, setLoadingAllSubmissions] = useState(true);
             const [message, setMessage] = useState('');
@@ -1069,9 +1105,9 @@
                 }
 
                 setLoadingAllSubmissions(true);
-                const queryRef = window.queryFirebaseGlobal(window.collectionGroupFirebaseGlobal(db, 'formData'));
+                const queryRef = queryFirebaseGlobal(collectionGroupFirebaseGlobal(db, 'formData'));
 
-                const unsubscribe = window.onSnapshotGlobal(queryRef, (snapshot) => {
+                const unsubscribe = onSnapshotGlobal(queryRef, (snapshot) => {
                     const submissions = [];
                     snapshot.forEach(doc => {
                         submissions.push({ id: doc.id, ...doc.data() });
@@ -1089,7 +1125,7 @@
                 });
 
                 return () => unsubscribe();
-            }, [db, auth]);
+            }, [db, auth, collectionGroupFirebaseGlobal, queryFirebaseGlobal, onSnapshotGlobal]);
 
             const filteredSubmissions = React.useMemo(() => {
                 let filteredItems = [...allSubmissions];
@@ -1189,8 +1225,8 @@
                         return;
                     }
 
-                    const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submission.userId}/formData`, submissionId);
-                    await window.updateDocFirebaseGlobal(docRef, { adminNotes: currentNote, lastUpdatedAdmin: Date.now() });
+                    const docRef = docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submission.userId}/formData`, submissionId);
+                    await updateDocFirebaseGlobal(docRef, { adminNotes: currentNote, lastUpdatedAdmin: Date.now() });
                     setMessage('הערה נשמרה בהצלחה!');
                     setEditingNote(null);
                 } catch (error) {
@@ -1270,7 +1306,7 @@
                             </button>
                             <a href="index.html" className="action-button secondary" style={{textDecoration: 'none'}}>
                                 <i className="fas fa-arrow-right" style={{marginLeft: '5px'}}></i> חזור לאפליקציה הראשית
-                            </a>
+                            </a >
                             <button onClick={onLogout} className="action-button danger">
                                 <i className="fas fa-sign-out-alt" style={{marginLeft: '5px'}}></i> התנתק
                             </button>
@@ -1401,31 +1437,44 @@
             const logoutTriggeredRef = useRef(false);
 
             useEffect(() => {
-                if (!window.firebaseApp || !window.firebaseAuth || !window.firebaseDb) {
-                    console.error("Global Firebase instances are not available in data.html. Check initialization.");
-                    setIsAuthReady(true);
-                    return;
-                }
+                let intervalId;
+                const checkFirebaseGlobals = () => {
+                    if (window.firebaseApp && window.firebaseAuth && window.firebaseDb &&
+                        typeof window.docFirebaseGlobal !== 'undefined' &&
+                        typeof window.getDocFirebaseGlobal !== 'undefined' &&
+                        typeof window.updateDocFirebaseGlobal !== 'undefined' &&
+                        typeof window.collectionGroupFirebaseGlobal !== 'undefined' &&
+                        typeof window.queryFirebaseGlobal !== 'undefined' &&
+                        typeof window.onSnapshotGlobal !== 'undefined' &&
+                        typeof window.whereFirebaseGlobal !== 'undefined' &&
+                        typeof window.getDocsFirebaseGlobal !== 'undefined') {
 
-                setFirebaseInstances({
-                    app: window.firebaseApp,
-                    auth: window.firebaseAuth,
-                    db: window.firebaseDb
-                });
+                        clearInterval(intervalId); // Stop polling
+                        
+                        setFirebaseInstances({
+                            app: window.firebaseApp,
+                            auth: window.firebaseAuth,
+                            db: window.firebaseDb,
+                        });
 
-                const auth = window.firebaseAuth;
-                const unsubscribe = window.onAuthStateChangedGlobal(auth, (firebaseUser) => {
-                    setUserUid(firebaseUser); // Store full user object directly if needed, or just UID
-                    setIsAuthReady(true);
-                });
-                return () => unsubscribe();
-            }, []);
+                        const auth = window.firebaseAuth;
+                        const unsubscribe = window.onAuthStateChangedGlobal(auth, (firebaseUser) => {
+                            setUserUid(firebaseUser);
+                            setIsAuthReady(true); // Now truly ready
+                        });
+                        return () => unsubscribe(); // Return cleanup function for auth listener
+                    } else {
+                        // console.log("Waiting for global Firebase functions to be fully available..."); // Keep this for debugging if needed
+                    }
+                };
+
+                intervalId = setInterval(checkFirebaseGlobals, 100); // Check every 100ms
+
+                // Cleanup interval if component unmounts
+                return () => clearInterval(intervalId);
+            }, []); // Empty dependency array, runs once on mount
 
             const handleLogin = async (uid, identity) => {
-                // On login, we need to ensure the user is an admin to view this page
-                // This will typically involve checking claims from getIdTokenResult().
-                // For now, we'll just reload the page which will re-trigger onAuthStateChanged
-                // and the admin check in the parent App component logic.
                 window.location.reload();
             };
 
@@ -1466,7 +1515,7 @@
                     <div className="container">
                         <h1>שגיאה באתחול Firebase!</h1>
                         <p>לא ניתן להתחבר ל-Firebase. אנא וודא שקובץ `firebaseConfig` שלך מוגדר כראוי בפרויקט Firebase שלך ושהדומיין הנוכחי מורשה (Authentication -> Settings -> Authorized domains).</p>
-                        <p>פרטים נוספים יכולים להימצא בקונסולת המפתחים של הדפדפן (F12).</p>
+                        <p>ייתכן גם שפונקציות מסוימות של Firebase Firestore לא נטענו כראוי. פרטים נוספים יכולים להימצא בקונסולת המפתחים של הדפדפן (F12).</p>
                     </div>
                 );
             }
@@ -1480,8 +1529,12 @@
                 return (
                     <SubmissionDetailView
                         db={firebaseInstances.db}
+                        // Pass global functions directly as props
+                        docFirebaseGlobal={window.docFirebaseGlobal}
+                        getDocFirebaseGlobal={window.getDocFirebaseGlobal}
+                        updateDocFirebaseGlobal={window.updateDocFirebaseGlobal}
                         submissionId={selectedSubmissionId}
-                        userUid={selectedSubmissionUserId} // Pass the original user ID who submitted it
+                        userUid={selectedSubmissionUserId} 
                         onClose={handleCloseSubmissionDetail}
                     />
                 );
@@ -1494,6 +1547,15 @@
                     userUid={userUid.uid}
                     onLogout={handleLogout}
                     onSelectSubmission={handleSelectSubmission}
+                    // Pass global functions directly as props
+                    docFirebaseGlobal={window.docFirebaseGlobal}
+                    getDocFirebaseGlobal={window.getDocFirebaseGlobal}
+                    updateDocFirebaseGlobal={window.updateDocFirebaseGlobal}
+                    collectionGroupFirebaseGlobal={window.collectionGroupFirebaseGlobal}
+                    queryFirebaseGlobal={window.queryFirebaseGlobal}
+                    onSnapshotGlobal={window.onSnapshotGlobal}
+                    whereFirebaseGlobal={window.whereFirebaseGlobal}
+                    getDocsFirebaseGlobal={window.getDocsFirebaseGlobal}
                 />
             );
         }
