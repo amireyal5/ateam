@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ממשק מנהל Hugo - נתונים</title>
+    <title>צפייה בכל הדיווחים</title>
     <!-- React Libraries -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <!-- Babel for JSX compilation directly in the browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <!-- Firebase Libraries - Initialized here and exposed globally -->
     <script type="module">
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collectionGroup, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global variables provided by the Canvas environment (do not modify these directly)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -82,106 +84,107 @@
         window.onAuthStateChangedGlobal = onAuthStateChanged;
         window.signOutFirebaseGlobal = signOut; 
         window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
-        window.collectionGroupFirebaseGlobal = collectionGroup; 
-        window.queryFirebaseGlobal = query; 
-        window.onSnapshotFirebaseGlobal = onSnapshot; 
-        window.docFirebaseGlobal = doc; // Expose doc
-        window.updateDocFirebaseGlobal = updateDoc; // Expose updateDoc
-        window.whereFirebaseGlobal = where; // Exposed for consistency
-        window.getDocsFirebaseGlobal = getDocs; // Exposed for consistency
-
+        window.collectionGroupFirebaseGlobal = collectionGroup; // Expose collectionGroup
+        window.queryFirebaseGlobal = query; // Expose query
+        window.onSnapshotFirebaseGlobal = onSnapshot; // Expose onSnapshot
     </script>
 
     <style>
-        /* הגדרות בסיסיות לגוף הדף */
+        /* General styles */
         body {
-            font-family: 'Inter', Arial, sans-serif; /* שימוש בפונט Inter */
-            background-color: #f8f8f8; /* צבע רקע אפור בהיר מאוד */
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* יישור למעלה כדי לא למרכז אנכית אם התוכן ארוך */
-            min-height: 100vh; /* גובה מינימלי של 100% מגובה המסך */
+            align-items: flex-start; /* Align to top for scrolling content */
+            min-height: 100vh;
             margin: 0;
-            padding: 10px; /* צמצום ריפוד כדי לתת יותר מקום לטבלה */
-            box-sizing: border-box; /* מבטיח שריפוד וגבולות לא יגדילו את הגודל הכולל של האלמנט */
+            padding: 20px;
+            box-sizing: border-box;
         }
 
-        /* מכל הטופס והלוגין */
+        /* Container for forms/pages */
         .container {
-            background-color: #ffffff; /* רקע לבן */
-            padding: 35px;
-            border-radius: 12px; /* פינות מעוגלות */
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); /* צל עדין מאוד */
+            background-color: #ffffff;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
             width: 100%;
-            max-width: 100%; /* הרחבה לרוחב המסך המקסימלי */
+            max-width: 1000px; /* Wider container for data table */
             box-sizing: border-box;
-            border: 1px solid #e0e0e0; /* גבול אפור עדין */
-            text-align: center;
-            margin: 0; /* הסרת מרווח אוטומטי לרוחב מלא */
+            text-align: right; /* RTL alignment */
+            margin: 0 auto;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+                border-radius: 0;
+                box-shadow: none;
+            }
         }
 
         h1 {
             text-align: center;
-            color: #333333; /* צבע כהה לכותרת */
-            margin-bottom: 25px; /* מרווח תחתון מוגדל */
-            font-size: 1.8em; /* גודל פונט מוגדל לכותרת */
-            font-weight: 700; /* עובי פונט מודגש */
+            color: #333333;
+            margin-bottom: 24px;
+            font-size: 1.8em;
+            font-weight: bold;
         }
-        
+
         .button-container {
             display: flex;
             justify-content: center;
-            gap: 12px; /* מרווח בין כפתורים */
-            margin-top: 30px;
+            gap: 12px;
+            margin-top: 24px;
+            margin-bottom: 24px; /* Added margin-bottom for spacing */
         }
 
         .action-button {
-            background-color: #444444; /* אפור כהה (כפתור ראשי) */
+            background-color: #3498db;
             color: white;
-            padding: 12px 25px; /* ריפוד מוגדל */
+            padding: 12px 20px;
             border: none;
             border-radius: 6px;
-            font-size: 1.05em;
-            font-weight: 600;
+            font-size: 1em;
+            font-weight: bold;
             cursor: pointer;
-            transition: background-color 0.2s ease, opacity 0.2s ease;
-            box-shadow: none; /* ביטול צל */
+            transition: background-color 0.2s ease;
+            box-shadow: none;
+            text-decoration: none; /* For anchor tags */
+            display: flex; /* For centering content */
+            justify-content: center;
+            align-items: center;
+        }
+        .action-button:hover {
+            background-color: #2980b9;
         }
 
         .action-button.secondary {
-            background-color: #888888; /* אפור בינוני (כפתור משני) */
+            background-color: #ffffff;
+            color: #666666;
+            border: 1px solid #dddddd;
+        }
+        .action-button.secondary:hover {
+            background-color: #f0f0f0;
+            color: #333333;
         }
 
         .action-button.danger {
-            background-color: #bbbbbb; /* אפור בהיר (כפתור התנתקות/סכנה) */
-            color: #333333; /* טקסט כהה לכפתור בהיר */
+            background-color: #e74c3c;
+            color: white;
         }
-
-        .action-button:hover {
-            background-color: #555555;
-            opacity: 1;
-        }
-
-        .action-button.secondary:hover {
-            background-color: #999999;
-        }
-
         .action-button.danger:hover {
-            background-color: #cccccc;
-        }
-
-        .action-button:active {
-            opacity: 0.8;
-            transform: none;
+            background-color: #c0392b;
         }
 
         .message-box {
-            background-color: #f0f0f0;
+            background-color: #f8f8f8;
             color: #333333;
             padding: 12px;
             border: 1px solid #cccccc;
             border-radius: 6px;
-            margin-top: 15px;
+            margin-top: 16px;
+            margin-bottom: 16px;
             text-align: right;
             font-size: 0.9em;
             font-weight: normal;
@@ -196,191 +199,69 @@
             color: #c62828;
             border-color: #e6a3a3;
         }
-        .message-box.warning {
-            background-color: #fffacd;
-            color: #a87200;
-            border-color: #ffd966;
-        }
 
-
-        /* Table styles for Admin View */
-        .admin-table-container {
-            overflow-x: auto; /* Enable horizontal scrolling for small screens */
+        /* Table styles */
+        .data-table-container {
+            overflow-x: auto; /* Enable horizontal scrolling on small screens */
             width: 100%;
         }
-        .admin-table {
+
+        .data-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
-            font-size: 0.9em;
+            background-color: #fcfcfc;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .data-table th, .data-table td {
+            padding: 12px 15px;
+            border: 1px solid #e0e0e0;
             text-align: right; /* RTL alignment */
-            min-width: 900px; /* Adjusted min-width due to fewer columns */
+            font-size: 0.9em;
+            color: #333;
         }
-        .admin-table th, .admin-table td {
-            border: 1px solid #ddd;
-            padding: 10px 12px;
-            vertical-align: top;
-            color: #333333; /* Darker text for table cells */
-            font-size: 0.95em; /* Slightly larger font for table content */
+
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #555;
+            white-space: nowrap; /* Prevent headers from wrapping */
         }
-        .admin-table th {
-            background-color: #e0e0e0; /* Lighter grey for headers */
-            color: #333333;
-            font-weight: 600;
-            white-space: nowrap;
-            cursor: pointer;
-            position: relative;
-            padding-right: 25px;
-            font-size: 1em; /* Larger font for table headers */
-        }
-        .admin-table th .sort-icon {
-            position: absolute;
-            left: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 0.8em;
-            color: #777;
-        }
-        .admin-table tbody tr:nth-child(even) {
+
+        .data-table tbody tr:nth-child(even) {
             background-color: #f9f9f9;
         }
-        .admin-table tbody tr:hover {
-            background-color: #f0f0f0;
+
+        .data-table tbody tr:hover {
+            background-color: #f1f1f1;
         }
-        /* Status based row coloring */
-        .admin-table tr.status-open { background-color: #e0f7fa; } /* Light Cyan */
-        .admin-table tr.status-closed { background-color: #e8f5e9; } /* Light Green */
-        .admin-table tr.status-social_worker { background-color: #fff3e0; } /* Light Orange */
-        .admin-table tr.status-other { background-color: #ede7f6; } /* Light Purple */
-        .admin-table tr.status-not_defined { background-color: #f9f9f9; } /* Default/light gray for undefined */
 
-
-        .admin-notes-textarea {
-            width: 100%;
-            min-height: 120px; /* Increased height */
-            border: 1px solid #cccccc; /* Gray border */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
             border-radius: 4px;
-            padding: 8px; /* Slightly more padding */
-            box-sizing: border-box;
-            font-size: 0.95em; /* Slightly larger font */
-            resize: vertical;
-            color: #333333; /* Darker text */
-        }
-        .admin-notes-save-button {
-            margin-top: 8px; /* Increased margin */
-            padding: 8px 15px; /* Increased padding */
-            background-color: #444444; /* Dark grey */
+            font-size: 0.8em;
+            font-weight: bold;
             color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.9em; /* Slightly larger font */
-            transition: background-color 0.2s ease, opacity 0.2s ease;
-            box-shadow: none; /* ביטול צל */
+            text-align: center;
         }
-        .admin-notes-save-button:hover {
-            background-color: #555555;
-            opacity: 1;
-        }
-        .admin-notes-save-button:active {
-            opacity: 0.8;
-        }
-        .admin-notes-save-button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-            color: #666666; /* Lighter text for disabled */
-        }
-        /* End Table styles */
 
-        /* Status map styling */
-        .status-map-container {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 30px;
-            padding: 15px;
-            background-color: #f0f0f0;
-            border-radius: 8px;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .status-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 8px 15px;
-            border-radius: 6px;
-            font-size: 0.9em;
+        .status-open { background-color: #ff9800; /* Orange */ }
+        .status-social_worker { background-color: #2196f3; /* Blue */ }
+        .status-other { background-color: #9c27b0; /* Purple */ }
+        .status-closed { background-color: #4caf50; /* Green */ }
+        .status-default { background-color: #757575; /* Grey */ }
+        
+        .action-link {
+            color: #3498db;
+            text-decoration: none;
             font-weight: 600;
-            color: #333;
-            min-width: 120px;
+            transition: color 0.2s ease;
         }
-        .status-item .count {
-            font-size: 1.4em;
-            font-weight: 700;
-            margin-bottom: 5px;
-            color: #222;
-        }
-        /* Specific status item background colors */
-        .status-item.open { background-color: #e0f7fa; }
-        .status-item.closed { background-color: #e8f5e9; }
-        .status-item.social_worker { background-color: #fff3e0; }
-        .status-item.other { background-color: #ede7f6; }
-        .status-item.not_defined { background-color: #f9f9f9; }
-
-
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            body {
-                padding: 10px;
-            }
-            .container {
-                padding: 25px;
-                margin: 0;
-            }
-            h1 {
-                font-size: 1.8em;
-                margin-bottom: 25px;
-            }
-            .action-button {
-                padding: 12px 25px;
-                font-size: 1.1em;
-            }
-            .admin-table {
-                min-width: 700px; /* Adjusted min-width for mobile/tablet */
-            }
-            .admin-table th, .admin-table td {
-                padding: 8px 10px;
-                font-size: 0.9em;
-            }
-            .admin-notes-textarea {
-                min-height: 80px;
-                font-size: 0.9em;
-            }
-            .admin-notes-save-button {
-                padding: 6px 12px;
-                font-size: 0.8em;
-            }
-            .status-map-container {
-                flex-direction: column; /* Stack status items vertically on small screens */
-                align-items: stretch;
-            }
-            .status-item {
-                width: 100%;
-                padding: 10px;
-                box-sizing: border-box;
-            }
-        }
-        @media (max-width: 480px) {
-            .container {
-                padding: 15px;
-            }
-            .admin-table {
-                min-width: 600px; /* Further reduction for very small screens */
-            }
-            .admin-table th, .admin-table td {
-                font-size: 0.85em;
-            }
+        .action-link:hover {
+            color: #2980b9;
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -390,7 +271,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Component for the Login Page (reused for data.html if not authenticated)
+        // Component for the Login Page (reused for authentication)
         function LoginPage({ auth, onLoginSuccess }) {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
@@ -427,7 +308,7 @@
 
             return (
                 <div className="container">
-                    <h1>הזדהות לדף הנתונים</h1>
+                    <h1>הזדהות לצפייה בנתונים</h1>
                     {message && (
                         <div className={`message-box ${message.includes('הצליחה') ? 'success' : ''}`}>
                             {message}
@@ -453,289 +334,134 @@
             );
         }
 
-
-        // New Component: Admin View to show all submissions (now accessible to any authenticated user)
-        function AdminViewComponent({ auth, db, userUid, onLogout }) {
-            const [allSubmissions, setAllSubmissions] = useState([]);
-            const [loadingAllSubmissions, setLoadingAllSubmissions] = useState(true);
+        // Main Data Display Component
+        function DataDisplayComponent({ auth, db, onLogout }) {
+            const [submissions, setSubmissions] = useState([]);
+            const [loading, setLoading] = useState(true);
             const [message, setMessage] = useState('');
-            const [sortColumn, setSortColumn] = useState('timestamp');
-            const [sortDirection, setSortDirection] = useState('desc');
-            const [statusCounts, setStatusCounts] = useState({}); // New state for status counts
+            const [messageType, setMessageType] = useState('');
 
-            // Map for physical injury values to Hebrew
-            const physicalInjuryMap = {
-                'none': 'לא (1)',
-                'light': 'קלה (2)',
-                'medium': 'בינונית (3)',
-                'severe': 'קשה (4)'
-            };
-
-            // Status display and color mapping
-            const referralStatusDisplayMap = {
-                'open': { text: 'פתוחה', className: 'open' },
-                'closed': { text: 'סגורה', className: 'closed' },
-                'social_worker': { text: 'הועבר לטיפול עו"ס', className: 'social_worker' },
-                'other': { text: 'הועבר להמשך טיפול אחר', className: 'other' },
-                '': { text: 'טרם הוגדר', className: 'not_defined' } // For empty/undefined status
+            // Function to set message and clear it after a delay
+            const showMessage = (text, type = 'default') => {
+                setMessage(text);
+                setMessageType(type);
+                setTimeout(() => {
+                    setMessage('');
+                    setMessageType('');
+                }, 5000); // Message disappears after 5 seconds
             };
 
             useEffect(() => {
-                if (!db || !auth) {
-                    setMessage('שגיאה: שירותי Firebase Db או Auth אינם זמינים.');
-                    setLoadingAllSubmissions(false);
-                    return;
-                }
-                if (!auth.currentUser) {
-                    setMessage('שגיאה: אינך מחובר. אנא התחבר כדי לצפות בנתונים.');
-                    setLoadingAllSubmissions(false);
+                if (!db || !auth || !auth.currentUser) {
+                    showMessage('שגיאה: שירותי Firebase Db או Auth אינם זמינים או שאינך מחובר.', 'danger');
+                    setLoading(false);
                     return;
                 }
 
-                setLoadingAllSubmissions(true);
-                const queryRef = window.queryFirebaseGlobal(window.collectionGroupFirebaseGlobal(db, 'formData'));
+                setLoading(true);
+                // Query all 'formData' collections across all users using a collection group query
+                // This requires a collection group index on 'formData' in Firestore rules.
+                const submissionsQuery = window.queryFirebaseGlobal(
+                    window.collectionGroupFirebaseGlobal(db, 'formData')
+                );
 
-                const unsubscribe = window.onSnapshotFirebaseGlobal(queryRef, (snapshot) => {
-                    const submissions = [];
-                    const counts = { open: 0, closed: 0, social_worker: 0, other: 0, not_defined: 0 };
-
+                const unsubscribe = window.onSnapshotFirebaseGlobal(submissionsQuery, (snapshot) => {
+                    const fetchedSubmissions = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        submissions.push({ id: doc.id, ...data });
+                        // Extract the userId who owns this specific submission from the document reference path
+                        // The path is typically like: artifacts/APP_ID/users/USER_ID/formData/DOC_ID
+                        const pathSegments = doc.ref.path.split('/');
+                        const ownerUserId = pathSegments[3]; // 'users' is index 2, userId is index 3
                         
-                        // Update status counts
-                        const statusKey = data.referralStatus || '';
-                        if (referralStatusDisplayMap[statusKey]) {
-                            counts[statusKey === '' ? 'not_defined' : statusKey]++;
-                        } else {
-                            counts.not_defined++; // Fallback for unknown statuses
-                        }
+                        fetchedSubmissions.push({ 
+                            id: doc.id, 
+                            userId: ownerUserId, // Store the actual user ID who owns this document
+                            ...data 
+                        });
                     });
-                    setAllSubmissions(submissions);
-                    setStatusCounts(counts); // Set the calculated counts
-                    setLoadingAllSubmissions(false);
+                    // Sort by timestamp descending
+                    fetchedSubmissions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                    setSubmissions(fetchedSubmissions);
+                    setLoading(false);
+                    showMessage('הנתונים נטענו בהצלחה.', 'success'); // Success message
                 }, (error) => {
                     console.error("Error fetching all submissions:", error);
-                    let errorMessage = `שגיאה באחזור כל הנתונים: ${error.message}.`;
+                    let errorMessage = `שגיאה באחזור נתונים: ${error.message}.`;
                     if (error.code === 'permission-denied') {
-                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מ-`formData` לכל המשתמשים המחוברים.";
+                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מ-collection group 'formData' עבור המשתמש המחובר.";
                     }
-                    setMessage(errorMessage);
-                    setLoadingAllSubmissions(false);
+                    showMessage(errorMessage, 'danger');
+                    setLoading(false);
                 });
 
-                return () => unsubscribe();
-            }, [db, auth]);
-
-            const sortedSubmissions = React.useMemo(() => {
-                let sortableItems = [...allSubmissions];
-                if (sortColumn) {
-                    sortableItems.sort((a, b) => {
-                        let aValue = a[sortColumn];
-                        let bValue = b[sortColumn];
-
-                        // Special handling for referralStatus based on display order or alphabetical
-                        if (sortColumn === 'referralStatus') {
-                            const order = ['open', 'social_worker', 'other', 'closed', '']; // Define a custom sort order
-                            const aIndex = order.indexOf(aValue || '');
-                            const bIndex = order.indexOf(bValue || '');
-                            return (sortDirection === 'asc' ? aIndex - bIndex : bIndex - aIndex);
-                        }
-
-                        if (sortColumn === 'physicalInjury') {
-                            aValue = physicalInjuryMap[aValue] || aValue;
-                            bValue = physicalInjuryMap[bValue] || bValue;
-                        }
-
-                        if (sortColumn === 'timestamp') {
-                            aValue = parseInt(aValue);
-                            bValue = parseInt(bValue);
-                        } else if (sortColumn === 'age' || sortColumn === 'residents') {
-                            aValue = parseFloat(aValue);
-                            bValue = parseFloat(bValue);
-                        } else if (typeof aValue === 'string' && typeof bValue === 'string') {
-                            return aValue.localeCompare(bValue, 'he', { sensitivity: 'base' });
-                        }
-
-                        if (aValue < bValue) {
-                            return sortDirection === 'asc' ? -1 : 1;
-                        }
-                        if (aValue > bValue) {
-                            return sortDirection === 'asc' ? 1 : -1;
-                        }
-                        return 0;
-                    });
-                }
-                return sortableItems;
-            }, [allSubmissions, sortColumn, sortDirection]);
-
-
-            const handleSort = (column) => {
-                if (sortColumn === column) {
-                    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                } else {
-                    setSortColumn(column);
-                    setSortDirection('asc');
-                }
-            };
-
-            const getSortIcon = (column) => {
-                if (sortColumn === column) {
-                    return sortDirection === 'asc' ? ' ▲' : ' ▼';
-                }
-                return '';
-            };
-
-            const exportToCsv = () => {
-                if (allSubmissions.length === 0) {
-                    setMessage('אין נתונים לייצוא.');
-                    return;
-                }
-
-                // Headers including all original fields for export consistency
-                const headers = [
-                    "תאריך/שעה", "מזהה הזדהות (מייל/UID)",
-                    "שם מלא", "תעודת זהות", "גיל", "מין", "טלפון", "כתובת",
-                    "שוהים בדירה", "פציעה פיזית", "הרוגים/פצועים", "מנותקי קשר",
-                    "סיוע בפינוי", "הערות ממלא הטופס", "סטטוס הפניה", "פירוט סטטוס אחר", "הערות מנהל"
-                ];
-
-                const rows = sortedSubmissions.map(item => [
-                    new Date(item.timestamp).toLocaleString('he-IL'),
-                    item.identityId || '', // Use identityId instead of raw userId for clearer identity
-                    `${item.firstName || ''} ${item.familyName || ''}`,
-                    item.idNumber || '',
-                    item.age || '',
-                    item.gender === 'male' ? 'זכר' : (item.gender === 'female' ? 'נקבה' : ''),
-                    item.phone || '',
-                    item.address || '',
-                    item.residents || '',
-                    physicalInjuryMap[item.physicalInjury] || item.physicalInjury || '',
-                    (item.casualties === 'yes' ? 'כן' : 'לא') || '',
-                    (item.disconnected === 'yes' ? 'כן' : 'לא') || '',
-                    (item.evacuationAssistance === 'yes' ? 'כן' : 'לא') || '',
-                    item.notes || '',
-                    // Include new fields for export
-                    referralStatusDisplayMap[item.referralStatus || ''].text, // Use mapped text
-                    item.otherStatusText || '',
-                    item.adminNotes || ''
-                ]);
-
-                // Add BOM for UTF-8 compatibility with Excel
-                const BOM = "\uFEFF"; // UTF-8 BOM
-                let csvContent = BOM + headers.join(',') + '\n';
-                csvContent += rows.map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
-
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                if (link.download !== undefined) {
-                    const url = URL.createObjectURL(blob);
-                    link.setAttribute('href', url);
-                    link.setAttribute('download', 'hugo_data.csv');
-                    link.style.visibility = 'hidden';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                } else {
-                    alert('דפדפן זה אינו תומך בייצוא ישיר. אנא העתק את הנתונים ידנית.');
-                }
-            };
+                return () => unsubscribe(); // Cleanup listener on unmount
+            }, [db, auth]); // Re-run when db or auth instances change
 
 
             return (
                 <div className="container">
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-                        <h1>כל הנתונים שהוגשו</h1>
-                        <div style={{display: 'flex', gap: '10px'}}>
-                            <button onClick={exportToCsv} className="action-button" style={{padding: '10px 20px', fontSize: '0.9em'}}>
-                                ייצא לאקסל
-                            </button>
-                            <a href="index.html" className="action-button secondary" style={{padding: '10px 20px', fontSize: '0.9em', textDecoration: 'none'}}>
-                                חזור לאפליקציה הראשית
-                            </a>
-                            <button onClick={onLogout} className="action-button danger" style={{padding: '10px 20px', fontSize: '0.9em'}}>
-                                התנתק
-                            </button>
-                        </div>
+                    <h1>כל הדיווחים</h1>
+                    <div className="button-container">
+                        <a href="index.html" className="action-button secondary" style={{ textDecoration: 'none' }}>
+                            דיווח חדש
+                        </a>
+                        <button onClick={onLogout} className="action-button danger">
+                            התנתק
+                        </button>
                     </div>
 
-                    {message && (
-                        <div className={`message-box ${message.includes('הצלחה') ? 'success' : 'danger'}`}>
-                            {message}
-                        </div>
-                    )}
+                    {message && <div className={`message-box ${messageType}`}>{message}</div>}
 
-                    {/* Status Map Section */}
-                    <div className="status-map-container">
-                        <div className={`status-item open`}>
-                            <div className="count">{statusCounts.open || 0}</div>
-                            <div>פתוחה</div>
-                        </div>
-                        <div className={`status-item social_worker`}>
-                            <div className="count">{statusCounts.social_worker || 0}</div>
-                            <div>הועבר לטיפול עו"ס</div>
-                        </div>
-                        <div className={`status-item other`}>
-                            <div className="count">{statusCounts.other || 0}</div>
-                            <div>הועבר להמשך טיפול אחר</div>
-                        </div>
-                        <div className={`status-item closed`}>
-                            <div className="count">{statusCounts.closed || 0}</div>
-                            <div>סגורה</div>
-                        </div>
-                        <div className={`status-item not_defined`}>
-                            <div className="count">{statusCounts.not_defined || 0}</div>
-                            <div>טרם הוגדר</div>
-                        </div>
-                    </div>
-
-                    {loadingAllSubmissions ? (
-                        <p>טוען את כל הנתונים...</p>
-                    ) : sortedSubmissions.length === 0 ? (
-                        <p>טרם נשמרו נתונים כלשהם.</p>
+                    {loading ? (
+                        <p style={{textAlign: 'center'}}>טוען דיווחים...</p>
+                    ) : submissions.length === 0 ? (
+                        <p style={{textAlign: 'center'}}>אין דיווחים להצגה במערכת.</p>
                     ) : (
-                        <div className="admin-table-container">
-                            <table className="admin-table">
+                        <div className="data-table-container">
+                            <table className="data-table">
                                 <thead>
                                     <tr>
-                                        <th onClick={() => handleSort('timestamp')}>תאריך/שעה {getSortIcon('timestamp')}</th>
-                                        <th onClick={() => handleSort('identityId')}>מזהה הזדהות (מייל/UID) {getSortIcon('identityId')}</th>
-                                        <th onClick={() => handleSort('firstName')}>שם מלא {getSortIcon('firstName')}</th>
-                                        <th onClick={() => handleSort('idNumber')}>תעודת זהות {getSortIcon('idNumber')}</th>
-                                        <th onClick={() => handleSort('age')}>גיל {getSortIcon('age')}</th>
-                                        <th onClick={() => handleSort('gender')}>מין {getSortIcon('gender')}</th>
-                                        <th onClick={() => handleSort('phone')}>טלפון {getSortIcon('phone')}</th>
-                                        <th onClick={() => handleSort('address')}>כתובת {getSortIcon('address')}</th>
-                                        <th onClick={() => handleSort('notes')}>הערות ממלא הטופס {getSortIcon('notes')}</th>
-                                        <th onClick={() => handleSort('referralStatus')}>סטטוס {getSortIcon('referralStatus')}</th> {/* New Status Column */}
-                                        <th style={{ width: '20%' }}>הערות מנהל</th> {/* Width for admin notes */}
+                                        <th>תאריך דיווח</th>
+                                        <th>שם המדווח</th>
+                                        <th>ת.ז. המדווח</th>
+                                        <th>שם האדם המדווח</th>
+                                        <th>ת.ז. האדם המדווח</th>
+                                        <th>כתובת</th>
+                                        <th>סטטוס</th>
+                                        <th>פעולות</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {sortedSubmissions.map((item) => {
-                                        // Determine the class for row coloring based on referralStatus
-                                        const statusClass = referralStatusDisplayMap[item.referralStatus || ''].className;
-                                        return (
-                                            <tr key={item.id} className={`status-${statusClass}`}>
-                                                <td>{new Date(item.timestamp).toLocaleString('he-IL')}</td>
-                                                <td>{item.identityId || 'לא הוזן'}</td>
-                                                <td>{item.firstName} {item.familyName}</td>
-                                                {/* ID Number is now a link */}
-                                                <td>
-                                                    <a href={`details.html?id=${item.id}&userId=${item.userId}`} style={{ color: '#007bff', textDecoration: 'underline' }}>
-                                                        {item.idNumber || 'לא הוזן'}
-                                                    </a>
-                                                </td>
-                                                <td>{item.age}</td>
-                                                <td>{item.gender === 'male' ? 'זכר' : (item.gender === 'female' ? 'נקבה' : '')}</td>
-                                                <td>{item.phone}</td>
-                                                <td>{item.address}</td>
-                                                <td>{item.notes || 'אין'}</td>
-                                                <td>{referralStatusDisplayMap[item.referralStatus || ''].text}</td> {/* Display mapped status text */}
-                                                <td>{item.adminNotes || 'אין'}</td>
-                                            </tr>
-                                        );
-                                    })}
+                                    {submissions.map((sub) => (
+                                        <tr key={sub.id}>
+                                            <td>{sub.timestamp ? new Date(sub.timestamp).toLocaleString('he-IL') : 'לא ידוע'}</td>
+                                            {/* Display reporter's name and ID. Use new fields, fallback to old. */}
+                                            <td>{sub.reporterFirstName || sub.firstName || 'לא הוזן'} {sub.reporterFamilyName || sub.familyName || ''}</td>
+                                            <td>{sub.reporterIdentityId || sub.userId || 'לא הוזן'}</td>
+                                            {/* Display reported person's name and ID. Use new fields, fallback to old. */}
+                                            <td>{sub.reportedPersonFirstName || 'לא הוזן'} {sub.reportedPersonFamilyName || ''}</td>
+                                            <td>{sub.reportedPersonIdNumber || sub.idNumber || 'לא הוזן'}</td>
+                                            <td>{sub.address || 'לא הוזן'}</td>
+                                            <td>
+                                                <span className={`status-badge status-${sub.referralStatus || 'default'}`}>
+                                                    {sub.referralStatus === 'open' ? 'פתוחה' :
+                                                     sub.referralStatus === 'social_worker' ? 'הועבר לטיפול עו"ס' :
+                                                     sub.referralStatus === 'other' ? `אחר: ${sub.otherStatusText || 'לא פורט'}` :
+                                                     sub.referralStatus === 'closed' ? 'סגורה' :
+                                                     'טרם הוגדר'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <a 
+                                                    href={`details.html?id=${sub.id}&userId=${sub.userId}`} 
+                                                    className="action-link"
+                                                >
+                                                    צפה/ערוך
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
@@ -744,7 +470,7 @@
             );
         }
 
-        // Main App Component for data.html
+        // Main App Component (Authentication handling)
         function App() {
             const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
             const [isAuthReady, setIsAuthReady] = useState(false);
@@ -753,7 +479,7 @@
 
             useEffect(() => {
                 if (!window.firebaseApp || !window.firebaseAuth || !window.firebaseDb) {
-                    console.error("Global Firebase instances are not available in data.html. Cannot initialize App component.");
+                    console.error("Global Firebase instances are not available. Cannot initialize App component.");
                     return;
                 }
 
@@ -778,17 +504,16 @@
             }, []);
 
             const handleLogout = async () => {
-                logoutTriggeredRef.current = true; // Set the flag to prevent re-login after logout
+                logoutTriggeredRef.current = true;
                 if (firebaseInstances.auth) {
                     try {
                         await window.signOutFirebaseGlobal(firebaseInstances.auth);
                         setUserUid(null);
-                        // Redirect to login or home page after logout
-                        window.location.href = 'index.html'; // Or 'data.html' to force login again
+                        window.location.href = 'index.html'; // Redirect to login page after logout
                     } catch (error) {
                         console.error("Error signing out:", error);
                     } finally {
-                        logoutTriggeredRef.current = false; // Reset flag
+                        logoutTriggeredRef.current = false;
                     }
                 }
             };
@@ -800,13 +525,13 @@
             if (!userUid) {
                 return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={(user) => setUserUid(user.uid)} />;
             }
-
+            
+            // Render the DataDisplayComponent if authenticated
             return (
-                <AdminViewComponent 
-                    auth={firebaseInstances.auth} 
-                    db={firebaseInstances.db} 
-                    userUid={userUid} 
-                    onLogout={handleLogout} 
+                <DataDisplayComponent
+                    auth={firebaseInstances.auth}
+                    db={firebaseInstances.db}
+                    onLogout={handleLogout}
                 />
             );
         }
