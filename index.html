@@ -31,7 +31,15 @@
         //     appId: "1:...",
         //     measurementId: "G-..." // אם הוגדר
         // };
-        const myFirebaseConfig = {}; // --- הדבק את האובייקט שהעתקת כאן במקום הסוגריים המסולסלים הריקים {} ---
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyA38-uZwniXXCCK954yjcICl56mwVXbHDk",
+            authDomain: "ateam-3cf3d.firebaseapp.com",
+            projectId: "ateam-3cf3d",
+            storageBucket: "ateam-3cf3d.firebasestorage.app",
+            messagingSenderId: "760383317284",
+            appId: "1:760383317284:web:a33ae7d2a89911b77f3fb1",
+            measurementId: "G-NCVXFH3R6X"
+        }; // --- האובייקט שהודבק כאן הוא ה-firebaseConfig שלך ---
 
         // אם __firebase_config זמין מהסביבה (כמו ב-Canvas), השתמש בו. אחרת, השתמש ב-myFirebaseConfig שהדבקת.
         const firebaseConfig = typeof __app_id !== 'undefined' && typeof __firebase_config !== 'undefined' && Object.keys(JSON.parse(__firebase_config)).length > 0
@@ -880,7 +888,7 @@
                        await window.signOut(window.firebaseAuth);
                     }
                     onLogout(); // Notify parent App component to change state and show login page
-                    setMessage('התנתקת בהצלחה.');
+                    setMessage(`התנתקת בהצלחה. ${identityId ? 'מזהה שהוזן: ' + identityId : ''}`);
                 } catch (error) {
                     console.error("Error logging out:", error);
                     setMessage(`שגיאה בהתנתקות: ${error.message}`);
