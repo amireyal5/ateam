@@ -84,7 +84,7 @@
         window.onAuthStateChangedGlobal = onAuthStateChanged;
         window.signOutFirebaseGlobal = signOut; 
         window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
-        window.sendPasswordResetEmailGlobal = sendPasswordResetEmail; /* Added for password reset */
+        window.sendPasswordResetEmailGlobal = sendPasswordResetEmail; 
         window.collectionGroupFirebaseGlobal = collectionGroup; 
         window.queryFirebaseGlobal = query; 
         window.onSnapshotGlobal = onSnapshot; 
@@ -147,10 +147,10 @@
         }
 
         label {
-            color: #666666; /* Lighter grey for labels */
-            font-size: 0.9em; /* Smaller font for labels */
-            margin-bottom: 8px; /* Space between label and input */
-            font-weight: normal;
+            color: #333333; /* Darker grey for labels for better readability */
+            font-size: 0.9em; 
+            margin-bottom: 8px; 
+            font-weight: 600; /* Increased font-weight for labels */
         }
 
         input[type="text"],
@@ -161,12 +161,12 @@
         input[type="password"],
         input[type="email"] {
             width: 100%;
-            padding: 12px 16px; /* Generous padding for comfortable touch */
-            border: 1px solid #dddddd; /* Light grey border for inputs */
-            border-radius: 6px; /* Softly rounded corners */
+            padding: 12px 16px; 
+            border: 1px solid #dddddd; 
+            border-radius: 6px; 
             box-sizing: border-box;
-            font-size: 1em; /* Standard font size */
-            color: #333333; /* Dark text for readability */
+            font-size: 1em; 
+            color: #333333; 
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
         input[type="text"]:focus,
@@ -176,53 +176,60 @@
         select:focus,
         input[type="password"]:focus,
         input[type="email"]:focus {
-            border-color: #999999; /* Darker grey on focus */
+            border-color: #999999; 
             outline: none;
-            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.2); /* Subtle focus ring */
+            box-shadow: 0 0 0 2px rgba(153, 153, 153, 0.2); 
+        }
+        /* Read-only fields styling */
+        input[readonly],
+        input[disabled] {
+            background-color: #f5f5f5; 
+            color: #888888; 
+            cursor: not-allowed;
         }
         
         /* Button container */
         .button-container {
             display: flex;
-            flex-direction: column; /* Stack buttons vertically as in image */
-            gap: 12px; /* Space between stacked buttons */
-            margin-top: 24px; /* Space from form elements */
+            flex-direction: column; 
+            gap: 12px; 
+            margin-top: 24px; 
         }
 
         /* Action buttons */
         .action-button {
-            background-color: #3498db; /* Primary blue from image */
+            background-color: #3498db; 
             color: white;
-            padding: 14px 20px; /* Generous padding for primary button */
+            padding: 14px 20px; 
             border: none;
-            border-radius: 6px; /* Rounded corners */
-            font-size: 1.1em; /* Larger font for main buttons */
+            border-radius: 6px; 
+            font-size: 1.1em; 
             font-weight: bold;
             cursor: pointer;
             transition: background-color 0.2s ease, box-shadow 0.2s ease;
-            box-shadow: none; /* Default to no shadow */
+            box-shadow: none; 
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 8px; /* Space between text and icon */
+            gap: 8px; 
         }
         .action-button:hover {
-            background-color: #2980b9; /* Darker blue on hover */
-            box-shadow: none; /* No shadow change on hover */
+            background-color: #2980b9; 
+            box-shadow: none; 
         }
         .action-button:active {
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Subtle shadow on click */
-            transform: translateY(1px); /* Slight press effect */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); 
+            transform: translateY(1px); 
         }
 
         .action-button.secondary {
-            background-color: #ffffff; /* White background for secondary button */
-            color: #666666; /* Grey text for secondary */
-            border: 1px solid #dddddd; /* Light border */
+            background-color: #ffffff; 
+            color: #666666; 
+            border: 1px solid #dddddd; 
             box-shadow: none;
         }
         .action-button.secondary:hover {
-            background-color: #f0f0f0; /* Lighter grey on hover */
+            background-color: #f0f0f0; 
             color: #333333;
         }
         .action-button.secondary:active {
@@ -230,19 +237,27 @@
         }
 
         .action-button.danger {
-            background-color: #e74c3c; /* Red for danger/logout */
+            background-color: #e74c3c; 
             color: white;
         }
         .action-button.danger:hover {
             background-color: #c0392b;
         }
+        .action-button.success { /* For save/update in detail view */
+            background-color: #28a745;
+            color: white;
+        }
+        .action-button.success:hover {
+            background-color: #218838;
+        }
+
 
         /* Message box styles */
         .message-box {
-            background-color: #f8f8f8; /* Light grey background */
-            color: #333333; /* Dark text */
+            background-color: #f8f8f8; 
+            color: #333333; 
             padding: 12px;
-            border: 1px solid #cccccc; /* Light grey border */
+            border: 1px solid #cccccc; 
             border-radius: 6px;
             margin-top: 16px;
             text-align: right;
@@ -250,18 +265,18 @@
             font-weight: normal;
         }
         .message-box.success {
-            background-color: #e6ffe6; /* Very light green */
-            color: #2e7d32; /* Dark green */
+            background-color: #e6ffe6; 
+            color: #2e7d32; 
             border-color: #a3e6a3;
         }
         .message-box.danger { 
-            background-color: #ffe6e6; /* Very light red */
-            color: #c62828; /* Dark red */
+            background-color: #ffe6e6; 
+            color: #c62828; 
             border-color: #e6a3a3;
         }
         .message-box.warning {
-            background-color: #fffacd; /* Light yellow */
-            color: #a87200; /* Dark yellow/orange */
+            background-color: #fffacd; 
+            color: #a87200; 
             border-color: #ffd966;
         }
 
@@ -270,25 +285,25 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px; /* Space below top bar */
+            margin-bottom: 24px; 
         }
         .top-bar h1 {
-            margin-bottom: 0; /* Reset h1 margin */
-            text-align: right; /* Align h1 to right in top bar */
-            font-size: 1.6em; /* Slightly smaller h1 in top bar */
+            margin-bottom: 0; 
+            text-align: right; 
+            font-size: 1.6em; 
         }
         .top-bar .button-group {
             display: flex;
             gap: 8px;
         }
         .top-bar .action-button {
-            padding: 8px 16px; /* Smaller buttons in top bar */
+            padding: 8px 16px; 
             font-size: 0.9em;
         }
         
         /* Admin Table styles for Data View */
         .admin-table-container {
-            overflow-x: auto; /* Enable horizontal scrolling for small screens */
+            overflow-x: auto; 
             width: 100%;
         }
         .admin-table {
@@ -296,27 +311,27 @@
             border-collapse: collapse;
             margin-top: 20px;
             font-size: 0.9em;
-            text-align: right; /* RTL alignment */
-            min-width: 1400px; /* Increased min-width for table */
+            text-align: right; 
+            min-width: 1400px; 
         }
         .admin-table th, .admin-table td {
-            border: 1px solid #eeeeee; /* Lighter grey border for cells */
+            border: 1px solid #eeeeee; 
             padding: 10px 12px;
             vertical-align: top;
-            color: #333333; /* Darker text for table cells */
-            font-size: 0.95em; /* Slightly larger font for table content */
+            color: #333333; 
+            font-size: 0.95em; 
         }
         .admin-table th {
-            background-color: #f8f8f8; /* Light grey for headers */
+            background-color: #f8f8f8; 
             color: #333333;
-            font-weight: bold; /* Bold headers */
+            font-weight: bold; 
             white-space: nowrap;
             cursor: pointer;
-            position: sticky; /* Make headers sticky */
-            top: 0; /* Stick to top */
-            z-index: 10; /* Ensure it stays above scrolling content */
-            padding-right: 25px; /* Space for sort icon */
-            font-size: 1em; /* Larger font for table headers */
+            position: sticky; 
+            top: 0; 
+            z-index: 10; 
+            padding-right: 25px; 
+            font-size: 1em; 
         }
         .admin-table th .sort-icon {
             position: absolute;
@@ -327,21 +342,38 @@
             color: #777;
         }
         .admin-table tbody tr:nth-child(even) {
-            background-color: #fdfdfd; /* Off-white for even rows */
+            background-color: #fdfdfd; 
         }
         .admin-table tbody tr:hover {
-            background-color: #f0f0f0; /* Lighter grey on hover */
+            background-color: #f0f0f0; 
         }
+        /* Status color coding for table rows */
+        .admin-table tbody tr.status-not-started {
+            background-color: #ffe0b2; /* Light orange */
+        }
+        .admin-table tbody tr.status-in-progress {
+            background-color: #bbdefb; /* Light blue */
+        }
+        .admin-table tbody tr.status-closed {
+            background-color: #c8e6c9; /* Light green */
+        }
+        .admin-table tbody tr.status-transferred-sw {
+            background-color: #e1bee7; /* Light purple */
+        }
+        .admin-table tbody tr.status-transferred-other {
+            background-color: #ffcdd2; /* Light red/pink */
+        }
+
         .admin-notes-textarea {
             width: 100%;
-            min-height: 120px; /* Increased height */
-            border: 1px solid #dddddd; /* Light grey border */
+            min-height: 120px; 
+            border: 1px solid #dddddd; 
             border-radius: 6px;
-            padding: 10px 12px; /* Increased padding */
+            padding: 10px 12px; 
             box-sizing: border-box;
-            font-size: 1em; /* Standard font size */
+            font-size: 1em; 
             resize: vertical;
-            color: #333333; /* Darker text */
+            color: #333333; 
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
         .admin-notes-textarea:focus {
@@ -351,9 +383,9 @@
         }
 
         .admin-notes-save-button {
-            margin-top: 10px; /* Increased margin */
-            padding: 10px 20px; /* Increased padding */
-            background-color: #3498db; /* Primary blue */
+            margin-top: 10px; 
+            padding: 10px 20px; 
+            background-color: #3498db; 
             color: white;
             border: none;
             border-radius: 6px;
@@ -377,6 +409,115 @@
             transform: none;
         }
         /* End Admin Table styles */
+
+        /* Search and Filter Section */
+        .filter-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap; /* Allow wrapping on small screens */
+            gap: 15px; /* Space between filter elements */
+            border-bottom: 1px solid #eeeeee;
+            padding-bottom: 15px;
+        }
+        .filter-section input[type="text"] {
+            flex-grow: 1; /* Take up available space */
+            max-width: 300px; /* Limit width */
+            margin-left: 10px; /* Space from buttons */
+            padding: 10px 15px;
+            font-size: 0.95em;
+        }
+        .filter-section .status-filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-start; /* Align to right for RTL */
+        }
+        .filter-section .status-button {
+            background-color: #f0f0f0;
+            color: #555555;
+            border: 1px solid #dddddd;
+            border-radius: 6px;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .filter-section .status-button:hover {
+            background-color: #e0e0e0;
+        }
+        .filter-section .status-button.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        /* Status button specific colors */
+        .filter-section .status-button.all.active { background-color: #6c757d; border-color: #6c757d; }
+        .filter-section .status-button.not-started.active { background-color: #ff9800; border-color: #ff9800; }
+        .filter-section .status-button.in-progress.active { background-color: #2196f3; border-color: #2196f3; }
+        .filter-section .status-button.closed.active { background-color: #4caf50; border-color: #4caf50; }
+        .filter-section .status-button.transferred-sw.active { background-color: #9c27b0; border-color: #9c27b0; }
+        .filter-section .status-button.transferred-other.active { background-color: #f44336; border-color: #f44336; }
+
+        /* Submission Detail View */
+        .submission-detail-container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 600px; /* Max width for detail view */
+            margin: 24px auto;
+            text-align: right;
+        }
+        .submission-detail-container h2 {
+            text-align: center;
+            color: #333333;
+            margin-bottom: 20px;
+            font-size: 1.6em;
+            font-weight: bold;
+        }
+        .submission-detail-container .detail-item {
+            margin-bottom: 15px;
+            line-height: 1.6;
+            color: #555555;
+            padding: 8px 0;
+            border-bottom: 1px dashed #eee;
+        }
+        .submission-detail-container .detail-item:last-of-type {
+            border-bottom: none;
+        }
+        .submission-detail-container .detail-item strong {
+            color: #333333;
+            font-weight: bold;
+            margin-left: 5px; /* space between label and value */
+        }
+        .submission-detail-container .form-section {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            padding-top: 15px;
+            border-top: 1px dashed #ccc;
+            border-bottom: none; /* Override default form-section border-bottom */
+        }
+        .submission-detail-container .form-section:first-of-type {
+             border-top: none; /* No top border if it's the first section */
+             padding-top: 0;
+        }
+        .submission-detail-container .form-group select,
+        .submission-detail-container .form-group input[type="text"] {
+            width: auto; /* Allow select/input to size to content */
+            min-width: 180px; /* Minimum width for dropdown */
+            display: inline-block; /* Keep on same line as label */
+            vertical-align: middle;
+            margin-right: 10px; /* Space between select/input and label */
+        }
+        .submission-detail-container .form-group label {
+            display: inline-block;
+            vertical-align: middle;
+            margin-bottom: 0;
+            margin-left: 10px;
+        }
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
@@ -419,6 +560,39 @@
                 padding: 8px 15px;
                 font-size: 0.85em;
             }
+            .filter-section {
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 10px;
+            }
+            .filter-section input[type="text"] {
+                max-width: 100%;
+                margin-left: 0;
+                width: 100%; /* Full width search bar */
+            }
+            .filter-section .status-filters {
+                justify-content: center; /* Center status buttons */
+                width: 100%;
+            }
+            .filter-section .status-button {
+                flex-grow: 1;
+            }
+            .submission-detail-container {
+                max-width: 100%;
+                padding: 16px;
+                margin: 16px auto;
+            }
+            .submission-detail-container .form-group label {
+                margin-left: 0;
+                display: block; /* Stack label above input on mobile */
+                margin-bottom: 5px;
+            }
+            .submission-detail-container .form-group select,
+            .submission-detail-container .form-group input[type="text"] {
+                width: 100%;
+                margin-right: 0;
+                min-width: unset;
+            }
         }
         @media (max-width: 480px) {
             .container {
@@ -434,6 +608,10 @@
             .admin-table {
                 min-width: 700px; /* Further reduced min-width for very small screens */
             }
+            .submission-detail-container {
+                padding: 12px;
+                margin: 12px auto;
+            }
         }
     </style>
 </head>
@@ -444,7 +622,6 @@
         const { useState, useEffect, useRef } = React;
 
         // Component for the Login Page - now with Email/Password login
-        // Added ForgotPasswordModal component
         function LoginPage({ auth, onLoginSuccess }) {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
@@ -580,22 +757,304 @@
         }
 
 
-        // New Component: Admin View to show all submissions (now accessible to any authenticated user)
-        function AdminViewComponent({ auth, db, userUid, onLogout }) {
+        // Submission Detail View Component
+        function SubmissionDetailView({ db, submissionId, userUid, onClose }) {
+            const [submissionData, setSubmissionData] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [message, setMessage] = useState('');
+            const [followUpNotes, setFollowUpNotes] = useState('');
+            const [status, setStatus] = useState('not-started');
+            const [transferredTo, setTransferredTo] = useState('');
+            const [isListening, setIsListening] = useState(false); // State for speech-to-text
+            const recognitionRef = useRef(null); // Ref for SpeechRecognition object
+
+            // Status mapping for display
+            const statusMap = {
+                'not-started': 'טרם החל',
+                'in-progress': 'בטיפול',
+                'closed': 'נסגר',
+                'transferred-sw': 'הועבר לעו"ס',
+                'transferred-other': 'הועבר לגורם אחר',
+            };
+            // Physical Injury Map (reused from AdminViewComponent)
+            const physicalInjuryMap = {
+                'none': 'לא (1)', 'light': 'קלה (2)', 'medium': 'בינונית (3)', 'severe': 'קשה (4)'
+            };
+
+
+            useEffect(() => {
+                // Initialize SpeechRecognition
+                if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    recognitionRef.current = new SpeechRecognition();
+                    recognitionRef.current.continuous = false; // Stop after a single utterance
+                    recognitionRef.current.interimResults = false; // Only return final results
+                    recognitionRef.current.lang = 'he-IL'; // Set language to Hebrew
+
+                    recognitionRef.current.onresult = (event) => {
+                        const transcript = event.results[0][0].transcript;
+                        setFollowUpNotes(prev => prev + (prev ? ' ' : '') + transcript);
+                        setIsListening(false);
+                    };
+
+                    recognitionRef.current.onerror = (event) => {
+                        console.error('Speech recognition error:', event.error);
+                        setMessage(`שגיאת זיהוי קולי: ${event.error}.`);
+                        setIsListening(false);
+                    };
+
+                    recognitionRef.current.onend = () => {
+                        setIsListening(false);
+                    };
+                } else {
+                    console.warn('Speech Recognition API not supported in this browser.');
+                }
+                return () => {
+                    if (recognitionRef.current) {
+                        recognitionRef.current.stop();
+                    }
+                };
+            }, []);
+
+            const startListening = () => {
+                if (recognitionRef.current && !isListening) {
+                    setIsListening(true);
+                    setMessage('מאזין... אנא דבר/י.');
+                    recognitionRef.current.start();
+                }
+            };
+
+
+            useEffect(() => {
+                const fetchSubmission = async () => {
+                    if (!db || !submissionId || !userUid) {
+                        setMessage('שגיאה: נתונים חסרים לטעינת הגשה.');
+                        setLoading(false);
+                        return;
+                    }
+                    setLoading(true);
+                    try {
+                        const submissionRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`, submissionId);
+                        const docSnap = await window.getDocFirebaseGlobal(submissionRef);
+
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            setSubmissionData(data);
+                            setFollowUpNotes(data.followUpNotes || '');
+                            setStatus(data.status || 'not-started');
+                            setTransferredTo(data.transferredTo || '');
+                        } else {
+                            setMessage('ההגשה לא נמצאה.');
+                        }
+                    } catch (error) {
+                        console.error("Error fetching submission:", error);
+                        setMessage(`שגיאה בטעינת ההגשה: ${error.message}.`);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                fetchSubmission();
+            }, [db, submissionId, userUid]);
+
+            const handleSaveUpdates = async () => {
+                if (!db || !submissionId || !userUid) {
+                    setMessage('שגיאה: נתונים חסרים לשמירה.');
+                    return;
+                }
+                setLoading(true);
+                setMessage('');
+                try {
+                    const submissionRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`, submissionId);
+                    await window.updateDocFirebaseGlobal(submissionRef, {
+                        followUpNotes: followUpNotes,
+                        status: status,
+                        transferredTo: status === 'transferred-other' ? transferredTo : '', // Clear if not 'other'
+                        lastUpdatedAdmin: Date.now() // Add a timestamp for admin updates
+                    });
+                    setMessage('העדכונים נשמרו בהצלחה!');
+                } catch (error) {
+                    console.error("Error updating submission:", error);
+                    setMessage(`שגיאה בשמירת העדכונים: ${error.message}.`);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleSendEmail = () => {
+                if (!submissionData) {
+                    setMessage('אין נתונים לשליחה במייל.');
+                    return;
+                }
+
+                const subject = `מעקב טיפול טופס Hugo - ת.ז. ${submissionData.idNumber}`;
+                let body = `**פרטי טופס Hugo**\n\n`;
+                body += `שם מלא: ${submissionData.firstName} ${submissionData.familyName}\n`;
+                body += `תעודת זהות: ${submissionData.idNumber}\n`;
+                body += `טלפון: ${submissionData.phone}\n`;
+                body += `כתובת: ${submissionData.address}\n`;
+                body += `גיל: ${submissionData.age}, מין: ${submissionData.gender === 'male' ? 'זכר' : (submissionData.gender === 'female' ? 'נקבה' : '')}\n`;
+                body += `שוהים בדירה: ${submissionData.residents}\n`;
+                body += `פציעה פיזית: ${physicalInjuryMap[submissionData.physicalInjury] || submissionData.physicalInjury}\n`;
+                body += `הרוגים/פצועים: ${submissionData.casualties === 'yes' ? 'כן' : 'לא'}\n`;
+                body += `מנותקי קשר: ${submissionData.disconnected === 'yes' ? 'כן' : 'לא'}\n`;
+                body += `זקוק לסיוע בפינוי: ${submissionData.evacuationAssistance === 'yes' ? 'כן' : 'לא'}\n`;
+                body += `הערות ממלא הטופס: ${submissionData.notes || 'אין'}\n`;
+                body += `\n**פרטי מעקב טיפול**\n\n`;
+                body += `סטטוס: ${statusMap[status]}\n`;
+                if (status === 'transferred-other') {
+                    body += `הועבר לגורם: ${transferredTo || 'לא צוין'}\n`;
+                }
+                body += `המשך טיפול: ${followUpNotes || 'אין'}\n`;
+                body += `\n\n**הנחיות להמשך טיפול:**\n`;
+                body += `- יש לוודא קשר ראשוני עם הפונה בתוך 24 שעות.\n`;
+                body += `- לעדכן סטטוס טיפול בטופס הדיגיטלי.\n`;
+                body += `- לדווח על כל ממצא חריג.\n`;
+                body += `\n\nבברכה,\nצוות Hugo`;
+
+
+                // Encode the subject and body for mailto link
+                const encodedSubject = encodeURIComponent(subject);
+                const encodedBody = encodeURIComponent(body);
+
+                window.location.href = `mailto:?subject=${encodedSubject}&body=${encodedBody}`;
+            };
+
+
+            if (loading) {
+                return (
+                    <div className="submission-detail-container">
+                        <h2>טוען פרטי הגשה...</h2>
+                        <p style={{textAlign: 'center'}}>אנא המתן.</p>
+                    </div>
+                );
+            }
+
+            if (!submissionData) {
+                return (
+                    <div className="submission-detail-container">
+                        <h2>שגיאה בטעינת הפרטים</h2>
+                        <p style={{textAlign: 'center'}}>{message}</p>
+                        <div className="button-container">
+                            <button onClick={onClose} className="action-button secondary">
+                                חזור לטבלה הראשית
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="submission-detail-container">
+                    <div className="top-bar">
+                        <h2>פרטי הגשה - {submissionData.idNumber}</h2>
+                        <div className="button-group">
+                            <button onClick={onClose} className="action-button secondary">
+                                <i className="fas fa-arrow-right" style={{marginLeft: '5px'}}></i> חזור לטבלה הראשית
+                            </button>
+                        </div>
+                    </div>
+                    {message && (
+                        <div className={`message-box ${message.includes('הצלחה') || message.includes('נשמרו') ? 'success' : (message.includes('שגיאה') ? 'danger' : 'warning')}`}>
+                            {message}
+                        </div>
+                    )}
+
+                    <div className="detail-grid">
+                        <div className="detail-item"><strong>תאריך/שעה:</strong> {new Date(submissionData.timestamp).toLocaleString('he-IL')}</div>
+                        <div className="detail-item"><strong>מזהה הזדהות:</strong> {submissionData.identityId || 'לא הוזן'}</div>
+                        <div className="detail-item"><strong>שם מלא:</strong> {submissionData.firstName} {submissionData.familyName}</div>
+                        <div className="detail-item"><strong>תעודת זהות:</strong> {submissionData.idNumber || 'לא הוזן'}</div>
+                        <div className="detail-item"><strong>גיל:</strong> {submissionData.age}</div>
+                        <div className="detail-item"><strong>מין:</strong> {submissionData.gender === 'male' ? 'זכר' : (submissionData.gender === 'female' ? 'נקבה' : '')}</div>
+                        <div className="detail-item"><strong>טלפון:</strong> {submissionData.phone}</div>
+                        <div className="detail-item"><strong>כתובת:</strong> {submissionData.address}</div>
+                        <div className="detail-item"><strong>שוהים בדירה:</strong> {submissionData.residents}</div>
+                        <div className="detail-item"><strong>פציעה פיזית:</strong> {physicalInjuryMap[submissionData.physicalInjury] || submissionData.physicalInjury || ''}</div>
+                        <div className="detail-item"><strong>הרוגים/פצועים:</strong> {submissionData.casualties === 'yes' ? 'כן' : 'לא'}</div>
+                        <div className="detail-item"><strong>מנותקי קשר:</strong> {submissionData.disconnected === 'yes' ? 'כן' : 'לא'}</div>
+                        <div className="detail-item"><strong>זקוק לסיוע בפינוי:</strong> {submissionData.evacuationAssistance === 'yes' ? 'כן' : 'לא'}</div>
+                        <div className="detail-item"><strong>הערות ממלא הטופס:</strong> {submissionData.notes || 'אין'}</div>
+                        {submissionData.lastUpdatedAdmin && (
+                            <div className="detail-item"><strong>עודכן לאחרונה ע"י מנהל:</strong> {new Date(submissionData.lastUpdatedAdmin).toLocaleString('he-IL')}</div>
+                        )}
+                    </div>
+
+                    <div className="form-section">
+                        <h3>עדכון סטטוס ומעקב טיפול</h3>
+                        <div className="form-group">
+                            <label htmlFor="status">סטטוס:</label>
+                            <select id="status" value={status} onChange={(e) => setStatus(e.target.value)}>
+                                <option value="not-started">טרם החל</option>
+                                <option value="in-progress">בטיפול</option>
+                                <option value="closed">נסגר</option>
+                                <option value="transferred-sw">הועבר לעו"ס</option>
+                                <option value="transferred-other">הועבר לגורם אחר</option>
+                            </select>
+                        </div>
+                        {status === 'transferred-other' && (
+                            <div className="form-group">
+                                <label htmlFor="transferredTo">שם גורם אחר:</label>
+                                <input type="text" id="transferredTo" value={transferredTo} onChange={(e) => setTransferredTo(e.target.value)} placeholder="הזן שם גורם" />
+                            </div>
+                        )}
+                        <div className="form-group">
+                            <label htmlFor="followUpNotes">המשך טיפול (הערות מנהל):</label>
+                            <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                                <textarea id="followUpNotes" value={followUpNotes} onChange={(e) => setFollowUpNotes(e.target.value)} placeholder="הזן הערות מעקב נוספות"></textarea>
+                                {('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) && (
+                                    <button type="button" onClick={startListening} className={`speech-button ${isListening ? 'listening' : ''}`} title="הזנה קולית">
+                                        <i className="fas fa-microphone"></i>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="button-container">
+                        <button onClick={handleSaveUpdates} className="action-button success" disabled={loading}>
+                            <i className="fas fa-save" style={{marginLeft: '5px'}}></i> {loading ? 'שומר...' : 'שמור עדכונים'}
+                        </button>
+                        <button onClick={handleSendEmail} className="action-button secondary">
+                            <i className="fas fa-envelope" style={{marginLeft: '5px'}}></i> שלח פרטי טופס במייל
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+
+        // Admin View Component to show all submissions
+        function AdminViewComponent({ auth, db, userUid, onLogout, onSelectSubmission }) {
             const [allSubmissions, setAllSubmissions] = useState([]);
             const [loadingAllSubmissions, setLoadingAllSubmissions] = useState(true);
             const [message, setMessage] = useState('');
             const [sortColumn, setSortColumn] = useState('timestamp');
             const [sortDirection, setSortDirection] = useState('desc');
-            const [editingNote, setEditingNote] = useState(null);
+            const [editingNote, setEditingNote] = useState(null); // Keep for direct table editing of admin notes
+            const [searchTerm, setSearchTerm] = useState('');
+            const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'not-started', 'in-progress', 'closed', etc.
 
-            // Map for physical injury values to Hebrew
+            // Map for physical injury values to Hebrew (reused)
             const physicalInjuryMap = {
-                'none': 'לא (1)',
-                'light': 'קלה (2)',
-                'medium': 'בינונית (3)',
-                'severe': 'קשה (4)'
+                'none': 'לא (1)', 'light': 'קלה (2)', 'medium': 'בינונית (3)', 'severe': 'קשה (4)'
             };
+            // Status map (reused)
+            const statusMap = {
+                'not-started': 'טרם החל',
+                'in-progress': 'בטיפול',
+                'closed': 'נסגר',
+                'transferred-sw': 'הועבר לעו"ס',
+                'transferred-other': 'הועבר לגורם אחר',
+            };
+            // Status colors for CSS class names
+            const statusColors = {
+                'not-started': 'status-not-started',
+                'in-progress': 'status-in-progress',
+                'closed': 'status-closed',
+                'transferred-sw': 'status-transferred-sw',
+                'transferred-other': 'status-transferred-other',
+            };
+
 
             useEffect(() => {
                 if (!db || !auth) {
@@ -632,24 +1091,47 @@
                 return () => unsubscribe();
             }, [db, auth]);
 
-            const sortedSubmissions = React.useMemo(() => {
-                let sortableItems = [...allSubmissions];
+            const filteredSubmissions = React.useMemo(() => {
+                let filteredItems = [...allSubmissions];
+
+                // Filter by status first
+                if (filterStatus !== 'all') {
+                    filteredItems = filteredItems.filter(item => (item.status || 'not-started') === filterStatus);
+                }
+
+                // Apply search term filter
+                if (searchTerm) {
+                    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+                    filteredItems = filteredItems.filter(item => 
+                        (item.firstName && item.firstName.toLowerCase().includes(lowerCaseSearchTerm)) ||
+                        (item.familyName && item.familyName.toLowerCase().includes(lowerCaseSearchTerm)) ||
+                        (item.idNumber && item.idNumber.toLowerCase().includes(lowerCaseSearchTerm)) ||
+                        (item.address && item.address.toLowerCase().includes(lowerCaseSearchTerm)) ||
+                        (item.phone && item.phone.toLowerCase().includes(lowerCaseSearchTerm)) ||
+                        (item.notes && item.notes.toLowerCase().includes(lowerCaseSearchTerm)) ||
+                        (item.adminNotes && item.adminNotes.toLowerCase().includes(lowerCaseSearchTerm)) ||
+                        (item.identityId && item.identityId.toLowerCase().includes(lowerCaseSearchTerm))
+                    );
+                }
+
+                // Then sort
                 if (sortColumn) {
-                    sortableItems.sort((a, b) => {
+                    filteredItems.sort((a, b) => {
                         let aValue = a[sortColumn];
                         let bValue = b[sortColumn];
 
                         if (sortColumn === 'physicalInjury') {
                             aValue = physicalInjuryMap[aValue] || aValue;
                             bValue = physicalInjuryMap[bValue] || bValue;
-                        }
-
-                        if (sortColumn === 'timestamp') {
-                            aValue = parseInt(aValue);
-                            bValue = parseInt(bValue);
+                        } else if (sortColumn === 'status') {
+                             aValue = statusMap[aValue] || aValue;
+                             bValue = statusMap[bValue] || bValue;
+                        } else if (sortColumn === 'timestamp' || sortColumn === 'lastUpdatedAdmin') {
+                            aValue = parseInt(aValue || 0);
+                            bValue = parseInt(bValue || 0);
                         } else if (sortColumn === 'age' || sortColumn === 'residents') {
-                            aValue = parseFloat(aValue);
-                            bValue = parseFloat(bValue);
+                            aValue = parseFloat(aValue || 0);
+                            bValue = parseFloat(bValue || 0);
                         } else if (typeof aValue === 'string' && typeof bValue === 'string') {
                             return aValue.localeCompare(bValue, 'he', { sensitivity: 'base' });
                         }
@@ -663,8 +1145,8 @@
                         return 0;
                     });
                 }
-                return sortableItems;
-            }, [allSubmissions, sortColumn, sortDirection]);
+                return filteredItems;
+            }, [allSubmissions, sortColumn, sortDirection, searchTerm, filterStatus]);
 
 
             const handleSort = (column) => {
@@ -684,6 +1166,7 @@
             };
 
             const handleNoteChange = (e, id) => {
+                // This specific handler is for direct editing of adminNotes in the table
                 setEditingNote({
                     id: id,
                     originalNote: allSubmissions.find(sub => sub.id === id)?.adminNotes || '',
@@ -692,6 +1175,7 @@
             };
 
             const saveNote = async (submissionId, currentNote) => {
+                // This saves only the adminNotes field directly from the table
                 setMessage('');
                 if (!db || !userUid) {
                     setMessage('שגיאה: Firebase Db אינו מאותחל או שאין מזהה משתמש.');
@@ -706,7 +1190,7 @@
                     }
 
                     const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submission.userId}/formData`, submissionId);
-                    await window.updateDocFirebaseGlobal(docRef, { adminNotes: currentNote });
+                    await window.updateDocFirebaseGlobal(docRef, { adminNotes: currentNote, lastUpdatedAdmin: Date.now() });
                     setMessage('הערה נשמרה בהצלחה!');
                     setEditingNote(null);
                 } catch (error) {
@@ -725,17 +1209,17 @@
                     return;
                 }
 
-                // Removed "מזהה משתמש (UID)"
                 const headers = [
-                    "תאריך/שעה", "מזהה הזדהות (מייל/UID)",
+                    "תאריך/שעה", "מזהה הזדהות",
                     "שם מלא", "תעודת זהות", "גיל", "מין", "טלפון", "כתובת",
                     "שוהים בדירה", "פציעה פיזית", "הרוגים/פצועים", "מנותקי קשר",
-                    "סיוע בפינוי", "הערות ממלא הטופס", "הערות מנהל"
+                    "סיוע בפינוי", "הערות ממלא הטופס", "הערות מנהל",
+                    "סטטוס טיפול", "המשך טיפול", "הועבר לגורם", "תאריך עדכון מנהל אחרון"
                 ];
 
-                const rows = sortedSubmissions.map(item => [
+                const rows = filteredSubmissions.map(item => [
                     new Date(item.timestamp).toLocaleString('he-IL'),
-                    item.identityId || '', // Use identityId instead of raw userId for clearer identity
+                    item.identityId || '',
                     `${item.firstName || ''} ${item.familyName || ''}`,
                     item.idNumber || '',
                     item.age || '',
@@ -748,11 +1232,15 @@
                     (item.disconnected === 'yes' ? 'כן' : 'לא') || '',
                     (item.evacuationAssistance === 'yes' ? 'כן' : 'לא') || '',
                     item.notes || '',
-                    item.adminNotes || ''
+                    item.adminNotes || '',
+                    statusMap[item.status] || 'טרם החל',
+                    item.followUpNotes || '',
+                    item.transferredTo || '',
+                    item.lastUpdatedAdmin ? new Date(item.lastUpdatedAdmin).toLocaleString('he-IL') : ''
                 ]);
 
                 // Add BOM for UTF-8 compatibility with Excel
-                const BOM = "\uFEFF"; // UTF-8 BOM
+                const BOM = "\uFEFF"; 
                 let csvContent = BOM + headers.join(',') + '\n';
                 csvContent += rows.map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
 
@@ -795,10 +1283,39 @@
                         </div>
                     )}
 
+                    <div className="filter-section">
+                        <div className="status-filters">
+                            <button onClick={() => setFilterStatus('all')} className={`status-button all ${filterStatus === 'all' ? 'active' : ''}`}>
+                                <i className="fas fa-list"></i> הכל
+                            </button>
+                            <button onClick={() => setFilterStatus('not-started')} className={`status-button not-started ${filterStatus === 'not-started' ? 'active' : ''}`}>
+                                <i className="fas fa-hourglass-start"></i> טרם החל
+                            </button>
+                            <button onClick={() => setFilterStatus('in-progress')} className={`status-button in-progress ${filterStatus === 'in-progress' ? 'active' : ''}`}>
+                                <i className="fas fa-spinner"></i> בטיפול
+                            </button>
+                            <button onClick={() => setFilterStatus('closed')} className={`status-button closed ${filterStatus === 'closed' ? 'active' : ''}`}>
+                                <i className="fas fa-check-circle"></i> נסגר
+                            </button>
+                            <button onClick={() => setFilterStatus('transferred-sw')} className={`status-button transferred-sw ${filterStatus === 'transferred-sw' ? 'active' : ''}`}>
+                                <i className="fas fa-user-friends"></i> הועבר לעו"ס
+                            </button>
+                            <button onClick={() => setFilterStatus('transferred-other')} className={`status-button transferred-other ${filterStatus === 'transferred-other' ? 'active' : ''}`}>
+                                <i className="fas fa-share-alt"></i> הועבר לגורם אחר
+                            </button>
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="חיפוש לפי שם, ת.ז., כתובת, טלפון..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+
                     {loadingAllSubmissions ? (
                         <p>טוען את כל הנתונים...</p>
-                    ) : sortedSubmissions.length === 0 ? (
-                        <p>טרם נשמרו נתונים כלשהם.</p>
+                    ) : filteredSubmissions.length === 0 ? (
+                        <p>לא נמצאו נתונים התואמים לחיפוש/סינון הנוכחי.</p>
                     ) : (
                         <div className="admin-table-container">
                             <table className="admin-table">
@@ -807,7 +1324,7 @@
                                         <th onClick={() => handleSort('timestamp')}>תאריך/שעה {getSortIcon('timestamp')}</th>
                                         <th onClick={() => handleSort('identityId')}>מזהה הזדהות {getSortIcon('identityId')}</th>
                                         <th onClick={() => handleSort('firstName')}>שם מלא {getSortIcon('firstName')}</th>
-                                        <th onClick={() => handleSort('idNumber')}>תעודת זהות {getSortIcon('idNumber')}</th>
+                                        <th onClick={() => handleSort('idNumber')}><i className="fas fa-id-card"></i> תעודת זהות {getSortIcon('idNumber')}</th>
                                         <th onClick={() => handleSort('age')}>גיל {getSortIcon('age')}</th>
                                         <th onClick={() => handleSort('gender')}>מין {getSortIcon('gender')}</th>
                                         <th onClick={() => handleSort('phone')}>טלפון {getSortIcon('phone')}</th>
@@ -818,16 +1335,24 @@
                                         <th onClick={() => handleSort('disconnected')}>מנותקי קשר {getSortIcon('disconnected')}</th>
                                         <th onClick={() => handleSort('evacuationAssistance')}>סיוע בפינוי {getSortIcon('evacuationAssistance')}</th>
                                         <th>הערות ממלא הטופס</th>
-                                        <th style={{ width: '25%' }}>הערות מנהל</th> {/* Increased width for admin notes */}
+                                        <th style={{ width: '15%' }} onClick={() => handleSort('adminNotes')}>הערות מנהל {getSortIcon('adminNotes')}</th>
+                                        <th style={{ width: '10%' }} onClick={() => handleSort('status')}><i className="fas fa-info-circle"></i> סטטוס {getSortIcon('status')}</th>
+                                        <th style={{ width: '15%' }} onClick={() => handleSort('followUpNotes')}>המשך טיפול {getSortIcon('followUpNotes')}</th>
+                                        <th style={{ width: '10%' }} onClick={() => handleSort('transferredTo')}>הועבר לגורם {getSortIcon('transferredTo')}</th>
+                                        <th onClick={() => handleSort('lastUpdatedAdmin')}>עדכון מנהל אחרון {getSortIcon('lastUpdatedAdmin')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {sortedSubmissions.map((item) => (
-                                        <tr key={item.id}>
+                                    {filteredSubmissions.map((item) => (
+                                        <tr key={item.id} className={statusColors[item.status || 'not-started']}>
                                             <td>{new Date(item.timestamp).toLocaleString('he-IL')}</td>
                                             <td>{item.identityId || 'לא הוזן'}</td>
                                             <td>{item.firstName} {item.familyName}</td>
-                                            <td>{item.idNumber || 'לא הוזן'}</td>
+                                            <td>
+                                                <a href="#" onClick={(e) => { e.preventDefault(); onSelectSubmission(item.id, item.userId); }} style={{color: '#3498db', textDecoration: 'underline'}}>
+                                                    {item.idNumber || 'לא הוזן'}
+                                                </a>
+                                            </td>
                                             <td>{item.age}</td>
                                             <td>{item.gender === 'male' ? 'זכר' : (item.gender === 'female' ? 'נקבה' : '')}</td>
                                             <td>{item.phone}</td>
@@ -843,16 +1368,19 @@
                                                     className="admin-notes-textarea"
                                                     value={editingNote && editingNote.id === item.id ? editingNote.currentNote : (item.adminNotes || '')}
                                                     onChange={(e) => handleNoteChange(e, item.id)}
+                                                    onBlur={() => { // Save on blur if changed
+                                                        if (editingNote && editingNote.id === item.id && editingNote.currentNote !== editingNote.originalNote) {
+                                                            saveNote(item.id, editingNote.currentNote);
+                                                        }
+                                                    }}
                                                     placeholder="הזן הערה"
                                                 />
-                                                <button
-                                                    className="admin-notes-save-button"
-                                                    onClick={() => saveNote(item.id, editingNote.currentNote)}
-                                                    disabled={!editingNote || editingNote.id !== item.id || editingNote.currentNote === editingNote.originalNote}
-                                                >
-                                                    שמור
-                                                </button>
+                                                {/* Optionally, add a save button here if blur save is not preferred, or combine for explicit save */}
                                             </td>
+                                            <td>{statusMap[item.status] || 'טרם החל'}</td>
+                                            <td>{item.followUpNotes || 'אין'}</td>
+                                            <td>{item.transferredTo || 'אין'}</td>
+                                            <td>{item.lastUpdatedAdmin ? new Date(item.lastUpdatedAdmin).toLocaleString('he-IL') : 'אין'}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -868,6 +1396,8 @@
             const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
+            const [selectedSubmissionId, setSelectedSubmissionId] = useState(null); // New state to manage detail view
+            const [selectedSubmissionUserId, setSelectedSubmissionUserId] = useState(null); // New state to hold the user ID for selected submission
             const logoutTriggeredRef = useRef(false);
 
             useEffect(() => {
@@ -892,6 +1422,10 @@
             }, []);
 
             const handleLogin = async (uid, identity) => {
+                // On login, we need to ensure the user is an admin to view this page
+                // This will typically involve checking claims from getIdTokenResult().
+                // For now, we'll just reload the page which will re-trigger onAuthStateChanged
+                // and the admin check in the parent App component logic.
                 window.location.reload();
             };
 
@@ -900,12 +1434,23 @@
                     if (firebaseInstances.auth) {
                         logoutTriggeredRef.current = true;
                         await window.signOutFirebaseGlobal(firebaseInstances.auth);
-                        window.location.href = 'index.html';
+                        window.location.href = 'index.html'; // Redirect to main app after logout
                     }
                 } catch (error) {
                     console.error("שגיאה בהתנתקות מדף הנתונים:", error);
                 }
             };
+
+            const handleSelectSubmission = (submissionId, submissionUserId) => {
+                setSelectedSubmissionId(submissionId);
+                setSelectedSubmissionUserId(submissionUserId);
+            };
+
+            const handleCloseSubmissionDetail = () => {
+                setSelectedSubmissionId(null);
+                setSelectedSubmissionUserId(null);
+            };
+
 
             if (!isAuthReady) {
                 return (
@@ -926,16 +1471,29 @@
                 );
             }
 
-            if (!userUid) { // Changed from !user to !userUid since setUserUid now stores the user object directly
+            if (!userUid) { 
                 return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={handleLogin} />;
+            }
+
+            // Render SubmissionDetailView if a submission is selected, otherwise AdminViewComponent
+            if (selectedSubmissionId && selectedSubmissionUserId) {
+                return (
+                    <SubmissionDetailView
+                        db={firebaseInstances.db}
+                        submissionId={selectedSubmissionId}
+                        userUid={selectedSubmissionUserId} // Pass the original user ID who submitted it
+                        onClose={handleCloseSubmissionDetail}
+                    />
+                );
             }
 
             return (
                 <AdminViewComponent
                     auth={firebaseInstances.auth}
                     db={firebaseInstances.db}
-                    userUid={userUid.uid} // Pass the UID specifically
+                    userUid={userUid.uid}
                     onLogout={handleLogout}
+                    onSelectSubmission={handleSelectSubmission}
                 />
             );
         }
