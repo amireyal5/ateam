@@ -110,7 +110,7 @@
             border-radius: 12px; /* פינות מעוגלות */
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); /* צל עדין מאוד */
             width: 100%;
-            max-width: 1200px; /* Increased max-width for desktop */
+            max-width: 1400px; /* Increased max-width for desktop */
             box-sizing: border-box;
             border: 1px solid #e0e0e0; /* גבול אפור עדין */
             text-align: right; /* יישור לימין עבור RTL */
@@ -201,7 +201,8 @@
         /* Styles for Submission Details */
         .details-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr; /* Two columns */
+            /* Updated to allow more columns on large screens */
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
             gap: 20px; /* Space between grid items */
             margin-top: 25px;
             padding: 15px;
@@ -395,6 +396,7 @@
             const [submission, setSubmission] = useState(null);
             const [loading, setLoading] = useState(true);
             const [message, setMessage] = useState('');
+            const [messageType, setMessageType] = useState(''); // Added for dynamic message styling
             const [referralStatus, setReferralStatus] = useState('');
             const [otherStatusText, setOtherStatusText] = useState('');
             const [adminNotes, setAdminNotes] = useState('');
@@ -407,14 +409,25 @@
                 'severe': 'קשה (4)'
             };
 
+            // Function to set message and clear it after a delay
+            const showMessage = (text, type = 'default') => {
+                setMessage(text);
+                setMessageType(type);
+                setTimeout(() => {
+                    setMessage('');
+                    setMessageType('');
+                }, 5000); // Message disappears after 5 seconds
+            };
+
+
             useEffect(() => {
                 if (!db || !auth) {
-                    setMessage('שגיאה: שירותי Firebase Db או Auth אינם זמינים.');
+                    showMessage('שגיאה: שירותי Firebase Db או Auth אינם זמינים.', 'danger');
                     setLoading(false);
                     return;
                 }
                 if (!auth.currentUser) {
-                    setMessage('שגיאה: אינך מחובר. אנא התחבר כדי לצפות בנתונים.');
+                    showMessage('שגיאה: אינך מחובר. אנא התחבר כדי לצפות בנתונים.', 'danger');
                     setLoading(false);
                     return;
                 }
@@ -426,7 +439,7 @@
                 const submissionUserId = urlParams.get('userId'); // Get the userId that owns the submission
 
                 if (!submissionId || !submissionUserId) {
-                    setMessage('שגיאה: מזהה דיווח או מזהה משתמש חסרים בכתובת האתר.');
+                    showMessage('שגיאה: מזהה דיווח או מזהה משתמש חסרים בכתובת האתר.', 'danger');
                     setLoading(false);
                     return;
                 }
@@ -443,9 +456,9 @@
                         setReferralStatus(data.referralStatus || '');
                         setOtherStatusText(data.otherStatusText || '');
                         setAdminNotes(data.adminNotes || '');
-                        setMessage('');
+                        showMessage(''); // Clear any previous error messages on successful data load
                     } else {
-                        setMessage('שגיאה: דיווח לא נמצא.');
+                        showMessage('שגיאה: דיווח לא נמצא.', 'danger');
                         setSubmission(null);
                     }
                     setLoading(false);
@@ -455,7 +468,7 @@
                     if (error.code === 'permission-denied') {
                         errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מנתיב זה עבור המשתמש המחובר.";
                     }
-                    setMessage(errorMessage);
+                    showMessage(errorMessage, 'danger');
                     setLoading(false);
                 });
 
@@ -465,8 +478,10 @@
             // Function to save current form data to Firestore
             const handleUpdateSubmission = async () => {
                 setMessage('');
+                setMessageType('');
+
                 if (!db || !submission) {
-                    setMessage('שגיאה: Firebase Db אינו מאותחל או שאין דיווח לטפל בו.');
+                    showMessage('שגיאה: Firebase Db אינו מאותחל או שאין דיווח לטפל בו.', 'danger');
                     return false; // Indicate failure
                 }
 
@@ -474,7 +489,7 @@
                     // Get the original userId from the submission data to construct the correct path
                     const submissionUserId = submission.userId; 
                     if (!submissionUserId) {
-                         setMessage('שגיאה: מזהה משתמש ששלח את הדיווח חסר.');
+                         showMessage('שגיאה: מזהה משתמש ששלח את הדיווח חסר.', 'danger');
                          return false; // Indicate failure
                     }
 
@@ -486,7 +501,7 @@
                         lastUpdatedBy: auth.currentUser.email || auth.currentUser.uid, // Track who last updated
                         lastUpdatedAt: Date.now() // Timestamp of last update
                     });
-                    setMessage('הדיווח נשמר בהצלחה!');
+                    showMessage('הדיווח נשמר בהצלחה!', 'success');
                     return true; // Indicate success
                 } catch (error) {
                     console.error("Error updating submission:", error);
@@ -494,7 +509,7 @@
                     if (error.code === 'permission-denied') {
                         errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים כתיבה לנתיב זה עבור המשתמש המחובר.";
                     }
-                    setMessage(errorMessage);
+                    showMessage(errorMessage, 'danger');
                     return false; // Indicate failure
                 }
             };
@@ -504,7 +519,7 @@
                 const saved = await handleUpdateSubmission(); // Attempt to save
                 if (saved) { // Only proceed if save was successful
                     if (!submission) {
-                        setMessage('אין דיווח לשליחה במייל.');
+                        showMessage('אין דיווח לשליחה במייל.', 'danger');
                         return;
                     }
 
@@ -534,7 +549,14 @@
                     `;
 
                     const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                    window.location.href = mailtoLink;
+                    
+                    // Attempt to open mailto link. Wrap in try/catch for potential browser blocks.
+                    try {
+                        window.location.href = mailtoLink;
+                    } catch (e) {
+                        showMessage('שגיאה בפתיחת המייל. ייתכן שנגרם עקב אורך תוכן ארוך מדי או חסימה על ידי הדפדפן.', 'danger');
+                        console.error("Error opening mailto link:", e);
+                    }
                 }
             };
 
@@ -551,11 +573,8 @@
                 return <div className="container"><p>טוען פרטי דיווח...</p></div>;
             }
 
-            if (message) {
-                return <div className="container"><div className="message-box danger">{message}</div></div>;
-            }
-
-            if (!submission) {
+            if (!submission && !message) {
+                // Only show this if no submission data AND no specific error message is set
                 return <div className="container"><div className="message-box warning">אין נתונים זמינים עבור דיווח זה.</div></div>;
             }
 
@@ -563,7 +582,7 @@
                 <div className="container">
                     <h1>טיפול בדיווח מאזור תקרית</h1>
                     {message && (
-                        <div className={`message-box ${message.includes('הצלחה') ? 'success' : 'danger'}`}>
+                        <div className={`message-box ${messageType}`}>
                             {message}
                         </div>
                     )}
