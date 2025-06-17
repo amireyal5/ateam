@@ -97,7 +97,7 @@
         /* הגדרות בסיסיות לגוף הדף */
         body {
             font-family: 'Inter', Arial, sans-serif; /* שימוש בפונט Inter */
-            background-color: #f0f2f5; /* צבע רקע עדין */
+            background-color: #f8f8f8; /* צבע רקע אפור בהיר מאוד */
             display: flex;
             justify-content: center;
             align-items: flex-start; /* יישור למעלה כדי לא למרכז אנכית אם התוכן ארוך */
@@ -112,136 +112,131 @@
             background-color: #ffffff; /* רקע לבן */
             padding: 35px;
             border-radius: 12px; /* פינות מעוגלות */
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1); /* צל עדין */
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); /* צל עדין מאוד */
             width: 100%;
             max-width: 100%; /* הרחבה לרוחב המסך המקסימלי */
             box-sizing: border-box;
-            border: 1px solid #e0e0e0; /* גבול עדין */
+            border: 1px solid #e0e0e0; /* גבול אפור עדין */
             text-align: center;
             margin: 0; /* הסרת מרווח אוטומטי לרוחב מלא */
         }
 
         h1 {
             text-align: center;
-            color: #2c3e50; /* צבע כהה לכותרת */
-            margin-bottom: 35px;
-            font-size: 2.2em; /* גודל פונט גדול יותר */
+            color: #333333; /* צבע כהה לכותרת */
+            margin-bottom: 25px; /* מרווח תחתון מוגדל */
+            font-size: 1.8em; /* גודל פונט מוגדל לכותרת */
             font-weight: 700; /* עובי פונט מודגש */
         }
         
         .button-container {
             display: flex;
             justify-content: center;
-            gap: 15px; /* מרווח בין כפתורים */
+            gap: 12px; /* מרווח בין כפתורים */
             margin-top: 30px;
         }
 
         .action-button {
-            background-color: #28a745; /* צבע ירוק לכפתור */
+            background-color: #444444; /* אפור כהה (כפתור ראשי) */
             color: white;
-            padding: 15px 30px;
+            padding: 12px 25px; /* ריפוד מוגדל */
             border: none;
-            border-radius: 8px;
-            font-size: 1.2em;
-            font-weight: 700;
+            border-radius: 6px;
+            font-size: 1.05em;
+            font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.3s ease, transform 0.2s ease; /* אנימציות למעבר וריחוף */
-            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3); /* צל לכפתור */
+            transition: background-color 0.2s ease, opacity 0.2s ease;
+            box-shadow: none; /* ביטול צל */
         }
 
         .action-button.secondary {
-            background-color: #007bff;
-            box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3);
+            background-color: #888888; /* אפור בינוני (כפתור משני) */
         }
 
         .action-button.danger {
-            background-color: #dc3545;
-            box-shadow: 0 4px 10px rgba(220, 53, 69, 0.3);
-        }
-
-        .action-button.google {
-            background-color: #db4437; /* Google red */
-            box-shadow: 0 4px 10px rgba(219, 68, 55, 0.3);
+            background-color: #bbbbbb; /* אפור בהיר (כפתור התנתקות/סכנה) */
+            color: #333333; /* טקסט כהה לכפתור בהיר */
         }
 
         .action-button:hover {
-            background-color: #218838; /* צבע ירוק כהה יותר בריחוף */
-            transform: translateY(-2px); /* אפקט קל של ריחוף */
+            background-color: #555555;
+            opacity: 1;
         }
 
         .action-button.secondary:hover {
-            background-color: #0069d9;
+            background-color: #999999;
         }
 
         .action-button.danger:hover {
-            background-color: #c82333;
-        }
-
-        .action-button.google:hover {
-            background-color: #c23321;
+            background-color: #cccccc;
         }
 
         .action-button:active {
-            background-color: #1e7e34; /* צבע ירוק כהה בלחיצה */
-            transform: translateY(0); /* חזרה למצב רגיל בלחיצה */
-        }
-        .action-button.secondary:active {
-            background-color: #0056b3;
-        }
-        .action-button.danger:active {
-            background-color: #bd2130;
-        }
-        .action-button.google:active {
-            background-color: #a72719;
+            opacity: 0.8;
+            transform: none;
         }
 
         .message-box {
-            background-color: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border: 1px solid #f5c6cb;
-            border-radius: 5px;
-            margin-top: 20px;
+            background-color: #f0f0f0;
+            color: #333333;
+            padding: 12px;
+            border: 1px solid #cccccc;
+            border-radius: 6px;
+            margin-top: 15px;
             text-align: right;
-            font-size: 1em;
-            font-weight: bold;
+            font-size: 0.9em;
+            font-weight: normal;
         }
         .message-box.success {
-            background-color: #d4edda;
-            color: #155724;
-            border-color: #c3e6cb;
+            background-color: #e6ffe6;
+            color: #2e7d32;
+            border-color: #a3e6a3;
         }
+        .message-box.danger { 
+            background-color: #ffe6e6;
+            color: #c62828;
+            border-color: #e6a3a3;
+        }
+         .message-box.warning {
+            background-color: #fffacd;
+            color: #a87200;
+            border-color: #ffd966;
+        }
+
 
         /* Table styles for Admin View */
         .admin-table-container {
             overflow-x: auto; /* Enable horizontal scrolling for small screens */
-            width: 100%; /* וודא שהקונטיינר של הטבלה תופס 100% מהרוחב */
+            width: 100%;
         }
         .admin-table {
             width: 100%;
-            border-collapse: collapse; /* Collapse borders for a cleaner look */
+            border-collapse: collapse;
             margin-top: 20px;
             font-size: 0.9em;
             text-align: right; /* RTL alignment */
-            min-width: 1200px; /* הגדרת רוחב מינימלי לטבלה כדי שתתפרש ותפעיל גלילה אם קטן יותר */
+            min-width: 1300px; /* Increased min-width for table */
         }
         .admin-table th, .admin-table td {
             border: 1px solid #ddd;
             padding: 10px 12px;
             vertical-align: top;
+            color: #333333; /* Darker text for table cells */
+            font-size: 0.95em; /* Slightly larger font for table content */
         }
         .admin-table th {
-            background-color: #e9ecef;
-            color: #34495e;
+            background-color: #e0e0e0; /* Lighter grey for headers */
+            color: #333333;
             font-weight: 600;
-            white-space: nowrap; /* Prevent headers from wrapping */
-            cursor: pointer; /* Indicate sortable */
+            white-space: nowrap;
+            cursor: pointer;
             position: relative;
-            padding-right: 25px; /* Space for sort icon */
+            padding-right: 25px;
+            font-size: 1em; /* Larger font for table headers */
         }
         .admin-table th .sort-icon {
             position: absolute;
-            left: 8px; /* Position icon on the left for RTL */
+            left: 8px;
             top: 50%;
             transform: translateY(-50%);
             font-size: 0.8em;
@@ -255,38 +250,44 @@
         }
         .admin-notes-textarea {
             width: 100%;
-            min-height: 120px; /* הגדלה לגובה רב יותר */
-            border: 1px solid #ccc;
+            min-height: 120px; /* Increased height */
+            border: 1px solid #cccccc; /* Gray border */
             border-radius: 4px;
-            padding: 5px;
+            padding: 8px; /* Slightly more padding */
             box-sizing: border-box;
-            font-size: 0.9em;
+            font-size: 0.95em; /* Slightly larger font */
             resize: vertical;
+            color: #333333; /* Darker text */
         }
         .admin-notes-save-button {
-            margin-top: 5px;
-            padding: 5px 10px;
-            background-color: #007bff;
+            margin-top: 8px; /* Increased margin */
+            padding: 8px 15px; /* Increased padding */
+            background-color: #444444; /* Dark grey */
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 0.8em;
-            transition: background-color 0.2s ease;
+            font-size: 0.9em; /* Slightly larger font */
+            transition: background-color 0.2s ease, opacity 0.2s ease;
         }
         .admin-notes-save-button:hover {
-            background-color: #0056b3;
+            background-color: #555555;
+            opacity: 1;
+        }
+        .admin-notes-save-button:active {
+            opacity: 0.8;
         }
         .admin-notes-save-button:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
+            color: #666666; /* Lighter text for disabled */
         }
         /* End Table styles */
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
             body {
-                padding: 10px; /* צמצום ריפוד גם במסכים קטנים יותר */
+                padding: 10px;
             }
             .container {
                 padding: 25px;
@@ -301,13 +302,19 @@
                 font-size: 1.1em;
             }
             .admin-table {
-                min-width: 900px; /* הקטנת המינימום רוחב לטבלה במסכים בינוניים */
+                min-width: 900px;
             }
             .admin-table th, .admin-table td {
                 padding: 8px 10px;
+                font-size: 0.9em;
             }
             .admin-notes-textarea {
-                 min-height: 80px; /* התאמת גובה הערות מנהל למסכים קטנים יותר */
+                 min-height: 80px;
+                 font-size: 0.9em;
+            }
+            .admin-notes-save-button {
+                padding: 6px 12px;
+                font-size: 0.8em;
             }
         }
         @media (max-width: 480px) {
@@ -315,7 +322,10 @@
                 padding: 15px;
             }
             .admin-table {
-                min-width: 600px; /* הקטנת המינימום רוחב לטבלה במסכים קטנים */
+                min-width: 600px;
+            }
+            .admin-table th, .admin-table td {
+                font-size: 0.85em;
             }
         }
     </style>
@@ -344,8 +354,7 @@
                     }
                     const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password);
                     setMessage('התחברות הצליחה! נא המתן...');
-                    const identity = userCredential.user.email || userCredential.user.uid;
-                    onLoginSuccess(userCredential.user.uid, identity);
+                    onLoginSuccess(userCredential.user);
                 } catch (error) {
                     console.error("Login error:", error);
                     let errorMessage = 'שגיאה בהתחברות. וודא מייל וסיסמה.';
@@ -384,7 +393,7 @@
                         </button>
                     </div>
                     <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
-                        <strong style={{color: '#d9534f'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
+                        <strong style={{color: '#F44336'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
                     </p>
                 </div>
             );
@@ -536,8 +545,9 @@
                     return;
                 }
 
+                // Removed "מזהה משתמש (UID)"
                 const headers = [
-                    "תאריך/שעה", "מזהה משתמש (UID)", "מזהה הזדהות (מייל/UID)",
+                    "תאריך/שעה", "מזהה הזדהות (מייל/UID)",
                     "שם מלא", "תעודת זהות", "גיל", "מין", "טלפון", "כתובת",
                     "שוהים בדירה", "פציעה פיזית", "הרוגים/פצועים", "מנותקי קשר",
                     "סיוע בפינוי", "הערות ממלא הטופס", "הערות מנהל"
@@ -545,8 +555,7 @@
 
                 const rows = sortedSubmissions.map(item => [
                     new Date(item.timestamp).toLocaleString('he-IL'),
-                    item.userId,
-                    item.identityId || '',
+                    item.identityId || '', // Use identityId instead of raw userId for clearer identity
                     `${item.firstName || ''} ${item.familyName || ''}`,
                     item.idNumber || '',
                     item.age || '',
@@ -616,7 +625,7 @@
                                 <thead>
                                     <tr>
                                         <th onClick={() => handleSort('timestamp')}>תאריך/שעה {getSortIcon('timestamp')}</th>
-                                        <th onClick={() => handleSort('userId')}>מזהה משתמש (UID) {getSortIcon('userId')}</th>
+                                        {/* Removed "מזהה משתמש (UID)" */}
                                         <th onClick={() => handleSort('identityId')}>מזהה הזדהות (מייל/UID) {getSortIcon('identityId')}</th>
                                         <th onClick={() => handleSort('firstName')}>שם מלא {getSortIcon('firstName')}</th>
                                         <th onClick={() => handleSort('idNumber')}>תעודת זהות {getSortIcon('idNumber')}</th>
@@ -630,14 +639,14 @@
                                         <th onClick={() => handleSort('disconnected')}>מנותקי קשר {getSortIcon('disconnected')}</th>
                                         <th onClick={() => handleSort('evacuationAssistance')}>סיוע בפינוי {getSortIcon('evacuationAssistance')}</th>
                                         <th>הערות ממלא הטופס</th>
-                                        <th>הערות מנהל</th>
+                                        <th style={{ width: '20%' }}>הערות מנהל</th> {/* Increased width for admin notes */}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {sortedSubmissions.map((item) => (
                                         <tr key={item.id}>
                                             <td>{new Date(item.timestamp).toLocaleString('he-IL')}</td>
-                                            <td>{item.userId}</td>
+                                            {/* Removed item.userId */}
                                             <td>{item.identityId || 'לא הוזן'}</td>
                                             <td>{item.firstName} {item.familyName}</td>
                                             <td>{item.idNumber || 'לא הוזן'}</td>
@@ -697,15 +706,9 @@
                 });
 
                 const auth = window.firebaseAuth;
-                const unsubscribe = window.onAuthStateChangedGlobal(auth, async (user) => {
-                    if (user) {
-                        setUserUid(user.uid);
-                        logoutTriggeredRef.current = false;
-                        setIsAuthReady(true);
-                    } else {
-                        setUserUid(null);
-                        setIsAuthReady(true);
-                    }
+                const unsubscribe = window.onAuthStateChangedGlobal(auth, (firebaseUser) => {
+                    setUserUid(firebaseUser); // Store full user object directly if needed, or just UID
+                    setIsAuthReady(true);
                 });
                 return () => unsubscribe();
             }, []);
@@ -745,7 +748,7 @@
                 );
             }
 
-            if (!userUid) {
+            if (!userUid) { // Changed from !user to !userUid since setUserUid now stores the user object directly
                 return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={handleLogin} />;
             }
 
@@ -753,7 +756,7 @@
                 <AdminViewComponent
                     auth={firebaseInstances.auth}
                     db={firebaseInstances.db}
-                    userUid={userUid}
+                    userUid={userUid.uid} // Pass the UID specifically
                     onLogout={handleLogout}
                 />
             );
