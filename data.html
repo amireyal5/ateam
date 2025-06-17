@@ -17,7 +17,8 @@
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         // FIXED: Added getDoc to Firestore imports
-        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // FIXED: Added signInWithCustomToken to Auth imports
+        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collectionGroup, query, onSnapshot, doc, updateDoc, where, getDocs, collection, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
@@ -102,6 +103,7 @@
             window.signOutFirebaseGlobal = signOut; 
             window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
             window.sendPasswordResetEmailGlobal = sendPasswordResetEmail; 
+            window.signInWithCustomTokenGlobal = signInWithCustomToken; // ADDED: Expose signInWithCustomToken
             console.log("Auth-related global functions exposed.");
         } else {
             console.warn("Firebase Auth not initialized. Auth related global functions will not be available.");
@@ -115,6 +117,7 @@
             window.signOutFirebaseGlobal = () => { console.error("signOutFirebaseGlobal: Firebase Auth is not initialized."); return Promise.reject(new Error("Auth not initialized")); };
             window.signInWithEmailAndPasswordGlobal = () => { console.error("signInWithEmailAndPasswordGlobal: Firebase Auth is not initialized."); return Promise.reject(new Error("Auth not initialized")); };
             window.sendPasswordResetEmailGlobal = () => { console.error("sendPasswordResetEmailGlobal: Firebase Auth is not initialized."); return Promise.reject(new Error("Auth not initialized")); };
+            window.signInWithCustomTokenGlobal = () => { console.error("signInWithCustomTokenGlobal: Firebase Auth is not initialized."); return Promise.reject(new Error("Auth not initialized")); }; // Dummy for signInWithCustomToken
         }
 
         if (db) {
@@ -796,16 +799,20 @@
                 }
                 try {
                     if (!auth) {
-                        setMessage('שגיאה: שירותי Firebase Auth אינם זמינים.');
+                        setMessage('שגיאה: שירותי Firebase Auth אינם זמינים. לא ניתן לשלוח מייל איפוס.');
                         setLoading(false);
                         return;
                     }
+                    console.log(`Attempting to send password reset email to: ${email}`); // ADDED: Log for debugging
                     await window.sendPasswordResetEmailGlobal(auth, email);
                     setMessage('אם קיים חשבון עם המייל הזה, קישור לאיפוס סיסמה נשלח אליו. נא לבדוק גם את תיקיית הספאם.');
                 } catch (error) {
-                    console.error("Password reset error:", error);
-                    // Crucially, we give a generic message to avoid email enumeration
-                    setMessage('אם קיים חשבון עם המייל הזה, קישור לאיפוס סיסמה נשלח אליו. נא לבדוק גם את תיקיית הספאם.');
+                    console.error("Password reset error details:", error); // UPDATED: More detailed error log
+                    let errorMessage = 'שגיאה כללית בשליחת מייל איפוס. נא לוודא את כתובת המייל ולנסות שוב.';
+                    if (error.code) {
+                        errorMessage += ` קוד שגיאה: ${error.code}.`;
+                    }
+                    setMessage(errorMessage);
                 } finally {
                     setLoading(false);
                 }
@@ -1513,7 +1520,7 @@
             const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null,
                 docFirebaseGlobal: null, getDocFirebaseGlobal: null, updateDocFirebaseGlobal: null, 
                 collectionGroupFirebaseGlobal: null, queryFirebaseGlobal: null, onSnapshotGlobal: null, 
-                whereFirebaseGlobal: null, getDocsFirebaseGlobal: null
+                whereFirebaseGlobal: null, getDocsFirebaseGlobal: null, signInWithCustomTokenGlobal: null // ADDED: to track this global
             });
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
@@ -1523,9 +1530,10 @@
 
             useEffect(() => {
                 let cleanupFunction = null;
-                let pollInterval = null; // Declare pollInterval here
+                let pollInterval = null; 
+                let isInitializing = false; // Flag to prevent multiple concurrent initializations
 
-                const initializeFirebaseAndAuth = () => {
+                const initializeFirebaseAndAuth = async () => { 
                     // Check if the core Firebase instances and essential Firestore functions are available globally
                     if (window.firebaseApp && window.firebaseAuth && window.firebaseDb &&
                         typeof window.docFirebaseGlobal !== 'undefined' &&
@@ -1535,7 +1543,9 @@
                         typeof window.queryFirebaseGlobal !== 'undefined' &&
                         typeof window.onSnapshotGlobal !== 'undefined' &&
                         typeof window.whereFirebaseGlobal !== 'undefined' &&
-                        typeof window.getDocsFirebaseGlobal !== 'undefined') {
+                        typeof window.getDocsFirebaseGlobal !== 'undefined' &&
+                        typeof window.signInWithCustomTokenGlobal !== 'undefined' // ADDED: Ensure this is also available
+                    ) {
                         
                         // All globals are present, proceed with setting React state and auth listener
                         setFirebaseInstances({
@@ -1550,25 +1560,45 @@
                             onSnapshotGlobal: window.onSnapshotGlobal,
                             whereFirebaseGlobal: window.whereFirebaseGlobal,
                             getDocsFirebaseGlobal: window.getDocsFirebaseGlobal,
+                            signInWithCustomTokenGlobal: window.signInWithCustomTokenGlobal // ADDED: Pass to state
                         });
 
                         const auth = window.firebaseAuth;
+                        
+                        // ADDED: Attempt to sign in with custom token if available (for automatic login from Canvas environment)
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token !== null && auth) {
+                            try {
+                                console.log("Attempting to sign in with __initial_auth_token...");
+                                await window.signInWithCustomTokenGlobal(auth, __initial_auth_token);
+                                console.log("Signed in with custom token.");
+                            } catch (error) {
+                                console.error("Error signing in with custom token:", error);
+                                // Fallback to email/password login if custom token fails or is invalid
+                            }
+                        } else {
+                            console.log("__initial_auth_token not found or is null, or Firebase Auth not ready. Proceeding with standard auth checks.");
+                        }
+
                         cleanupFunction = window.onAuthStateChangedGlobal(auth, (firebaseUser) => {
                             setUserUid(firebaseUser);
                             setIsAuthReady(true); // Firebase and Auth state are now truly ready
                         });
                         return true; // Indicate successful initialization
                     } else {
-                        // console.log("Waiting for global Firebase functions to be fully available...");
                         return false; // Indicate that initialization is not complete
                     }
                 };
 
-                pollInterval = setInterval(() => {
-                    if (initializeFirebaseAndAuth()) { // If initialization was successful, clear the interval
-                        clearInterval(pollInterval);
+                // Poll interval to wait for global Firebase instances to be ready
+                pollInterval = setInterval(async () => { 
+                    if (!isInitializing) {
+                        isInitializing = true;
+                        if (await initializeFirebaseAndAuth()) { // Await the async function call
+                            clearInterval(pollInterval);
+                        }
+                        isInitializing = false;
                     }
-                }, 100); // Poll every 100ms
+                }, 100);
 
                 // Cleanup interval and auth listener when component unmounts
                 return () => {
