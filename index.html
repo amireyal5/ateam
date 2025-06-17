@@ -369,7 +369,7 @@
             border-color: #e6a3a3;
         }
         .message-box.warning {
-            background-color: #fffacd; /* Light yellow */
+            background-color: #fffacd;
             color: #a87200; /* Dark yellow/orange */
             border-color: #ffd966;
         }
@@ -829,6 +829,18 @@
 
         // Main Form Component for data submission
         function SubmissionForm({ db, userUid, userName, userFamilyName, userIdNumber, onLogout }) {
+            // State for reported person's details
+            const [reportedPersonFirstName, setReportedPersonFirstName] = useState('');
+            const [reportedPersonFamilyName, setReportedPersonFamilyName] = useState('');
+            const [reportedPersonIdNumber, setReportedPersonIdNumber] = useState('');
+
+            // Validation states for reported person's details
+            const [reportedPersonFirstNameError, setReportedPersonFirstNameError] = useState(false);
+            const [reportedPersonFamilyNameError, setReportedPersonFamilyNameError] = useState(false);
+            const [reportedPersonIdNumberError, setReportedPersonIdNumberError] = useState(false);
+            const [reportedPersonIdNumberExistsError, setReportedPersonIdNumberExistsError] = useState(false);
+
+
             const [age, setAge] = useState('');
             const [gender, setGender] = useState('');
             const [phone, setPhone] = useState('');
@@ -844,7 +856,7 @@
             const [lastSubmittedId, setLastSubmittedId] = useState(null); // Track the last submitted ID for viewing details
             const [previousSubmissions, setPreviousSubmissions] = useState([]); // State for previous submissions
 
-            // State for validation errors for form fields
+            // State for validation errors for other form fields
             const [ageError, setAgeError] = useState(false);
             const [genderError, setGenderError] = useState(false);
             const [phoneError, setPhoneError] = useState(false);
@@ -920,6 +932,7 @@
                     return;
                 }
 
+                // Fetch submissions made by *this* user
                 const submissionsCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`);
                 const q = window.queryFirebaseGlobal(submissionsCollectionRef);
 
@@ -937,7 +950,7 @@
                 });
 
                 return () => unsubscribe(); // Cleanup on unmount
-            }, [db, userUid]); // Rerun when db or userUid changes
+            }, [db, userUid]); // Re-run when db or userUid changes
 
 
             // Handles form submission
@@ -945,10 +958,28 @@
                 e.preventDefault();
                 setMessage('');
                 setLoading(true);
+                setReportedPersonIdNumberExistsError(false); // Reset existence error
 
                 let hasError = false;
 
-                // Validate all fields
+                // Validate reported person's fields
+                if (!reportedPersonFirstName.trim()) { setReportedPersonFirstNameError(true); hasError = true; } else { setReportedPersonFirstNameError(false); }
+                if (!reportedPersonFamilyName.trim()) { setReportedPersonFamilyNameError(true); hasError = true; } else { setReportedPersonFamilyNameError(false); }
+                
+                const trimmedReportedId = reportedPersonIdNumber.trim();
+                if (!trimmedReportedId || !/^\d{9}$/.test(trimmedReportedId)) {
+                    setReportedPersonIdNumberError(true);
+                    setMessage('מספר תעודת זהות של האדם המדווח חייב להיות בן 9 ספרות בדיוק.');
+                    hasError = true;
+                } else if (!validateIsraeliId(trimmedReportedId)) {
+                    setReportedPersonIdNumberError(true);
+                    setMessage('מספר תעודת הזהות של האדם המדווח אינו תקין.');
+                    hasError = true;
+                } else {
+                    setReportedPersonIdNumberError(false);
+                }
+
+                // Validate all other form fields
                 if (!age.trim() || isNaN(parseInt(age)) || parseInt(age) < 0) { setAgeError(true); hasError = true; } else { setAgeError(false); }
                 if (!gender) { setGenderError(true); hasError = true; } else { setGenderError(false); }
                 if (!phone.trim()) { setPhoneError(true); hasError = true; } else { setPhoneError(false); }
@@ -960,22 +991,22 @@
                 if (!evacuationAssistance) { setEvacuationAssistanceError(true); hasError = true; } else { setEvacuationAssistanceError(false); }
 
                 if (hasError) {
-                    setMessage('אנא מלא את כל השדות הנדרשים המסומנים.');
+                    setMessage('אנא מלא את כל השדות הנדרשים המסומנים כראוי.');
                     setLoading(false);
                     return;
                 }
 
                 try {
-                    // This check remains here, as it prevents a user from submitting a duplicate report
-                    // about the *same person* (which, in the current context, is themselves).
+                    // Check if the reported person's ID number already exists in *any* formData collection
                     const idNumberQuery = window.queryFirebaseGlobal(
                         window.collectionGroupFirebaseGlobal(db, 'formData'),
-                        window.whereFirebaseGlobal('idNumber', '==', userIdNumber)
+                        window.whereFirebaseGlobal('reportedPersonIdNumber', '==', trimmedReportedId) // Use the new field
                     );
                     const querySnapshot = await window.getDocsFirebaseGlobal(idNumberQuery);
 
                     if (!querySnapshot.empty) {
-                        setMessage('מספר תעודת זהות זה כבר קיים במערכת. אנא וודא שאינך מדווח שוב על אותו אדם. ניתן לצפות או לערוך דרך "צפייה בנתונים".');
+                        setReportedPersonIdNumberExistsError(true);
+                        setMessage('מספר תעודת זהות של האדם המדווח כבר קיים במערכת. אנא וודא שאינך מדווח שוב על אותו אדם.');
                         setLoading(false);
                         return;
                     }
@@ -984,11 +1015,15 @@
                     const docRef = await window.addDocFirebaseGlobal(
                         window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`),
                         {
-                            userId: userUid, // Store the user's UID who submitted the form
-                            identityId: userIdNumber, // Store the user's verified ID number
-                            firstName: userName,
-                            familyName: userFamilyName,
-                            idNumber: userIdNumber, // Redundant but good for quick access in subcollection
+                            reporterUserId: userUid, // The UID of the person who submitted the form
+                            reporterIdentityId: userIdNumber, // The verified ID of the person who submitted the form
+                            reporterFirstName: userName,
+                            reporterFamilyName: userFamilyName,
+                            
+                            reportedPersonFirstName: reportedPersonFirstName.trim(), // New: Name of the person being reported on
+                            reportedPersonFamilyName: reportedPersonFamilyName.trim(), // New: Name of the person being reported on
+                            reportedPersonIdNumber: trimmedReportedId, // New: ID of the person being reported on
+
                             age: parseInt(age),
                             gender,
                             phone,
@@ -1009,6 +1044,9 @@
                     setLastSubmittedId(docRef.id); // Store ID of the new submission
 
                     // Clear form fields after successful submission
+                    setReportedPersonFirstName('');
+                    setReportedPersonFamilyName('');
+                    setReportedPersonIdNumber('');
                     setAge('');
                     setGender('');
                     setPhone('');
@@ -1067,6 +1105,67 @@
 
                         <div className="form-section">
                             <h2>פרטי אדם באזור התקרית</h2>
+                            {/* New fields for reported person's name and ID */}
+                            <div className={`form-group ${reportedPersonFirstNameError ? 'error' : ''}`}>
+                                <label htmlFor="reportedPersonFirstName" className="required">שם פרטי (מדווח עליו):</label>
+                                <input
+                                    type="text"
+                                    id="reportedPersonFirstName"
+                                    value={reportedPersonFirstName}
+                                    onChange={(e) => { setReportedPersonFirstName(e.target.value); setReportedPersonFirstNameError(false); }}
+                                    onBlur={() => setReportedPersonFirstNameError(!reportedPersonFirstName.trim())}
+                                    placeholder="הזן שם פרטי של האדם"
+                                    required
+                                />
+                                {reportedPersonFirstNameError && <span className="error-message">שדה חובה</span>}
+                            </div>
+                            <div className={`form-group ${reportedPersonFamilyNameError ? 'error' : ''}`}>
+                                <label htmlFor="reportedPersonFamilyName" className="required">שם משפחה (מדווח עליו):</label>
+                                <input
+                                    type="text"
+                                    id="reportedPersonFamilyName"
+                                    value={reportedPersonFamilyName}
+                                    onChange={(e) => { setReportedPersonFamilyName(e.target.value); setReportedPersonFamilyNameError(false); }}
+                                    onBlur={() => setReportedPersonFamilyNameError(!reportedPersonFamilyName.trim())}
+                                    placeholder="הזן שם משפחה של האדם"
+                                    required
+                                />
+                                {reportedPersonFamilyNameError && <span className="error-message">שדה חובה</span>}
+                            </div>
+                            <div className={`form-group ${reportedPersonIdNumberError || reportedPersonIdNumberExistsError ? 'error' : ''}`}>
+                                <label htmlFor="reportedPersonIdNumber" className="required">תעודת זהות (מדווח עליו, 9 ספרות):</label>
+                                <input
+                                    type="text"
+                                    id="reportedPersonIdNumber"
+                                    value={reportedPersonIdNumber}
+                                    onChange={(e) => { 
+                                        const val = e.target.value.replace(/\D/g, '').substring(0, 9); // Only digits, max 9
+                                        setReportedPersonIdNumber(val); 
+                                        setReportedPersonIdNumberError(false); 
+                                        setReportedPersonIdNumberExistsError(false); // Clear existence error on change
+                                        setMessage(''); // Clear general message
+                                    }}
+                                    onBlur={() => {
+                                        const trimmedId = reportedPersonIdNumber.trim();
+                                        if (!trimmedId || !/^\d{9}$/.test(trimmedId)) {
+                                            setReportedPersonIdNumberError(true);
+                                            setMessage('מספר תעודת זהות של האדם המדווח חייב להיות בן 9 ספרות בדיוק.');
+                                        } else if (!validateIsraeliId(trimmedId)) {
+                                            setReportedPersonIdNumberError(true);
+                                            setMessage('מספר תעודת הזהות של האדם המדווח אינו תקין.');
+                                        } else {
+                                            setReportedPersonIdNumberError(false);
+                                            setMessage('');
+                                        }
+                                    }}
+                                    required
+                                    placeholder="הזן תעודת זהות של האדם"
+                                    inputMode="numeric" // Optimized for numeric input on mobile
+                                />
+                                {reportedPersonIdNumberError && <span className="error-message">{message}</span>}
+                                {reportedPersonIdNumberExistsError && <span className="error-message">{message}</span>}
+                            </div>
+                            
                             <div className={`form-group ${ageError ? 'error' : ''}`}>
                                 <label htmlFor="age" className="required">גיל:</label>
                                 <input
@@ -1229,10 +1328,13 @@
                             {previousSubmissions.map((item) => (
                                 <div key={item.id} className="submission-item">
                                     <span><strong>תאריך:</strong> {new Date(item.timestamp).toLocaleString('he-IL')}</span>
+                                    {/* Display reported person's name and ID, if available. Fallback to general ID if structure is old. */}
+                                    <span><strong>שם:</strong> {item.reportedPersonFirstName ? `${item.reportedPersonFirstName} ${item.reportedPersonFamilyName}` : `${item.firstName || ''} ${item.familyName || ''}`}</span>
+                                    <span><strong>תעודת זהות:</strong> {item.reportedPersonIdNumber || item.idNumber || 'לא הוזן'}</span>
                                     <span><strong>סטטוס הפניה:</strong> {item.referralStatus === 'closed' ? 'סגורה' : item.referralStatus === 'social_worker' ? 'הועבר לטיפול עו"ס' : item.referralStatus === 'other' ? `הועבר להמשך טיפול אחר: ${item.otherStatusText}` : 'טרם הוגדר'}</span>
                                     <span><strong>כתובת:</strong> {item.address}</span>
                                     <span><strong>הערות:</strong> {item.notes || 'אין'}</span>
-                                    <a href={`details.html?id=${item.id}&userId=${item.userId}`} className="edit-button">
+                                    <a href={`details.html?id=${item.id}&userId=${item.reporterUserId || item.userId}`} className="edit-button"> {/* Use reporterUserId for link */}
                                         פרטים וטיפול
                                     </a>
                                 </div>
