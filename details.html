@@ -16,6 +16,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; // Explicitly import onSnapshot for exposure
 
         // Global variables provided by the Canvas environment (do not modify these directly)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -85,6 +86,7 @@
         window.docFirebaseGlobal = doc; // Expose doc
         window.updateDocFirebaseGlobal = updateDoc; // Expose updateDoc
         window.getDocFirebaseGlobal = getDoc; // Expose getDoc
+        window.onSnapshotFirebaseGlobal = onSnapshot; // Expose onSnapshot correctly
     </script>
 
     <style>
@@ -433,7 +435,8 @@
                 const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submissionUserId}/formData`, submissionId);
 
                 // Use onSnapshot for real-time updates (optional, getDoc also works)
-                const unsubscribe = window.onSnapshot(docRef, (docSnap) => {
+                // Corrected call to onSnapshotFirebaseGlobal
+                const unsubscribe = window.onSnapshotFirebaseGlobal(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
                         setSubmission({ id: docSnap.id, ...data });
@@ -718,8 +721,9 @@
                 />
             );
         }
-
-        ReactDOM.render(<App />, document.getElementById('root'));
+        // Corrected React 18 rendering method
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
