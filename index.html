@@ -103,7 +103,7 @@
         /* הגדרות בסיסיות לגוף הדף */
         body {
             font-family: 'Inter', Arial, sans-serif; /* שימוש בפונט Inter */
-            background-color: #f0f2f5; /* צבע רקע עדין */
+            background-color: #f8f8f8; /* צבע רקע אפור בהיר מאוד */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -116,27 +116,27 @@
         /* מכל הטופס והלוגין */
         .container {
             background-color: #ffffff; /* רקע לבן */
-            padding: 20px; /* ריפוד מופחת מ-25px ל-20px */
+            padding: 25px; /* ריפוד מוגדל במקצת */
             border-radius: 8px; /* פינות מעוגלות קטנות יותר */
-            box-shadow: none; /* הסרת צל לכיוון עיצוב מינימליסטי ומהיר */
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); /* צל עדין מאוד */
             width: 100%;
-            max-width: 600px; /* רוחב מקסימלי מותאם לנייד */
+            max-width: 750px; /* רוחב מקסימלי מוגדל */
             box-sizing: border-box;
-            border: 1px solid #e0e0e0; /* גבול עדין */
+            border: 1px solid #e0e0e0; /* גבול אפור עדין */
             text-align: right; /* יישור לימין לכל התוכן בתוך הקונטיינר */
         }
 
         h1 {
             text-align: center;
-            color: #2c3e50; /* צבע כהה לכותרת */
-            margin-bottom: 20px; /* מרווח תחתון מופחת */
-            font-size: 1.6em; /* גודל פונט קטן יותר לכותרת */
+            color: #333333; /* צבע כהה לכותרת */
+            margin-bottom: 25px; /* מרווח תחתון מוגדל */
+            font-size: 1.8em; /* גודל פונט מוגדל לכותרת */
             font-weight: 700; /* עובי פונט מודגש */
         }
 
         .form-section {
-            margin-bottom: 15px; /* מרווח תחתון מופחת */
-            padding-bottom: 10px; /* ריפוד תחתון מופחת */
+            margin-bottom: 20px; /* מרווח תחתון מוגדל */
+            padding-bottom: 15px; /* ריפוד תחתון מוגדל */
             border-bottom: 1px dashed #cccccc; /* קו הפרדה מקווקו */
         }
 
@@ -147,41 +147,49 @@
 
         .form-grid {
             display: grid;
-            gap: 10px; /* מרווח מופחת בין השדות */
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* התאמה אוטומטית של עמודות, קטן יותר לנייד */
+            gap: 15px; /* מרווח מוגדל בין השדות */
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* רוחב מינימלי מוגדל */
         }
 
         .form-grid.two-columns {
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* רוחב מינימלי מופחת לשתי עמודות */
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* רוחב מינימלי מוגדל לשתי עמודות */
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
             text-align: right; /* יישור לימין עבור RTL */
+            position: relative; /* עבור הודעות שגיאה */
         }
 
         label {
-            margin-bottom: 5px; /* מרווח תחתון מופחת */
-            color: #34495e; /* צבע כהה לתווית */
+            margin-bottom: 8px; /* מרווח תחתון מוגדל */
+            color: #333333; /* צבע כהה לתווית */
             font-weight: 600; /* עובי פונט בינוני */
-            font-size: 0.95em; /* גודל פונט קטן יותר */
+            font-size: 1.05em; /* גודל פונט מוגדל לתוויות */
         }
+        /* סימון שדות חובה */
+        label.required::after {
+            content: ' *';
+            color: #F44336; /* אדום ברור לכוכבית */
+            font-weight: bold;
+        }
+
 
         input[type="text"],
         input[type="number"],
-        input[type="tel"], /* Added for phone numbers */
+        input[type="tel"],
         textarea,
         select,
         input[type="password"] {
             width: 100%;
-            padding: 8px 10px; /* ריפוד מופחת */
-            border: 1px solid #dcdcdc; /* גבול עדין */
-            border-radius: 4px; /* פינות מעוגלות קטנות יותר */
+            padding: 10px 12px; /* ריפוד מוגדל */
+            border: 1px solid #cccccc; /* גבול אפור בהיר */
+            border-radius: 6px; /* פינות מעוגלות במקצת */
             box-sizing: border-box;
-            font-size: 0.95em; /* גודל פונט סטנדרטי */
-            color: #333;
-            transition: none; /* ביטול אנימציות */
+            font-size: 1em; /* גודל פונט סטנדרטי */
+            color: #333333; /* צבע טקסט כהה */
+            transition: border-color 0.2s ease; /* מעבר עדין לגבול */
         }
 
         input[type="text"]:focus,
@@ -190,137 +198,156 @@
         textarea:focus,
         select:focus,
         input[type="password"]:focus {
-            border-color: #3498db; /* צבע כחול בפוקוס */
+            border-color: #888888; /* צבע אפור בינוני בפוקוס */
             outline: none; /* הסרת קו המתאר ברירת המחדל */
             box-shadow: none; /* הסרת צל בפוקוס */
         }
+        
+        /* סגנון שגיאה לשדות קלט */
+        .form-group.error input,
+        .form-group.error textarea,
+        .form-group.error select {
+            border-color: #F44336; /* גבול אדום לשדה שגיאה */
+        }
+        .error-message {
+            color: #F44336; /* צבע אדום להודעת שגיאה */
+            font-size: 0.8em;
+            margin-top: 4px;
+            text-align: right;
+        }
+
 
         textarea {
             resize: vertical; /* מאפשר שינוי גודל אנכי בלבד */
-            min-height: 60px; /* גובה מינימלי מופחת */
+            min-height: 80px; /* גובה מינימלי מוגדל */
         }
 
         .radio-group {
             display: flex;
-            flex-wrap: wrap; /* מאפשר מעבר שורה לפריטים */
-            gap: 10px; /* מרווח מופחת בין כפתורי הרדיו */
-            margin-top: 5px;
+            flex-wrap: wrap;
+            gap: 12px; /* מרווח מוגדל בין כפתורי הרדיו */
+            margin-top: 8px;
             justify-content: flex-end; /* יישור לימין של כפתורי הרדיו */
         }
 
         .radio-group label {
             margin-bottom: 0;
-            font-weight: normal; /* ביטול מודגש */
+            font-weight: normal;
             display: flex;
             align-items: center;
-            cursor: pointer; /* סמן עכבר יד */
-            color: #444;
-            font-size: 0.9em; /* גודל פונט קטן יותר */
+            cursor: pointer;
+            color: #555555; /* צבע אפור לתווית רדיו */
+            font-size: 0.95em; /* גודל פונט מוגדל */
         }
 
         .radio-group input[type="radio"] {
             margin-left: 6px; /* מרווח משמאל לכפתור עבור RTL */
             width: auto;
-            transform: scale(1); /* ביטול הגדלה */
+            transform: scale(1.05); /* הגדלה עדינה */
         }
 
         .button-container {
             display: flex;
             justify-content: center;
-            gap: 8px; /* מרווח מופחת בין כפתורים */
-            margin-top: 20px; /* מרווח עליון מופחת */
+            gap: 12px; /* מרווח מוגדל בין כפתורים */
+            margin-top: 30px; /* מרווח עליון מוגדל */
         }
 
         .action-button {
-            background-color: #4CAF50; /* ירוק רך יותר (השראת Material Design) */
+            background-color: #444444; /* אפור כהה (כפתור ראשי) */
             color: white;
-            padding: 10px 20px; /* ריפוד מופחת */
+            padding: 12px 25px; /* ריפוד מוגדל */
             border: none;
-            border-radius: 4px; /* פינות מעוגלות קטנות יותר */
-            font-size: 1em; /* גודל פונט סטנדרטי */
-            font-weight: 600; /* מודגש פחות */
+            border-radius: 6px; /* פינות מעוגלות */
+            font-size: 1.05em; /* גודל פונט מוגדל */
+            font-weight: 600;
             cursor: pointer;
-            transition: none; /* ביטול אנימציות */
+            transition: background-color 0.2s ease, opacity 0.2s ease; /* מעבר עדין */
             box-shadow: none; /* ביטול צל */
         }
 
         .action-button.secondary {
-            background-color: #2196F3; /* כחול רך יותר */
+            background-color: #888888; /* אפור בינוני (כפתור משני) */
         }
 
         .action-button.danger {
-            background-color: #F44336; /* אדום רך יותר */
+            background-color: #bbbbbb; /* אפור בהיר (כפתור התנתקות/סכנה) */
+            color: #333333; /* טקסט כהה לכפתור בהיר */
         }
 
-        /* הסרת אפקטי hover ו-active מורכבים, שימוש בשקיפות בלבד */
-        .action-button:hover,
-        .action-button.secondary:hover,
-        .action-button.danger:hover {
-            opacity: 0.8; /* שינוי שקיפות עדין */
+        .action-button:hover {
+            background-color: #555555; /* אפור כהה יותר בריחוף */
+            opacity: 1; /* ללא שינוי שקיפות נוסף */
         }
-        .action-button:active,
-        .action-button.secondary:active,
-        .action-button.danger:active {
-            opacity: 0.6; /* שינוי שקיפות בולט יותר בלחיצה */
+        .action-button.secondary:hover {
+            background-color: #999999;
+        }
+        .action-button.danger:hover {
+            background-color: #cccccc;
+        }
+
+        .action-button:active {
+            opacity: 0.8; /* שינוי שקיפות בלחיצה */
+            transform: none; /* ביטול אפקט קל של ריחוף */
         }
 
         .message-box {
-            background-color: #e0f2f7; /* רקע בהיר יותר להודעות */
-            color: #01579b; /* טקסט כחול כהה יותר */
-            padding: 10px; /* ריפוד מופחת */
-            border: 1px solid #b3e5fc; /* גבול בהיר יותר */
-            border-radius: 4px;
-            margin-top: 10px; /* מרווח עליון מופחת */
+            background-color: #f0f0f0; /* רקע אפור בהיר מאוד להודעות */
+            color: #333333; /* טקסט כהה */
+            padding: 12px; /* ריפוד מוגדל */
+            border: 1px solid #cccccc; /* גבול אפור */
+            border-radius: 6px;
+            margin-top: 15px; /* מרווח עליון מוגדל */
             text-align: right;
             font-size: 0.9em;
-            font-weight: normal; /* פחות מודגש */
+            font-weight: normal;
         }
         .message-box.success {
-            background-color: #e8f5e9; /* ירוק בהיר יותר */
+            background-color: #e6ffe6; /* ירוק עדין מאוד */
             color: #2e7d32; /* ירוק כהה יותר */
-            border-color: #c8e6c9;
+            border-color: #a3e6a3;
         }
         .message-box.danger { 
-            background-color: #ffebee; /* אדום בהיר יותר */
+            background-color: #ffe6e6; /* אדום עדין מאוד */
             color: #c62828; /* אדום כהה יותר */
-            border-color: #ffcdd2;
+            border-color: #e6a3a3;
         }
-         .message-box.warning { /* New style for warning messages */
-            background-color: #fffde7; /* Light yellow */
-            color: #c0840c; /* Dark yellow/orange */
-            border-color: #ffe082;
+         .message-box.warning {
+            background-color: #fffacd; /* צהוב עדין */
+            color: #a87200; /* חום-כתום כהה */
+            border-color: #ffd966;
         }
 
 
         .previous-submissions {
-            margin-top: 20px; /* מרווח עליון מופחת */
+            margin-top: 30px; /* מרווח עליון מוגדל */
             text-align: right;
             border-top: 1px dashed #cccccc;
-            padding-top: 15px; /* ריפוד עליון מופחת */
+            padding-top: 20px; /* ריפוד עליון מוגדל */
         }
         .previous-submissions h2 {
-            color: #2c3e50;
-            font-size: 1.4em; /* גודל פונט קטן יותר */
-            margin-bottom: 10px; /* מרווח תחתון מופחת */
+            color: #333333;
+            font-size: 1.5em; /* גודל פונט מוגדל */
+            margin-bottom: 15px; /* מרווח תחתון מוגדל */
         }
         .submission-item {
-            background-color: #f5f5f5; /* רקע בהיר יותר */
+            background-color: #f9f9f9; /* רקע בהיר יותר */
             border: 1px solid #e0e0e0;
-            border-radius: 6px; /* פינות מעוגלות קטנות יותר */
-            padding: 10px; /* ריפוד מופחת */
-            margin-bottom: 8px; /* מרווח תחתון מופחת */
+            border-radius: 8px; /* פינות מעוגלות */
+            padding: 15px; /* ריפוד מוגדל */
+            margin-bottom: 10px; /* מרווח תחתון מוגדל */
             text-align: right;
-            line-height: 1.4; /* מרווח שורות מופחת */
-            font-size: 0.85em; /* גודל פונט קטן יותר */
+            line-height: 1.6; /* מרווח שורות מוגדל */
+            font-size: 0.9em; /* גודל פונט מוגדל */
         }
         .submission-item strong {
-            color: #34495e;
+            color: #444444;
         }
         .submission-item span {
             display: block;
-            margin-bottom: 2px; /* מרווח תחתון מופחת */
-            font-size: 0.8em; /* גודל פונט קטן יותר */
-            color: #555;
+            margin-bottom: 4px; /* מרווח תחתון מוגדל */
+            font-size: 0.85em; /* גודל פונט מוגדל */
+            color: #666666;
         }
 
         /* רספונסיביות - התאמה למסכים קטנים (עד 768 פיקסלים) */
@@ -330,17 +357,17 @@
                 grid-template-columns: 1fr; /* כל השדות נערמים לעמודה אחת */
             }
             .container {
-                padding: 10px; /* ריפוד מינימלי למסכים קטנים */
+                padding: 15px; /* ריפוד מותאם למסכים קטנים */
                 margin: 0; /* ללא מרווחים צדדיים */
                 border-radius: 0; /* ללא פינות מעוגלות למסכים קטנים מאוד */
                 box-shadow: none; /* ללא צל */
             }
             h1 {
-                font-size: 1.4em; /* הקטנה נוספת של כותרת */
+                font-size: 1.6em; /* הקטנה נוספת של כותרת */
                 margin-bottom: 15px;
             }
             label {
-                font-size: 0.85em;
+                font-size: 1em; /* גודל פונט לתוויות מותאם */
             }
             input[type="text"],
             input[type="number"],
@@ -348,26 +375,26 @@
             textarea,
             select,
             input[type="password"] {
-                padding: 6px 8px; /* ריפוד מינימלי ביותר בשדות קלט */
-                font-size: 0.85em;
+                padding: 8px 10px; /* ריפוד מותאם בשדות קלט */
+                font-size: 0.95em;
             }
             textarea {
-                min-height: 50px; /* הקטנה נוספת של גובה שדה טקסט */
+                min-height: 60px; /* התאמת גובה שדה טקסט */
             }
             .form-section {
-                margin-bottom: 10px;
-                padding-bottom: 8px;
+                margin-bottom: 15px;
+                padding-bottom: 10px;
             }
             .action-button {
-                padding: 8px 15px;
-                font-size: 0.9em;
+                padding: 10px 20px;
+                font-size: 1em;
             }
             .previous-submissions h2 {
-                font-size: 1.1em;
+                font-size: 1.3em;
             }
             .submission-item {
-                padding: 8px;
-                font-size: 0.8em;
+                padding: 12px;
+                font-size: 0.85em;
             }
         }
 
@@ -377,29 +404,29 @@
                 padding: 0; /* הסרת כל הריפוד מגוף הדף */
             }
             .container {
-                padding: 8px; /* ריפוד מינימלי ביותר לקונטיינר */
+                padding: 10px; /* ריפוד מינימלי ביותר לקונטיינר */
                 border: none; /* ללא גבול */
             }
             h1 {
-                font-size: 1.3em;
+                font-size: 1.2em;
             }
             .radio-group {
                 flex-direction: column;
-                gap: 4px;
+                gap: 5px;
                 align-items: flex-end; /* יישור לימין לתוויות של כפתורי הרדיו */
             }
             .radio-group label {
                 width: 100%; /* רוחב מלא לתוויות כפתורי רדיו ללחיצה קלה */
             }
             .action-button {
-                font-size: 0.8em;
-                padding: 5px 10px;
+                font-size: 0.9em;
+                padding: 8px 15px;
             }
              .previous-submissions {
                 padding-top: 10px;
             }
              .submission-item {
-                padding: 8px;
+                padding: 10px;
             }
         }
     </style>
@@ -468,7 +495,7 @@
                         </button>
                     </div>
                     <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
-                        <strong style={{color: '#d9534f'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
+                        <strong style={{color: '#F44336'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
                     </p>
                 </div>
             );
@@ -481,15 +508,46 @@
             const [idNumber, setIdNumber] = useState('');
             const [message, setMessage] = useState('');
             const [loading, setLoading] = useState(false);
+            const saveButtonRef = useRef(null); // Ref for the save button
+
+            // State for validation errors
+            const [firstNameError, setFirstNameError] = useState(false);
+            const [familyNameError, setFamilyNameError] = useState(false);
+            const [idNumberError, setIdNumberError] = useState(false);
+
+            // Auto-jump focus after 9 digits ID
+            useEffect(() => {
+                if (idNumber.length === 9 && saveButtonRef.current) {
+                    saveButtonRef.current.focus();
+                }
+            }, [idNumber]);
 
             const handleSaveProfile = async () => {
                 setMessage('');
-                if (!firstName || !familyName || !idNumber) {
-                    setMessage('אנא מלא את כל השדות הנדרשים: שם פרטי, שם משפחה ומספר תעודת זהות.');
-                    return;
+                let hasError = false;
+
+                if (!firstName.trim()) {
+                    setFirstNameError(true);
+                    hasError = true;
+                } else {
+                    setFirstNameError(false);
                 }
-                 if (!/^\d{9}$/.test(idNumber)) {
+                if (!familyName.trim()) {
+                    setFamilyNameError(true);
+                    hasError = true;
+                } else {
+                    setFamilyNameError(false);
+                }
+                if (!idNumber.trim() || !/^\d{9}$/.test(idNumber)) {
+                    setIdNumberError(true);
                     setMessage('מספר תעודת זהות חייב להיות בן 9 ספרות בדיוק.');
+                    hasError = true;
+                } else {
+                    setIdNumberError(false);
+                }
+
+                if (hasError) {
+                    setMessage('אנא מלא את כל השדות הנדרשים כראוי.');
                     return;
                 }
 
@@ -497,14 +555,14 @@
                 try {
                     const profileRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/profile`, 'details');
                     await window.setDocFirebaseGlobal(profileRef, {
-                        firstName: firstName,
-                        familyName: familyName,
-                        idNumber: idNumber,
+                        firstName: firstName.trim(),
+                        familyName: familyName.trim(),
+                        idNumber: idNumber.trim(),
                         updatedAt: Date.now()
-                    }, { merge: true }); // Use merge to avoid overwriting other potential fields
+                    }, { merge: true });
 
                     setMessage('פרטי הזהות נשמרו בהצלחה!');
-                    onIdentitySetupComplete(firstName, familyName, idNumber);
+                    onIdentitySetupComplete(firstName.trim(), familyName.trim(), idNumber.trim());
                 } catch (error) {
                     console.error("Error saving identity:", error);
                     setMessage(`שגיאה בשמירת הפרטים: ${error.message}.`);
@@ -521,23 +579,53 @@
                             {message}
                         </div>
                     )}
-                    <p style={{marginBottom: '20px', color: '#555'}}>
+                    <p style={{marginBottom: '20px', color: '#555555'}}>
                         נראה שזו הכניסה הראשונה שלך, או שפרטי הזהות שלך חסרים. אנא הזן אותם להמשך שימוש במערכת.
                     </p>
-                    <div className="form-group">
-                        <label htmlFor="setupFirstName">שם פרטי:</label>
-                        <input type="text" id="setupFirstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required placeholder="הזן שם פרטי" />
+                    <div className={`form-group ${firstNameError ? 'error' : ''}`}>
+                        <label htmlFor="setupFirstName" className="required">שם פרטי:</label>
+                        <input
+                            type="text"
+                            id="setupFirstName"
+                            value={firstName}
+                            onChange={(e) => { setFirstName(e.target.value); setFirstNameError(false); }}
+                            onBlur={() => setFirstNameError(!firstName.trim())}
+                            required
+                            placeholder="הזן שם פרטי"
+                        />
+                         {firstNameError && <span className="error-message">שדה חובה</span>}
                     </div>
-                    <div className="form-group">
-                        <label htmlFor="setupFamilyName">שם משפחה:</label>
-                        <input type="text" id="setupFamilyName" value={familyName} onChange={(e) => setFamilyName(e.target.value)} required placeholder="הזן שם משפחה" />
+                    <div className={`form-group ${familyNameError ? 'error' : ''}`}>
+                        <label htmlFor="setupFamilyName" className="required">שם משפחה:</label>
+                        <input
+                            type="text"
+                            id="setupFamilyName"
+                            value={familyName}
+                            onChange={(e) => { setFamilyName(e.target.value); setFamilyNameError(false); }}
+                            onBlur={() => setFamilyNameError(!familyName.trim())}
+                            required
+                            placeholder="הזן שם משפחה"
+                        />
+                         {familyNameError && <span className="error-message">שדה חובה</span>}
                     </div>
-                    <div className="form-group">
-                        <label htmlFor="setupIdNumber">תעודת זהות (9 ספרות):</label>
-                        <input type="text" id="setupIdNumber" value={idNumber} onChange={(e) => setIdNumber(e.target.value)} pattern="\d{9}" title="יש להזין 9 ספרות" required inputMode="numeric" placeholder="הזן תעודת זהות" />
+                    <div className={`form-group ${idNumberError ? 'error' : ''}`}>
+                        <label htmlFor="setupIdNumber" className="required">תעודת זהות (9 ספרות):</label>
+                        <input
+                            type="text"
+                            id="setupIdNumber"
+                            value={idNumber}
+                            onChange={(e) => { setIdNumber(e.target.value); setIdNumberError(false); }}
+                            onBlur={() => setIdNumberError(!idNumber.trim() || !/^\d{9}$/.test(idNumber))}
+                            pattern="\d{9}"
+                            title="יש להזין 9 ספרות"
+                            required
+                            inputMode="numeric"
+                            placeholder="הזן תעודת זהות"
+                        />
+                        {idNumberError && <span className="error-message">יש להזין 9 ספרות</span>}
                     </div>
                     <div className="button-container">
-                        <button className="action-button" onClick={handleSaveProfile} disabled={loading}>
+                        <button className="action-button" onClick={handleSaveProfile} disabled={loading} ref={saveButtonRef}>
                             {loading ? 'שומר...' : 'שמור פרטים והמשך'}
                         </button>
                     </div>
@@ -560,7 +648,7 @@
                             </button>
                         </div>
                     </div>
-                    <p style={{marginBottom: '30px', fontSize: '1.1em', color: '#555'}}>
+                    <p style={{marginBottom: '30px', fontSize: '1.1em', color: '#555555'}}>
                         אנא בחר את הפעולה הרצויה:
                     </p>
                     <div className="button-container">
@@ -573,8 +661,8 @@
                             </a>
                         )}
                     </div>
-                    <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
-                        <strong style={{color: '#d9534f'}}>הערה:</strong> ממשק ה"מנהל" נמצא כעת בדף נפרד (`data.html`).
+                    <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888888'}}>
+                        <strong style={{color: '#F44336'}}>הערה:</strong> ממשק ה"מנהל" נמצא כעת בדף נפרד (`data.html`).
                         הגישה לנתונים עצמם מוגבלת למנהלים בלבד באמצעות כללי אבטחה של Firestore,
                         הדורשים הגדרה של הרשאות אדמין באמצעות Firebase Cloud Functions בצד השרת.
                     </p>
@@ -607,6 +695,8 @@
             const [existingSubmissionInfo, setExistingSubmissionInfo] = useState(null); // New state for existing submission info
             const [checkingDuplicate, setCheckingDuplicate] = useState(false); // New state for loading indicator
 
+            // State for validation errors (new)
+            const [errors, setErrors] = useState({});
 
             // Function to reset form fields
             const resetForm = () => {
@@ -618,6 +708,7 @@
                 setDuplicateFound(false); // Reset duplicate status
                 setExistingSubmissionInfo(null); // Clear existing submission info
                 setMessage(''); // Clear any messages
+                setErrors({}); // Clear validation errors
             };
 
             // Load previous submissions when component mounts or userId changes
@@ -660,7 +751,7 @@
                     if (!idNumber || idNumber.length !== 9) { // Only check if ID is 9 digits
                         setDuplicateFound(false);
                         setExistingSubmissionInfo(null);
-                        setMessage('');
+                        setErrors(prev => ({ ...prev, idNumber: !idNumber.trim() || !/^\d{9}$/.test(idNumber) ? 'יש להזין 9 ספרות' : '' }));
                         return;
                     }
 
@@ -668,6 +759,7 @@
                     setDuplicateFound(false);
                     setExistingSubmissionInfo(null);
                     setMessage(''); // Clear previous messages to make way for warning
+                    setErrors(prev => ({ ...prev, idNumber: '' })); // Clear ID number error if valid format
 
                     try {
                         // Query all 'formData' collections across all users for the given idNumber
@@ -683,7 +775,7 @@
                             setDuplicateFound(true);
                             setExistingSubmissionInfo({
                                 id: existingDoc.id,
-                                identity: data.identityId || data.userId, // Prefer email/displayName if available
+                                identity: data.identityId || data.userId, // Prefer full name if available
                                 timestamp: data.timestamp
                             });
                             setMessage(''); // Clear general messages if duplicate found, specific warning will be rendered below
@@ -723,22 +815,51 @@
 
             const handleChange = (e) => {
                 const { name, value, type, checked } = e.target;
-                if (type === 'radio') {
-                    setFormData(prev => ({
-                        ...prev,
-                        [name]: value
-                    }));
-                } else {
-                    setFormData(prev => ({
-                        ...prev,
-                        [name]: value
-                    }));
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: value
+                }));
+                // Clear error for the specific field on change
+                setErrors(prev => ({ ...prev, [name]: '' }));
+            };
+
+            const handleBlur = (e) => {
+                const { name, value } = e.target;
+                if (e.target.required && !value.trim()) {
+                    setErrors(prev => ({ ...prev, [name]: 'שדה חובה' }));
+                } else if (name === 'idNumber' && value.trim() && !/^\d{9}$/.test(value)) {
+                    setErrors(prev => ({ ...prev, idNumber: 'יש להזין 9 ספרות' }));
+                } else if (name === 'phone' && value.trim() && !/^[0-9]{9,10}$/.test(value)) {
+                    setErrors(prev => ({ ...prev, phone: 'יש להזין 9 או 10 ספרות' }));
                 }
             };
+
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 setMessage('');
+                
+                let currentErrors = {};
+                // Validate all required fields on submit
+                const requiredFields = ['familyName', 'firstName', 'idNumber'];
+                requiredFields.forEach(field => {
+                    if (!formData[field].trim()) {
+                        currentErrors[field] = 'שדה חובה';
+                    }
+                });
+                if (formData.idNumber.trim() && !/^\d{9}$/.test(formData.idNumber)) {
+                    currentErrors.idNumber = 'יש להזין 9 ספרות';
+                }
+                 if (formData.phone.trim() && !/^[0-9]{9,10}$/.test(formData.phone)) {
+                    currentErrors.phone = 'יש להזין 9 או 10 ספרות';
+                }
+
+                setErrors(currentErrors);
+
+                if (Object.keys(currentErrors).length > 0) {
+                    setMessage('אנא תקן את השגיאות בטופס.');
+                    return;
+                }
 
                 if (duplicateFound) {
                     setMessage('לא ניתן לשלוח - טופס עבור תעודת זהות זו כבר מולא.');
@@ -800,17 +921,50 @@
                         {/* חלק: פרטים אישיים */}
                         <div className="form-section">
                             <div className="form-grid two-columns">
-                                <div className="form-group">
-                                    <label htmlFor="familyName">שם משפחה:</label>
-                                    <input type="text" id="familyName" name="familyName" value={formData.familyName} onChange={handleChange} required placeholder="הזן שם משפחה" />
+                                <div className={`form-group ${errors.familyName ? 'error' : ''}`}>
+                                    <label htmlFor="familyName" className="required">שם משפחה:</label>
+                                    <input
+                                        type="text"
+                                        id="familyName"
+                                        name="familyName"
+                                        value={formData.familyName}
+                                        onChange={handleChange}
+                                        onBlur={handleBlur}
+                                        required
+                                        placeholder="הזן שם משפחה"
+                                    />
+                                    {errors.familyName && <span className="error-message">{errors.familyName}</span>}
                                 </div>
-                                <div className="form-group">
-                                    <label htmlFor="firstName">שם פרטי:</label>
-                                    <input type="text" id="firstName" name="firstName" value={formData.firstName} onChange={handleChange} required placeholder="הזן שם פרטי" />
+                                <div className={`form-group ${errors.firstName ? 'error' : ''}`}>
+                                    <label htmlFor="firstName" className="required">שם פרטי:</label>
+                                    <input
+                                        type="text"
+                                        id="firstName"
+                                        name="firstName"
+                                        value={formData.firstName}
+                                        onChange={handleChange}
+                                        onBlur={handleBlur}
+                                        required
+                                        placeholder="הזן שם פרטי"
+                                    />
+                                    {errors.firstName && <span className="error-message">{errors.firstName}</span>}
                                 </div>
-                                <div className="form-group">
-                                    <label htmlFor="idNumber">תעודת זהות:</label>
-                                    <input type="text" id="idNumber" name="idNumber" value={formData.idNumber} onChange={handleChange} pattern="\d{9}" title="יש להזין 9 ספרות" required placeholder="דוגמה: 123456789" inputMode="numeric" />
+                                <div className={`form-group ${errors.idNumber ? 'error' : ''}`}>
+                                    <label htmlFor="idNumber" className="required">תעודת זהות:</label>
+                                    <input
+                                        type="text"
+                                        id="idNumber"
+                                        name="idNumber"
+                                        value={formData.idNumber}
+                                        onChange={handleChange}
+                                        onBlur={handleBlur}
+                                        pattern="\d{9}"
+                                        title="יש להזין 9 ספרות"
+                                        required
+                                        placeholder="דוגמה: 123456789"
+                                        inputMode="numeric"
+                                    />
+                                    {errors.idNumber && <span className="error-message">{errors.idNumber}</span>}
                                 </div>
                                 {/* Display duplicate ID message directly under ID field */}
                                 {checkingDuplicate && <div className="message-box warning">בודק כפילות תעודת זהות...</div>}
@@ -833,9 +987,21 @@
                                         <option value="female">נקבה</option>
                                     </select>
                                 </div>
-                                <div className="form-group">
+                                <div className={`form-group ${errors.phone ? 'error' : ''}`}>
                                     <label htmlFor="phone">טלפון:</label>
-                                    <input type="tel" id="phone" name="phone" value={formData.phone} onChange={handleChange} pattern="[0-9]{9,10}" title="יש להזין 9 או 10 ספרות" placeholder="דוגמה: 05X-XXXXXXX" inputMode="numeric" />
+                                    <input
+                                        type="tel"
+                                        id="phone"
+                                        name="phone"
+                                        value={formData.phone}
+                                        onChange={handleChange}
+                                        onBlur={handleBlur}
+                                        pattern="[0-9]{9,10}"
+                                        title="יש להזין 9 או 10 ספרות"
+                                        placeholder="דוגמה: 05X-XXXXXXX"
+                                        inputMode="numeric"
+                                    />
+                                    {errors.phone && <span className="error-message">{errors.phone}</span>}
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="address">כתובת:</label>
@@ -895,7 +1061,7 @@
                             </div>
                         )}
                         <div className="button-container">
-                            <button type="submit" className="action-button" disabled={duplicateFound || checkingDuplicate}>
+                            <button type="submit" className="action-button" disabled={duplicateFound || checkingDuplicate || Object.keys(errors).some(key => errors[key])}>
                                 {checkingDuplicate ? 'בודק...' : duplicateFound ? 'כבר מולא' : 'שלח'}
                             </button>
                         </div>
@@ -903,7 +1069,7 @@
 
                     {/* הצגת נתונים קודמים */}
                     <div className="previous-submissions">
-                        <h2>נתונים קודמים (מזהה משתמש: {identityId})</h2> {/* Changed to identityId */}
+                        <h2>נתונים קודמים (מזהה משתמש: {identityId})</h2>
                         {loadingSubmissions ? (
                             <p>טוען נתונים...</p>
                         ) : previousSubmissions.length === 0 ? (
@@ -937,7 +1103,7 @@
             const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
-            const [enteredIdentityId, setEnteredIdentityId] = useState(null); // This will now store the full name if available
+            const [enteredIdentityId, setEnteredIdentityId] = useState(null);
             const [isAdminUser, setIsAdminUser] = useState(false);
             const [currentView, setCurrentView] = useState('login'); // 'login', 'identitySetup', 'dashboard', 'form'
             const logoutTriggeredRef = useRef(false);
