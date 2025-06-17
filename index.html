@@ -15,10 +15,6 @@
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // Note: For collectionGroup, it needs to be imported directly where used,
-        // or ensure it's made globally available if needed by the React components.
-        // For simplicity and to avoid 'require is not defined' issue, we will make
-        // core Firestore and Auth functions globally available.
         import { getFirestore, collection, addDoc, onSnapshot, collectionGroup, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 
@@ -198,7 +194,7 @@
         select:focus,
         input[type="password"]:focus {
             border-color: #3498db; /* צבע כחול בפוקוס */
-            outline: none; /* הסרת קו המתאר ברירת המחדל */
+            outline: none; /* הסרת קו המתאר ברירת המבלה */
             box-shadow: 0 0 10px rgba(52, 152, 219, 0.2); /* צל בפוקוס */
         }
 
@@ -343,6 +339,36 @@
             color: #555;
         }
 
+        /* Table styles for Admin View */
+        .admin-table-container {
+            overflow-x: auto; /* Enable horizontal scrolling for small screens */
+        }
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse; /* Collapse borders for a cleaner look */
+            margin-top: 20px;
+            font-size: 0.9em;
+            text-align: right; /* RTL alignment */
+        }
+        .admin-table th, .admin-table td {
+            border: 1px solid #ddd;
+            padding: 10px 12px;
+            vertical-align: top;
+        }
+        .admin-table th {
+            background-color: #e9ecef;
+            color: #34495e;
+            font-weight: 600;
+            white-space: nowrap; /* Prevent headers from wrapping */
+        }
+        .admin-table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .admin-table tbody tr:hover {
+            background-color: #f0f0f0;
+        }
+        /* End Table styles */
+
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .form-grid,
@@ -456,7 +482,7 @@
         }
 
         // Component for the Main Dashboard
-        function MainDashboard({ userId, identityId, onGoToForm, onGoToAdmin, onLogout }) {
+        function MainDashboard({ userId, identityId, onGoToForm, onGoToAdmin, onLogout, isAdminUser }) {
             return (
                 <div className="container">
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
@@ -472,9 +498,11 @@
                         <button className="action-button secondary" onClick={onGoToForm}>
                             מילוי טופס חדש
                         </button>
-                        <button className="action-button" onClick={onGoToAdmin}>
-                            צפייה בכל הנתונים (מנהל)
-                        </button>
+                        {isAdminUser && ( // Show admin button only if isAdminUser is true
+                            <button className="action-button" onClick={onGoToAdmin}>
+                                צפייה בכל הנתונים (מנהל)
+                            </button>
+                        )}
                     </div>
                     <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
                         <strong style={{color: '#d9534f'}}>הערה:</strong> ממשק ה"מנהל" מאפשר לכל משתמש מחובר לצפות בנתונים, בהתאם לכללי האבטחה הנוכחיים של Firestore.
@@ -720,6 +748,7 @@
                                     <span><strong>תאריך/שעה:</strong> {new Date(item.timestamp).toLocaleString('he-IL')}</span>
                                     <span><strong>מזהה הזדהות:</strong> {item.identityId || 'לא הוזן'}</span>
                                     <span><strong>שם:</strong> {item.firstName} {item.familyName}</span>
+                                    <span><strong>תעודת זהות:</strong> {item.idNumber || 'לא הוזן'}</span> {/* Added ID Number */}
                                     <span><strong>גיל:</strong> {item.age}, <strong>מין:</strong> {item.gender}</span>
                                     <span><strong>טלפון:</strong> {item.phone}</span>
                                     <span><strong>כתובת:</strong> {item.address}</span>
@@ -771,7 +800,7 @@
                     console.error("Error fetching all submissions:", error);
                     let errorMessage = `שגיאה באחזור כל הנתונים: ${error.message}.`;
                     if (error.code === 'permission-denied') {
-                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מ-`formData` לכל המשתמשים המחוברים.";
+                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מ-`formData` רק למשתמשים עם הרשאת מנהל.";
                     }
                     setMessage(errorMessage);
                     setLoadingAllSubmissions(false);
@@ -800,25 +829,49 @@
                     ) : allSubmissions.length === 0 ? (
                         <p>טרם נשמרו נתונים כלשהם.</p>
                     ) : (
-                        <div className="all-submissions-list">
-                            {allSubmissions.map((item) => (
-                                <div key={item.id} className="submission-item" style={{marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '15px'}}>
-                                    <h3 style={{marginTop: '0', color: '#333', fontSize: '1.2em'}}>טופס מזהה: {item.id}</h3>
-                                    <span><strong>תאריך/שעה:</strong> {new Date(item.timestamp).toLocaleString('he-IL')}</span>
-                                    <span><strong>מזהה משתמש:</strong> {item.userId}</span>
-                                    <span><strong>מזהה הזדהות:</strong> {item.identityId || 'לא הוזן'}</span>
-                                    <span><strong>שם:</strong> {item.firstName} {item.familyName}</span>
-                                    <span><strong>גיל:</strong> {item.age}, <strong>מין:</strong> {item.gender}</span>
-                                    <span><strong>טלפון:</strong> {item.phone}</span>
-                                    <span><strong>כתובת:</strong> {item.address}</span>
-                                    <span><strong>מספר שוהים:</strong> {item.residents}</span>
-                                    <span><strong>פציעה פיזית:</strong> {item.physicalInjury}</span>
-                                    <span><strong>הרוגים/פצועים:</strong> {item.casualties}</span>
-                                    <span><strong>מנותקי קשר:</strong> {item.disconnected}</span>
-                                    <span><strong>זקוק לסיוע בפינוי:</strong> {item.evacuationAssistance}</span>
-                                    <span><strong>הערות:</strong> {item.notes || 'אין'}</span>
-                                </div>
-                            ))}
+                        <div className="admin-table-container">
+                            <table className="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>תאריך/שעה</th>
+                                        <th>מזהה משתמש</th>
+                                        <th>מזהה הזדהות (מייל/UID)</th>
+                                        <th>שם מלא</th>
+                                        <th>תעודת זהות</th> {/* New Header */}
+                                        <th>גיל</th>
+                                        <th>מין</th>
+                                        <th>טלפון</th>
+                                        <th>כתובת</th>
+                                        <th>שוהים בדירה</th>
+                                        <th>פציעה פיזית</th>
+                                        <th>הרוגים/פצועים</th>
+                                        <th>מנותקי קשר</th>
+                                        <th>סיוע בפינוי</th>
+                                        <th>הערות</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {allSubmissions.map((item) => (
+                                        <tr key={item.id}>
+                                            <td>{new Date(item.timestamp).toLocaleString('he-IL')}</td>
+                                            <td>{item.userId}</td>
+                                            <td>{item.identityId || 'לא הוזן'}</td>
+                                            <td>{item.firstName} {item.familyName}</td> {/* Combined Name */}
+                                            <td>{item.idNumber || 'לא הוזן'}</td> {/* Display ID Number */}
+                                            <td>{item.age}</td>
+                                            <td>{item.gender}</td>
+                                            <td>{item.phone}</td>
+                                            <td>{item.address}</td>
+                                            <td>{item.residents}</td>
+                                            <td>{item.physicalInjury}</td>
+                                            <td>{item.casualties === 'yes' ? 'כן' : 'לא'}</td>
+                                            <td>{item.disconnected === 'yes' ? 'כן' : 'לא'}</td>
+                                            <td>{item.evacuationAssistance === 'yes' ? 'כן' : 'לא'}</td>
+                                            <td>{item.notes || 'אין'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     )}
                 </div>
@@ -832,6 +885,7 @@
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
             const [enteredIdentityId, setEnteredIdentityId] = useState(null);
+            const [isAdminUser, setIsAdminUser] = useState(false); // New state for admin status
             const [currentView, setCurrentView] = useState('login'); // 'login', 'dashboard', 'form', 'admin'
             const logoutTriggeredRef = useRef(false);
 
@@ -864,13 +918,25 @@
                             newIdentityId = user.displayName;
                         }
                         setEnteredIdentityId(newIdentityId);
-                        setIsAuthReady(true);
                         logoutTriggeredRef.current = false;
+
+                        // Fetch latest ID token and claims to check admin status
+                        try {
+                            const idTokenResult = await user.getIdTokenResult(true); // true to force refresh
+                            setIsAdminUser(idTokenResult.claims.admin === true); // Set admin status
+                            console.log("User claims:", idTokenResult.claims);
+                        } catch (error) {
+                            console.error("Error fetching ID token result:", error);
+                            setIsAdminUser(false); // Default to not admin on error
+                        }
+                        
                         setCurrentView('dashboard'); // Go to dashboard on successful login
-                        console.log("User signed in:", user.uid, "Identity:", newIdentityId);
+                        setIsAuthReady(true); // Now we have all auth and admin status
+                        console.log("User signed in:", user.uid, "Identity:", newIdentityId, "Is Admin:", isAdminUser);
                     } else {
                         setUserUid(null);
                         setEnteredIdentityId(null);
+                        setIsAdminUser(false); // Reset admin status on logout
                         setIsAuthReady(true);
                         setCurrentView('login'); // Go to login on logout/no user
                         console.log("User signed out or no user. Auth state processed.");
@@ -883,7 +949,8 @@
                 setUserUid(uid);
                 setEnteredIdentityId(id);
                 logoutTriggeredRef.current = false;
-                setCurrentView('dashboard'); // Navigate to dashboard after login
+                // Admin status will be set by the onAuthStateChanged listener after login
+                // No need to manually set currentView here, onAuthStateChanged will handle it.
             };
 
             const handleLogout = async () => {
@@ -895,6 +962,7 @@
                         console.warn("Firebase Auth is not available for logout.");
                         setUserUid(null);
                         setEnteredIdentityId(null);
+                        setIsAdminUser(false); // Ensure admin status is reset
                         logoutTriggeredRef.current = true;
                         setCurrentView('login'); // Force login view if Firebase auth is somehow unavailable
                     }
@@ -941,6 +1009,7 @@
                             onGoToForm={goToForm}
                             onGoToAdmin={goToAdmin}
                             onLogout={handleLogout}
+                            isAdminUser={isAdminUser} // Pass isAdminUser to MainDashboard
                         />
                     );
                 case 'form':
