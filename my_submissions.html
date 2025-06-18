@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>הדיווחים שלי</title>
+    <!-- React Libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX compilation directly in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Firebase Libraries - Initialized here and exposed globally -->
+    <script type="module">
+        // Import Firebase functions
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, where, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Fallback Firebase Config (replace with your actual config)
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyA38-uZwniXXCCK954yjcICl56mwVXbHDk",
+            authDomain: "ateam-3cf3d.firebaseapp.com",
+            projectId: "ateam-3cf3d",
+            storageBucket: "ateam-3cf3d.firebasestorage.app",
+            messagingSenderId: "760383317284",
+            appId: "1:760383317284:web:a33ae7d2a89911b77f3fb1",
+            measurementId: "G-NCVXFH3R6X"
+        };
+        
+        let finalFirebaseConfig = Object.keys(firebaseConfig).length > 0 ? firebaseConfig : myFirebaseConfig;
+        if (Object.keys(finalFirebaseConfig).length === 0) {
+            console.error("Firebase config is empty. Cannot initialize Firebase.");
+            finalFirebaseConfig = null; 
+        }
+
+        let app;
+        let auth;
+        let db;
+
+        if (finalFirebaseConfig) {
+            try {
+                app = initializeApp(finalFirebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                console.log("Firebase initialized in global script for my_submissions.html.");
+            } catch (error) {
+                console.error("Failed to initialize Firebase in global script for my_submissions.html:", error);
+                app = null;
+                auth = null;
+                db = null;
+            }
+        } else {
+            console.error("Skipping Firebase initialization due to empty config.");
+        }
+
+        // Expose Firebase instances and functions globally for React to access
+        window.firebaseApp = app;
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.globalAppId = appId;
+        window.initialAuthToken = initialAuthToken;
+
+        // Expose specific Firebase functions globally
+        window.signInAnonymouslyGlobal = signInAnonymously;
+        window.signInWithCustomTokenGlobal = signInWithCustomToken;
+        window.onAuthStateChangedGlobal = onAuthStateChanged;
+        window.signOutFirebaseGlobal = signOut;
+        window.collectionFirebaseGlobal = collection;
+        window.queryFirebaseGlobal = query;
+        window.whereFirebaseGlobal = where;
+        window.getDocsFirebaseGlobal = getDocs;
+        window.docFirebaseGlobal = doc;
+        window.deleteDocFirebaseGlobal = deleteDoc;
+    </script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            direction: rtl;
+            text-align: right;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 900px;
+            box-sizing: border-box;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333333;
+            margin-bottom: 24px;
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .message-box {
+            background-color: #f8f8f8;
+            color: #333333;
+            padding: 12px;
+            border: 1px solid #cccccc;
+            border-radius: 6px;
+            margin-top: 16px;
+            margin-bottom: 16px;
+            text-align: right;
+            font-size: 0.9em;
+            font-weight: normal;
+        }
+        .message-box.success {
+            background-color: #e6ffe6;
+            color: #2e7d32;
+            border-color: #a3e6a3;
+        }
+        .message-box.danger { 
+            background-color: #ffe6e6;
+            color: #c62828;
+            border-color: #e6a3a3;
+        }
+        .message-box.warning {
+            background-color: #fff3e0;
+            color: #ff8f00;
+            border-color: #ffd699;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .action-button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 18px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: none;
+            text-decoration: none; /* For anchor tags */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+        .action-button:hover {
+            background-color: #2980b9;
+            transform: translateY(-1px);
+        }
+        .action-button.secondary {
+            background-color: #ffffff;
+            color: #666666;
+            border: 1px solid #dddddd;
+        }
+        .action-button.secondary:hover {
+            background-color: #f0f0f0;
+            color: #333333;
+        }
+        .action-button.danger {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .action-button.danger:hover {
+            background-color: #c0392b;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: flex-end; /* Align buttons to the right */
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* Table styles */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            text-align: right; /* RTL */
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            vertical-align: top;
+        }
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #333;
+        }
+        .data-table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .data-table tbody tr:hover {
+            background-color: #eaf6ff;
+        }
+        .data-table td {
+            font-size: 0.95em;
+            color: #555;
+            word-break: break-word; /* Ensure long content breaks lines */
+        }
+        .data-table td.actions {
+            white-space: nowrap; /* Prevent buttons from wrapping */
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            .data-table, .data-table tbody, .data-table tr, .data-table th, .data-table td {
+                display: block; /* Make table responsive by stacking cells */
+            }
+            .data-table thead {
+                display: none; /* Hide header on small screens */
+            }
+            .data-table tr {
+                margin-bottom: 15px;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                overflow: hidden; /* For border-radius on rows */
+            }
+            .data-table td {
+                border: none;
+                position: relative;
+                padding-right: 50%; /* Space for pseudo-element label */
+                text-align: right;
+            }
+            .data-table td:before {
+                content: attr(data-label);
+                position: absolute;
+                right: 10px;
+                width: 45%;
+                padding-left: 10px;
+                font-weight: bold;
+                color: #333;
+                text-align: left; /* Label alignment */
+            }
+        }
+        @media (max-width: 480px) {
+            .action-button {
+                width: 100%;
+            }
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Function to validate Israeli ID Number (reused)
+        function validateIsraeliId(id) {
+            id = String(id).trim();
+            if (id.length > 9 || !/^\d+$/.test(id)) {
+                return false;
+            }
+            id = id.padStart(9, '0');
+            let sum = 0;
+            for (let i = 0; i < 9; i++) {
+                let digit = parseInt(id[i], 10);
+                sum += (i % 2 === 0) ? digit : (digit * 2 > 9 ? digit * 2 - 9 : digit * 2);
+            }
+            return (sum % 10 === 0);
+        }
+
+        // Main Component for My Submissions Page
+        function MySubmissionsPage({ auth, db, userUid, onLogout }) {
+            const [submissions, setSubmissions] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [message, setMessage] = useState('');
+            const [messageType, setMessageType] = useState('');
+            const [interviewerId, setInterviewerId] = useState('');
+
+            // Function to set message and clear it after a delay
+            const showMessage = (text, type = 'default') => {
+                setMessage(text);
+                setMessageType(type);
+                setTimeout(() => {
+                    setMessage('');
+                    setMessageType('');
+                }, 5000); 
+            };
+
+            useEffect(() => {
+                // Extract interviewerId from URL query parameter
+                const urlParams = new URLSearchParams(window.location.search);
+                const idFromUrl = urlParams.get('interviewerId');
+                if (idFromUrl) {
+                    setInterviewerId(idFromUrl);
+                } else {
+                    showMessage('שגיאה: מזהה מראיין חסר בכתובת האתר.', 'danger');
+                    setLoading(false);
+                    return;
+                }
+
+                if (!db || !auth) {
+                    showMessage('שגיאה: שירותי Firebase אינם זמינים. אנא וודא את הגדרות Firebase.', 'danger');
+                    setLoading(false);
+                    return;
+                }
+                
+                // Perform anonymous login if not already logged in
+                const authenticateAnonymously = async () => {
+                    if (!auth.currentUser) {
+                        try {
+                            if (window.initialAuthToken) {
+                                await window.signInWithCustomTokenGlobal(auth, window.initialAuthToken);
+                                console.log("Signed in with custom token on my_submissions.");
+                            } else {
+                                await window.signInAnonymouslyGlobal(auth);
+                                console.log("Signed in anonymously on my_submissions.");
+                            }
+                        } catch (error) {
+                            console.error("Authentication error on my_submissions:", error);
+                            showMessage('שגיאה בהתחברות אוטומטית. אנא רענן את הדף.', 'danger');
+                            setLoading(false);
+                            return;
+                        }
+                    }
+                    fetchSubmissions(auth.currentUser);
+                };
+
+                const fetchSubmissions = async (currentUser) => {
+                    if (!currentUser || !db) {
+                        showMessage('שגיאה: משתמש לא מזוהה או שירותי בסיס נתונים אינם זמינים.', 'danger');
+                        setLoading(false);
+                        return;
+                    }
+                    
+                    setLoading(true);
+                    try {
+                        const formDataCollection = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`);
+                        // Query for submissions by the interviewer's ID number
+                        const q = window.queryFirebaseGlobal(
+                            formDataCollection,
+                            window.whereFirebaseGlobal('interviewerIdNumber', '==', idFromUrl) // Filter by interviewer's ID
+                        );
+                        const querySnapshot = await window.getDocsFirebaseGlobal(q);
+                        const fetchedSubmissions = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        setSubmissions(fetchedSubmissions);
+                        showMessage(`נמצאו ${fetchedSubmissions.length} דיווחים עבור ת.ז. ${idFromUrl}.`, 'success');
+
+                    } catch (error) {
+                        console.error("Error fetching submissions:", error);
+                        let errorMessage = `שגיאה באחזור הדיווחים: ${error.message}.`;
+                        if (error.code === 'permission-denied') {
+                            errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מקולקציית 'formData'.";
+                        }
+                        showMessage(errorMessage, 'danger');
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+
+                // Listen for auth state changes and then fetch data
+                const unsubscribeAuth = window.onAuthStateChangedGlobal(auth, (user) => {
+                    if (user) {
+                        fetchSubmissions(user);
+                    } else {
+                        // If no user, try to authenticate anonymously
+                        authenticateAnonymously();
+                    }
+                });
+
+                return () => unsubscribeAuth();
+            }, [db, auth, interviewerId]); // Re-run if db, auth, or interviewerId changes
+
+            const handleDelete = async (id) => {
+                if (window.confirm('האם אתה בטוח שברצונך למחוק דיווח זה?')) {
+                    setLoading(true);
+                    try {
+                        const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`, id);
+                        await window.deleteDocFirebaseGlobal(docRef);
+                        setSubmissions(submissions.filter(sub => sub.id !== id));
+                        showMessage('הדיווח נמחק בהצלחה!', 'success');
+                    } catch (error) {
+                        console.error("Error deleting document:", error);
+                        let errorMessage = `שגיאה במחיקת הדיווח: ${error.message}.`;
+                        if (error.code === 'permission-denied') {
+                            errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים מחיקה מקולקציית 'formData'.";
+                        }
+                        showMessage(errorMessage, 'danger');
+                    } finally {
+                        setLoading(false);
+                    }
+                }
+            };
+
+            const handleEdit = (id) => {
+                window.location.href = `details.html?id=${id}`;
+            };
+
+            if (loading) {
+                return (
+                    <div className="container" style={{ textAlign: 'center', padding: '50px' }}>
+                        <div className="spinner"></div>
+                        <p>טוען דיווחים...</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="container">
+                    <h1>הדיווחים שלי (ת.ז.: {interviewerId})</h1>
+                    <div className="button-group">
+                        <a href="index.html" className="action-button secondary">
+                            <i className="fas fa-arrow-left"></i> חזור לטופס
+                        </a>
+                        <button onClick={onLogout} className="action-button danger">
+                            <i className="fas fa-sign-out-alt"></i> התנתק
+                        </button>
+                    </div>
+
+                    {message && <div className={`message-box ${messageType}`}>{message}</div>}
+
+                    {submissions.length === 0 ? (
+                        <p style={{textAlign: 'center', color: '#666'}}>לא נמצאו דיווחים שהוגשו על ידך בתעודת זהות זו.</p>
+                    ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ת.ז. אזרח</th>
+                                        <th>שם פרטי אזרח</th>
+                                        <th>שם משפחה אזרח</th>
+                                        <th>סטטוס מרחב מוגן</th>
+                                        <th>זמן הגשה</th>
+                                        <th>פעולות</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {submissions.map((sub) => (
+                                        <tr key={sub.id}>
+                                            <td data-label="ת.ז. אזרח">{sub.idNumber}</td>
+                                            <td data-label="שם פרטי אזרח">{sub.firstName}</td>
+                                            <td data-label="שם משפחה אזרח">{sub.familyName}</td>
+                                            <td data-label="סטטוס מרחב מוגן">
+                                                {sub.protectedSpaceStatus === 'yes' && 'כן'}
+                                                {sub.protectedSpaceStatus === 'no' && 'לא'}
+                                                {sub.protectedSpaceStatus === 'not_sure' && 'לא בטוח'}
+                                                {sub.protectedSpaceDetails && ` (${sub.protectedSpaceDetails})`}
+                                            </td>
+                                            <td data-label="זמן הגשה">{new Date(sub.timestamp).toLocaleString('he-IL')}</td>
+                                            <td data-label="פעולות" class="actions">
+                                                <button onClick={() => handleEdit(sub.id)} className="action-button secondary small-button">
+                                                    <i className="fas fa-edit"></i> ערוך
+                                                </button>
+                                                <button onClick={() => handleDelete(sub.id)} className="action-button danger small-button" style={{ marginLeft: '5px' }}>
+                                                    <i className="fas fa-trash-alt"></i> מחק
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Main App Component (Authentication handling for MySubmissionsPage)
+        function App() {
+            const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
+            const [isAuthReady, setIsAuthReady] = useState(false);
+            const [userUid, setUserUid] = useState(null);
+
+            useEffect(() => {
+                if (!window.firebaseApp || !window.firebaseAuth || !window.firebaseDb) {
+                    console.error("Global Firebase instances are not available. Cannot initialize App component.");
+                    return;
+                }
+
+                setFirebaseInstances({
+                    app: window.firebaseApp,
+                    auth: window.firebaseAuth,
+                    db: window.firebaseDb
+                });
+
+                const authenticateFirebase = async () => {
+                    const authInstance = window.firebaseAuth;
+                    if (!authInstance) {
+                        console.error("Firebase Auth instance is not available for authentication.");
+                        return;
+                    }
+
+                    if (!authInstance.currentUser) {
+                        try {
+                            if (window.initialAuthToken) {
+                                await window.signInWithCustomTokenGlobal(authInstance, window.initialAuthToken);
+                                console.log("Signed in with custom token on MySubmissions App.");
+                            } else {
+                                await window.signInAnonymouslyGlobal(authInstance);
+                                console.log("Signed in anonymously on MySubmissions App.");
+                            }
+                        } catch (error) {
+                            console.error("Firebase authentication error on MySubmissions App:", error);
+                        }
+                    } else {
+                        setUserUid(authInstance.currentUser.uid); // Set UID if already signed in
+                    }
+                    setIsAuthReady(true);
+                };
+
+                const unsubscribeAuth = window.onAuthStateChangedGlobal(window.firebaseAuth, (user) => {
+                    if (user) {
+                        setUserUid(user.uid);
+                    } else {
+                        setUserUid(null);
+                        authenticateFirebase(); // Attempt re-authentication if no user
+                    }
+                    setIsAuthReady(true); // Mark ready after initial check
+                });
+
+                // Initial auth check
+                if (!window.firebaseAuth.currentUser) {
+                    authenticateFirebase();
+                }
+
+                return () => {
+                    unsubscribeAuth();
+                };
+            }, []);
+
+            const handleLogout = async () => {
+                if (firebaseInstances.auth) {
+                    try {
+                        await window.signOutFirebaseGlobal(firebaseInstances.auth);
+                        // No specific localStorage clearing needed here as it's not the primary entry point
+                        window.location.href = 'landing.html'; // Redirect to landing page
+                    } catch (error) {
+                        console.error("Error signing out:", error);
+                    }
+                }
+            };
+
+            if (!isAuthReady) {
+                return (
+                    <div className="container" style={{ textAlign: 'center', padding: '50px' }}>
+                        <h1>טוען...</h1>
+                        <p style={{color: '#555'}}>ממתין לסטטוס הזדהות.</p>
+                        <div className="spinner"></div>
+                    </div>
+                );
+            }
+
+            if (!userUid) {
+                 return (
+                    <div className="container" style={{ textAlign: 'center', padding: '50px' }}>
+                        <h1>שגיאה: לא ניתן לזהות משתמש.</h1>
+                        <p style={{color: '#c62828'}}>ודא שאפליקציית Firebase מוגדרת כראוי ושיש חיבור אינטרנט.</p>
+                        <a href="landing.html" className="action-button" style={{ marginTop: '20px' }}>חזור למסך כניסה</a>
+                    </div>
+                );
+            }
+            
+            return (
+                <MySubmissionsPage
+                    auth={firebaseInstances.auth}
+                    db={firebaseInstances.db}
+                    userUid={userUid}
+                    onLogout={handleLogout}
+                />
+            );
+        }
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
