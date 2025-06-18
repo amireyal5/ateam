@@ -15,7 +15,6 @@
     <!-- Firebase Libraries - Initialized here and exposed globally -->
     <script type="module">
         // Import Firebase functions (These must be standard ES module imports in this block)
-        // Added signInWithCustomToken and signInAnonymously to the imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         // Added getDoc, setDoc, and updateDoc for user profile and form updates
@@ -126,10 +125,15 @@
             border-radius: 8px; /* Subtle rounded corners */
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); /* Very subtle shadow for depth */
             width: 100%;
-            max-width: 400px; /* Reduced max-width to match narrower form in image */
+            max-width: 700px; /* Increased max-width for wider layout */
             box-sizing: border-box;
             text-align: right; /* RTL alignment */
             margin: 0 auto; /* Center on larger screens, but stretch on mobile */
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px; /* Slightly smaller padding on tablets */
+            }
         }
         @media (max-width: 480px) {
             .container {
@@ -438,11 +442,14 @@
         .top-bar h1 {
             margin-bottom: 0; /* Reset h1 margin */
             text-align: right; /* Align h1 to right in top bar */
-            font-size: 1.6em; /* Slightly smaller h1 in top bar */
+            font-size: 1.2em; /* Smaller h1 for interviewer name */
+            font-weight: bold;
+            flex-grow: 1; /* Allow it to take available space */
         }
         .top-bar .button-group {
             display: flex;
             gap: 8px;
+            flex-shrink: 0; /* Prevent buttons from shrinking */
         }
         .top-bar .action-button {
             padding: 8px 16px; /* Smaller buttons in top bar */
@@ -812,9 +819,10 @@
         // Main Application/Form Component
         function MainApp({ user, userProfile, db, onLogout }) {
             const [formData, setFormData] = useState({
-                firstName: userProfile.firstName || '',
-                familyName: userProfile.familyName || '',
-                idNumber: userProfile.idNumber || '', // Pre-filled from user profile, should be read-only
+                // These fields are for the INTERVIEWEE (citizen), not the interviewer.
+                firstName: '',
+                familyName: '',
+                idNumber: '',
                 phoneNumber: '',
                 protectedSpaceStatus: '', // 'yes', 'no', 'not_sure'
                 protectedSpaceDetails: '',
@@ -825,21 +833,59 @@
             const [formErrors, setFormErrors] = useState({});
             const [previousSubmissions, setPreviousSubmissions] = useState([]);
 
-            // Listen for previous submissions by this user
+            // Listen for previous submissions by this user (interviewer) -- No, this needs to be by the interviewee's ID
+            // The previous logic correctly used submitterIdNumber. The change needed is to reset formData to empty for interviewee.
             useEffect(() => {
                 if (!db || !user) return;
 
+                // Query for submissions by the current INTERVIEWEE'S ID number
+                // This means the `onSnapshot` needs to wait until formData.idNumber is set.
+                // Or, more accurately, we only fetch previous submissions *after* a new interviewee's ID is entered
+                // and validated, which is a more complex flow. For now, we'll keep the current user's profile ID
+                // as the basis for fetching 'previous submissions', but rename it to 'previous submissions by this ID'.
+                // If the user wants to fetch submissions for the *current form's ID*, that would require re-triggering the fetch.
+                // Given the request to remove the interviewer's ID and clarify, it makes more sense
+                // that previous submissions listed here are those submitted using the currently logged-in interviewer's credentials
+                // OR submissions related to the ID currently being entered into the form.
+                // The request seems to imply the latter ("הגשות קודמות של {userProfile.firstName}" and "הבדיקה שלא היתה הזנה של תעודת זהות פעמיים כל זה כפי שזה כעת").
+                // Let's assume the "previous submissions" section should show submissions *associated with the ID currently entered in the form*.
+                // This means this useEffect should depend on `formData.idNumber` rather than `userProfile.idNumber`.
+
+                // To correctly display previous submissions FOR THE CURRENTLY ENTERED ID:
+                // This useEffect should react to changes in formData.idNumber (the interviewee's ID).
+                // However, the `onSnapshot` listener needs a stable query.
+                // A better approach would be to fetch previous submissions AFTER a successful form submission
+                // for the new ID, or have a separate "Search Submissions by ID" feature.
+                // For simplicity and to match the previous behavior, let's keep it tied to the currently logged-in user (interviewer)
+                // but change the displayed text to reflect this, or assume the user wants the form to show only the currently
+                // submitted entry.
+
+                // Given the explicit request "את שאר השאלות שיש בשאלון כרגע תסיר ותשאיר כמובן אימות ת.ז והבדיקה שלא היתה הזנה של תעודת זהות פעמיים כל זה כפי שזה כעת",
+                // and "כל השאלות הם לאזרח אז שם + שם משפחה + ת.ז הם של אזרחים כמובן עם כללי האימות. לא צריך תעודת זהות של המראיין."
+                // This implies the previous submissions should be tied to the *interviewee ID entered in the form*.
+                // To achieve this reactively, the `useEffect` needs to be inside the form logic or the form itself needs to trigger a fetch.
+
+                // Let's simplify the 'previous submissions' section for this version:
+                // It will show previous submissions associated with the ID that was *successfully submitted*.
+                // For the "previous submissions" section: It will show all public submissions by *any* ID.
+                // A more refined approach would be a search field for previous submissions.
+                // For now, I will modify it to show "כל ההגשות האחרונות" (all recent submissions)
+                // and keep the query simple without 'where' clause, if that's what the user prefers, or keep it by interviewer's ID for simplicity.
+
+                // Re-evaluating: The instruction "הגשות קודמות של {userProfile.firstName}" implies previous submissions by the logged-in user (interviewer).
+                // However, the subsequent request "כל השאלות הם לאזרח אז שם + שם משפחה + ת.ז הם של אזרחים כמובן עם כללי האימות. לא צריך תעודת זהות של המראיין."
+                // suggests that the form itself is *about* the citizen, and thus the check for duplicate ID would be on the citizen's ID.
+                // The "previous submissions" section is ambiguous.
+                // Let's make "previous submissions" show *all submissions made using the currently logged-in interviewer's UID*,
+                // but clarify that the form itself is for citizen data. This is a common pattern: an interviewer logs in, and they see *their own* past activity.
+                // The validation for duplicate *citizen* ID will happen within the form itself.
+
+                // Query for submissions made BY THIS INTERVIEWER (user.uid)
                 const formCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`);
-                // Query for submissions by the current user's ID number
-                // IMPORTANT: In a real application, you might want to query by UID for more robust security,
-                // but the request specifically mentioned checking ID for duplicate submissions.
-                // Firestore does not directly support querying arrays for sorting without indexes.
-                // Sorting will be done client-side after fetching.
-                const q = window.queryFirebaseGlobal(formCollectionRef, window.whereFirebaseGlobal('submitterIdNumber', '==', userProfile.idNumber));
+                const q = window.queryFirebaseGlobal(formCollectionRef, window.whereFirebaseGlobal('submitterUid', '==', user.uid));
 
                 const unsubscribe = window.onSnapshotGlobal(q, (snapshot) => {
                     const submissions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    // Sort submissions by timestamp client-side as orderBy is avoided
                     submissions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                     setPreviousSubmissions(submissions);
                 }, (error) => {
@@ -848,8 +894,7 @@
                 });
 
                 return () => unsubscribe();
-            }, [db, user, userProfile.idNumber]);
-
+            }, [db, user]); // Depend only on db and user (interviewer)
 
             const handleChange = (e) => {
                 const { name, value, type, checked } = e.target;
@@ -858,6 +903,14 @@
                 // Handle comments character limit
                 if (name === 'comments' && value.length > 50) {
                     newValue = value.slice(0, 50);
+                }
+                 // Handle ID number to allow only digits and max 9
+                if (name === 'idNumber') {
+                    newValue = value.replace(/\D/g, '').slice(0, 9);
+                }
+                // Handle phone number to allow only digits
+                if (name === 'phoneNumber') {
+                    newValue = value.replace(/\D/g, '');
                 }
 
                 setFormData(prev => ({
@@ -881,6 +934,21 @@
                     errors.familyName = true;
                     isValid = false;
                 }
+                
+                // Validate interviewee ID number
+                const intervieweeId = formData.idNumber.trim();
+                if (!intervieweeId || !/^\d{9}$/.test(intervieweeId)) {
+                    errors.idNumber = true;
+                    setMessage('מספר תעודת זהות חייב להיות בן 9 ספרות בדיוק.');
+                    isValid = false;
+                } else if (!validateIsraeliId(intervieweeId)) {
+                    errors.idNumber = true;
+                    setMessage('מספר תעודת הזהות שהוזן אינו תקין.');
+                    isValid = false;
+                } else {
+                    errors.idNumber = false;
+                }
+
                 if (!formData.phoneNumber.trim()) {
                     errors.phoneNumber = true;
                     isValid = false;
@@ -904,15 +972,15 @@
                     isValid = false;
                 }
                 
-                // Check for duplicate submission by ID number
-                if (isValid) {
+                // Check for duplicate submission by INTERVIEWEE'S ID number
+                if (isValid && !errors.idNumber) { // Only check for duplicates if ID format is valid
                     const formCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`);
-                    const q = window.queryFirebaseGlobal(formCollectionRef, window.whereFirebaseGlobal('submitterIdNumber', '==', formData.idNumber));
+                    const q = window.queryFirebaseGlobal(formCollectionRef, window.whereFirebaseGlobal('idNumber', '==', intervieweeId)); // Check against interviewee's ID
                     try {
                         const querySnapshot = await window.getDocsFirebaseGlobal(q);
                         if (!querySnapshot.empty) {
                             errors.idNumber = true; // Set an error specifically for duplicate submission
-                            setMessage('מספר תעודת זהות זה כבר הגיש טופס. ניתן להגיש טופס אחד בלבד.');
+                            setMessage('מספר תעודת זהות זה כבר הגיש טופס בעבר.');
                             isValid = false;
                         }
                     } catch (error) {
@@ -923,7 +991,8 @@
                 }
 
                 setFormErrors(errors);
-                if (!isValid && !message) { // Only set generic message if no specific error message was set
+                // Only set generic message if no specific error message was set
+                if (!isValid && !message) {
                     setMessage('אנא מלא את כל השדות הנדרשים כראוי.');
                 }
                 return isValid;
@@ -939,7 +1008,7 @@
                 }
 
                 if (!userProfile || !user) {
-                    setMessage('שגיאה: פרטי משתמש אינם זמינים. אנא התחבר מחדש.');
+                    setMessage('שגיאה: פרטי משתמש (מראיין) אינם זמינים. אנא התחבר מחדש.');
                     return;
                 }
 
@@ -952,10 +1021,14 @@
                 try {
                     const formCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`);
                     await window.addDocFirebaseGlobal(formCollectionRef, {
-                        submitterUid: user.uid,
-                        submitterFirstName: formData.firstName,
-                        submitterFamilyName: formData.familyName,
-                        submitterIdNumber: formData.idNumber, // ID from user profile
+                        // Store interviewer's UID and name for traceability
+                        interviewerUid: user.uid,
+                        interviewerFirstName: userProfile.firstName,
+                        interviewerFamilyName: userProfile.familyName,
+                        // Store interviewee's data
+                        firstName: formData.firstName.trim(),
+                        familyName: formData.familyName.trim(),
+                        idNumber: formData.idNumber.trim(), // Interviewee's ID
                         phoneNumber: formData.phoneNumber.trim(),
                         protectedSpaceStatus: formData.protectedSpaceStatus,
                         protectedSpaceDetails: formData.protectedSpaceDetails.trim(),
@@ -963,13 +1036,15 @@
                         timestamp: Date.now() // Use timestamp for ordering
                     });
                     setMessage('הטופס נשלח בהצלחה!');
-                    setFormData(prev => ({ // Reset only modifiable fields, keep pre-filled
-                        ...prev,
+                    setFormData({ // Reset form fields for next interviewee
+                        firstName: '',
+                        familyName: '',
+                        idNumber: '',
                         phoneNumber: '',
                         protectedSpaceStatus: '',
                         protectedSpaceDetails: '',
                         comments: ''
-                    }));
+                    });
                 } catch (error) {
                     console.error("Error adding document:", error);
                     setMessage(`שגיאה בשליחת הטופס: ${error.message}.`);
@@ -981,15 +1056,10 @@
             return (
                 <div className="container">
                     <div className="top-bar">
-                        <h1>טופס נתונים</h1>
+                        {/* Display interviewer's name, smaller and aligned right */}
+                        <h1>ברוך הבא, {userProfile.firstName} {userProfile.familyName}</h1>
                         <div className="button-group">
-                            <button className="action-button secondary" onClick={() => {
-                                // For simplicity, this button can edit the profile if needed
-                                // In a real app, this might lead to a dedicated profile edit page
-                                setMessage('פונקציונליות עריכת פרופיל תוצג כאן.');
-                            }}>
-                                <i className="fas fa-user-edit"></i> עריכת פרופיל
-                            </button>
+                            {/* Removed "עריכת פרופיל" as it's not implemented, keep logout */}
                             <button className="action-button danger" onClick={onLogout}>
                                 <i className="fas fa-sign-out-alt"></i> יציאה
                             </button>
@@ -1004,6 +1074,7 @@
 
                     <form onSubmit={handleSubmit}>
                         <div className="form-section">
+                            <h2>פרטי האזרח (מרואיין)</h2>
                             <div className={`form-group ${formErrors.firstName ? 'error' : ''}`}>
                                 <label htmlFor="firstName" className="required">שם פרטי:</label>
                                 <input
@@ -1012,7 +1083,7 @@
                                     name="firstName"
                                     value={formData.firstName}
                                     onChange={handleChange}
-                                    placeholder="הזן שם פרטי"
+                                    placeholder="הזן שם פרטי של האזרח"
                                     required
                                 />
                                 {formErrors.firstName && <p className="error-message">שם פרטי נדרש.</p>}
@@ -1025,7 +1096,7 @@
                                     name="familyName"
                                     value={formData.familyName}
                                     onChange={handleChange}
-                                    placeholder="הזן שם משפחה"
+                                    placeholder="הזן שם משפחה של האזרח"
                                     required
                                 />
                                 {formErrors.familyName && <p className="error-message">שם משפחה נדרש.</p>}
@@ -1033,12 +1104,14 @@
                             <div className={`form-group ${formErrors.idNumber ? 'error' : ''}`}>
                                 <label htmlFor="idNumber" className="required">תעודת זהות:</label>
                                 <input
-                                    type="text"
+                                    type="tel" // Use tel for numerical input on mobile devices with appropriate keyboard
                                     id="idNumber"
                                     name="idNumber"
                                     value={formData.idNumber}
-                                    readOnly // ID number is from user profile, not editable in form
-                                    disabled // Visually indicate it's not editable
+                                    onChange={handleChange}
+                                    placeholder="הזן מספר ת.ז. של האזרח (9 ספרות)"
+                                    maxLength="9"
+                                    required
                                 />
                                 {formErrors.idNumber && <p className="error-message">{message}</p>} {/* Display specific ID error */}
                             </div>
@@ -1136,19 +1209,20 @@
                     </form>
 
                     <div className="previous-submissions">
-                        <h2>הגשות קודמות של {userProfile.firstName}</h2>
+                        <h2>הגשות קודמות שבוצעו על ידי {userProfile.firstName}</h2>
                         {previousSubmissions.length === 0 ? (
-                            <p style={{textAlign: 'center', color: '#888'}}>עדיין לא הגשת טפסים.</p>
+                            <p style={{textAlign: 'center', color: '#888'}}>עדיין לא ביצעת הגשות.</p>
                         ) : (
                             previousSubmissions.map((submission) => (
                                 <div key={submission.id} className="submission-item">
+                                    <span><strong>שם פרטי (אזרח):</strong> {submission.firstName}</span>
+                                    <span><strong>שם משפחה (אזרח):</strong> {submission.familyName}</span>
+                                    <span><strong>תעודת זהות (אזרח):</strong> {submission.idNumber}</span>
+                                    <span><strong>טלפון:</strong> {submission.phoneNumber}</span>
                                     <span><strong>סטטוס מרחב מוגן:</strong> {submission.protectedSpaceStatus === 'yes' ? 'כן' : submission.protectedSpaceStatus === 'no' ? 'לא' : 'לא בטוח'}</span>
                                     {submission.protectedSpaceDetails && <span><strong>פירוט:</strong> {submission.protectedSpaceDetails}</span>}
-                                    <span><strong>טלפון:</strong> {submission.phoneNumber}</span>
                                     {submission.comments && <span><strong>הערות:</strong> {submission.comments}</span>}
                                     <span><strong>תאריך הגשה:</strong> {new Date(submission.timestamp).toLocaleString('he-IL')}</span>
-                                    {/* Edit functionality not implemented in this version based on requirements, but could be added here */}
-                                    {/* <button className="edit-button">ערוך</button> */}
                                 </div>
                             ))
                         )}
