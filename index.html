@@ -120,7 +120,7 @@
         }
         @media (min-width: 1600px) { /* On very large screens, allow even wider */
             .container {
-                max-width: 1500px; /* Increased max-width for wider desktop view */
+                max-width: 1600px; /* Increased max-width for wider desktop view - matched to image */
             }
         }
         @media (max-width: 768px) {
@@ -187,24 +187,34 @@
         .form-group input[type="email"],
         .form-group textarea,
         .form-group select {
-            padding: 10px 12px;
+            padding: 12px 15px; /* Increased padding */
             border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 1em;
+            border-radius: 8px; /* Increased border-radius */
+            font-size: 1.1em; /* Increased font size */
             color: #333;
             box-sizing: border-box;
             width: 100%; /* Ensure full width */
             direction: rtl; /* Ensure input text is RTL */
             text-align: right;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .form-group input[type="text"]:focus,
+        .form-group input[type="tel"]:focus,
+        .form-group input[type="email"]:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
         }
 
+
         .form-group textarea {
-            min-height: 80px;
+            min-height: 100px; /* Increased min-height for comments */
             resize: vertical;
         }
-        .form-group textarea.large-notes {
-            min-height: 120px;
-        }
+        /* Removed .large-notes as min-height is now default */
+
 
         .form-group select {
             appearance: none; /* Remove default arrow */
@@ -743,7 +753,10 @@
             return (
                 <div className="container">
                     <div className="button-container" style={{ justifyContent: 'flex-end', marginBottom: '20px' }}>
-                        {/* "הצג דיווחים שלי" button added */}
+                        {/* "חזור לעמוד הראשי" button added */}
+                        <a href="landing.html" className="action-button secondary">
+                            <i className="fas fa-home"></i> חזור לעמוד הראשי
+                        </a>
                         <button onClick={handleMySubmissionsClick} className="action-button secondary">
                             <i className="fas fa-list-alt"></i> הצג דיווחים שלי
                         </button>
@@ -916,7 +929,7 @@
                                     id="comments"
                                     value={comments}
                                     onChange={(e) => { setComments(e.target.value.slice(0, 50)); setCommentsError(false); }}
-                                    className="large-notes"
+                                    /* Removed className="large-notes" as min-height is now default */
                                     maxLength="50"
                                     placeholder="הערות נוספות"
                                 ></textarea>
@@ -952,6 +965,19 @@
             const initialAuthAttemptedRef = useRef(false); 
 
             useEffect(() => {
+                // Check if interviewer details are stored in localStorage
+                const storedFirstName = localStorage.getItem('interviewerFirstName');
+                const storedFamilyName = localStorage.getItem('interviewerFamilyName');
+                const storedIdNumber = localStorage.getItem('interviewerIdNumber');
+
+                // If any essential interviewer detail is missing, redirect to landing page
+                if (!storedFirstName || !storedFamilyName || !storedIdNumber) {
+                    console.log("Interviewer details missing in localStorage. Redirecting to landing page for registration.");
+                    window.location.href = 'landing.html';
+                    return; // Prevent further execution of this useEffect
+                }
+
+
                 if (!window.firebaseApp || !window.firebaseAuth || !window.firebaseDb) {
                     console.error("Global Firebase instances are not available. Cannot initialize App component.");
                     return;
