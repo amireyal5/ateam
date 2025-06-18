@@ -110,13 +110,20 @@
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
             width: 100%;
-            max-width: 1000px; /* Wider container for data table */
+            max-width: 1200px; /* Wider container for data table */
             box-sizing: border-box;
             text-align: right; /* RTL alignment */
             margin: 0 auto;
         }
+        @media (max-width: 1200px) { /* Adjust for larger tablets and small laptops */
+            .container {
+                max-width: 1000px;
+                padding: 22px;
+            }
+        }
         @media (max-width: 768px) {
             .container {
+                max-width: 100%; /* Ensure full width on smaller screens */
                 padding: 16px;
                 border-radius: 0;
                 box-shadow: none;
@@ -247,11 +254,18 @@
             text-align: center;
         }
 
-        .status-open { background-color: #ff9800; /* Orange */ }
-        .status-social_worker { background-color: #2196f3; /* Blue */ }
-        .status-other { background-color: #9c27b0; /* Purple */ }
-        .status-closed { background-color: #4caf50; /* Green */ }
-        .status-default { background-color: #757575; /* Grey */ }
+        /* Update status colors for new fields if needed, or remove if not applicable */
+        /* These status badges were from a previous context. For the current form data, they might not be relevant.
+           I'll keep the styles, but the display logic in the table will use the new 'protectedSpaceStatus' directly.
+        .status-open { background-color: #ff9800; }
+        .status-social_worker { background-color: #2196f3; }
+        .status-other { background-color: #9c27b0; }
+        .status-closed { background-color: #4caf50; }
+        */
+        .status-yes { background-color: #4caf50; } /* Green for 'כן' */
+        .status-no { background-color: #f44336; } /* Red for 'לא' */
+        .status-not_sure { background-color: #ffc107; color: #333; } /* Yellow for 'לא בטוח' */
+        .status-default { background-color: #757575; } /* Grey for undefined/default */
         
         .action-link {
             color: #3498db;
@@ -369,14 +383,11 @@
                     const fetchedSubmissions = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        // Extract the userId who owns this specific submission from the document reference path
-                        // The path is typically like: artifacts/APP_ID/users/USER_ID/formData/DOC_ID
-                        const pathSegments = doc.ref.path.split('/');
-                        const ownerUserId = pathSegments[3]; // 'users' is index 2, userId is index 3
-                        
+                        // For data stored directly under public/data/formData, 'ownerUserId' might not be needed
+                        // if we're not querying by user-specific paths.
+                        // However, if `interviewerUid` is stored in the doc, we can use it.
                         fetchedSubmissions.push({ 
                             id: doc.id, 
-                            userId: ownerUserId, // Store the actual user ID who owns this document
                             ...data 
                         });
                     });
@@ -423,43 +434,36 @@
                                 <thead>
                                     <tr>
                                         <th>תאריך דיווח</th>
-                                        <th>שם המדווח</th>
-                                        <th>ת.ז. המדווח</th>
-                                        <th>שם האדם המדווח</th>
-                                        <th>ת.ז. האדם המדווח</th>
-                                        <th>כתובת</th>
-                                        <th>סטטוס</th>
-                                        <th>פעולות</th>
+                                        <th>מראיין</th>
+                                        <th>שם פרטי (אזרח)</th>
+                                        <th>שם משפחה (אזרח)</th>
+                                        <th>ת.ז. (אזרח)</th>
+                                        <th>טלפון</th>
+                                        <th>מרחב מוגן תקין?</th>
+                                        <th>פירוט מרחב מוגן</th>
+                                        <th>הערות</th>
+                                        {/* Removed "פעולות" column for simplicity, as no edit/view details page is implemented for this table */}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {submissions.map((sub) => (
                                         <tr key={sub.id}>
                                             <td>{sub.timestamp ? new Date(sub.timestamp).toLocaleString('he-IL') : 'לא ידוע'}</td>
-                                            {/* Display reporter's name and ID. Use new fields, fallback to old. */}
-                                            <td>{sub.reporterFirstName || sub.firstName || 'לא הוזן'} {sub.reporterFamilyName || sub.familyName || ''}</td>
-                                            <td>{sub.reporterIdentityId || sub.userId || 'לא הוזן'}</td>
-                                            {/* Display reported person's name and ID. Use new fields, fallback to old. */}
-                                            <td>{sub.reportedPersonFirstName || 'לא הוזן'} {sub.reportedPersonFamilyName || ''}</td>
-                                            <td>{sub.reportedPersonIdNumber || sub.idNumber || 'לא הוזן'}</td>
-                                            <td>{sub.address || 'לא הוזן'}</td>
+                                            <td>{sub.interviewerFirstName || 'לא הוזן'} {sub.interviewerFamilyName || ''}</td>
+                                            <td>{sub.firstName || 'לא הוזן'}</td>
+                                            <td>{sub.familyName || 'לא הוזן'}</td>
+                                            <td>{sub.idNumber || 'לא הוזן'}</td>
+                                            <td>{sub.phoneNumber || 'לא הוזן'}</td>
                                             <td>
-                                                <span className={`status-badge status-${sub.referralStatus || 'default'}`}>
-                                                    {sub.referralStatus === 'open' ? 'פתוחה' :
-                                                     sub.referralStatus === 'social_worker' ? 'הועבר לטיפול עו"ס' :
-                                                     sub.referralStatus === 'other' ? `אחר: ${sub.otherStatusText || 'לא פורט'}` :
-                                                     sub.referralStatus === 'closed' ? 'סגורה' :
-                                                     'טרם הוגדר'}
+                                                <span className={`status-badge status-${sub.protectedSpaceStatus || 'default'}`}>
+                                                    {sub.protectedSpaceStatus === 'yes' ? 'כן' :
+                                                     sub.protectedSpaceStatus === 'no' ? 'לא' :
+                                                     sub.protectedSpaceStatus === 'not_sure' ? 'לא בטוח' :
+                                                     'לא ידוע'}
                                                 </span>
                                             </td>
-                                            <td>
-                                                <a 
-                                                    href={`details.html?id=${sub.id}&userId=${sub.userId}`} 
-                                                    className="action-link"
-                                                >
-                                                    צפה/ערוך
-                                                </a>
-                                            </td>
+                                            <td>{sub.protectedSpaceDetails || 'אין'}</td>
+                                            <td>{sub.comments || 'אין'}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -519,7 +523,12 @@
             };
 
             if (!isAuthReady) {
-                return <div className="container"><p>טוען הגדרות אבטחה...</p></div>;
+                return (
+                    <div className="container" style={{ textAlign: 'center', padding: '50px' }}>
+                        <h1>טוען הגדרות אבטחה...</h1>
+                        <p style={{color: '#555'}}>ממתין לסטטוס הזדהות.</p>
+                    </div>
+                );
             }
 
             if (!userUid) {
