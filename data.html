@@ -110,12 +110,12 @@
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
             width: 100%;
-            max-width: 1200px; /* Wider container for data table */
+            max-width: 1400px; /* Increased max-width for wider table on desktop */
             box-sizing: border-box;
             text-align: right; /* RTL alignment */
             margin: 0 auto;
         }
-        @media (max-width: 1200px) { /* Adjust for larger tablets and small laptops */
+        @media (max-width: 1400px) { /* Adjust for larger tablets and small laptops */
             .container {
                 max-width: 1000px;
                 padding: 22px;
@@ -138,12 +138,19 @@
             font-weight: bold;
         }
 
-        .button-container {
+        .top-buttons-container {
             display: flex;
-            justify-content: center;
+            justify-content: space-between; /* Distribute items to edges */
+            align-items: center;
+            flex-wrap: wrap; /* Allow wrapping on small screens */
             gap: 12px;
-            margin-top: 24px;
-            margin-bottom: 24px; /* Added margin-bottom for spacing */
+            margin-bottom: 24px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap; /* Allow buttons to wrap */
         }
 
         .action-button {
@@ -155,15 +162,20 @@
             font-size: 1em;
             font-weight: bold;
             cursor: pointer;
-            transition: background-color 0.2s ease;
+            transition: background-color 0.2s ease, transform 0.1s ease;
             box-shadow: none;
             text-decoration: none; /* For anchor tags */
             display: flex; /* For centering content */
             justify-content: center;
             align-items: center;
+            gap: 8px; /* Space between icon and text */
         }
         .action-button:hover {
             background-color: #2980b9;
+            transform: translateY(-1px); /* Slight lift effect */
+        }
+        .action-button:active {
+            transform: translateY(0); /* Reset on click */
         }
 
         .action-button.secondary {
@@ -227,6 +239,7 @@
             text-align: right; /* RTL alignment */
             font-size: 0.9em;
             color: #333;
+            vertical-align: top; /* Align content to top in cells */
         }
 
         .data-table th {
@@ -234,6 +247,9 @@
             font-weight: bold;
             color: #555;
             white-space: nowrap; /* Prevent headers from wrapping */
+            position: sticky; /* Keep header visible on horizontal scroll */
+            top: 0;
+            z-index: 1; /* Ensure header is above scrolling content */
         }
 
         .data-table tbody tr:nth-child(even) {
@@ -252,16 +268,9 @@
             font-weight: bold;
             color: white;
             text-align: center;
+            white-space: nowrap; /* Prevent status text from wrapping */
         }
 
-        /* Update status colors for new fields if needed, or remove if not applicable */
-        /* These status badges were from a previous context. For the current form data, they might not be relevant.
-           I'll keep the styles, but the display logic in the table will use the new 'protectedSpaceStatus' directly.
-        .status-open { background-color: #ff9800; }
-        .status-social_worker { background-color: #2196f3; }
-        .status-other { background-color: #9c27b0; }
-        .status-closed { background-color: #4caf50; }
-        */
         .status-yes { background-color: #4caf50; } /* Green for 'כן' */
         .status-no { background-color: #f44336; } /* Red for 'לא' */
         .status-not_sure { background-color: #ffc107; color: #333; } /* Yellow for 'לא בטוח' */
@@ -277,13 +286,54 @@
             color: #2980b9;
             text-decoration: underline;
         }
+
+        /* Sort button styles */
+        .sort-button {
+            background: none;
+            border: none;
+            color: #555; /* Match header text color */
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px; /* Space between text and icon */
+            padding: 0;
+            margin-right: 5px; /* Adjust for RTL, space after text */
+        }
+        .sort-button i {
+            font-size: 0.8em; /* Smaller icon */
+        }
+        .sort-button:hover {
+            color: #333;
+        }
+        .sort-button.active {
+            color: #3498db; /* Active sort color */
+        }
+
+        /* Custom spinner for loading */
+        .spinner {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto; /* Center spinner */
+            display: block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
 
         // Component for the Login Page (reused for authentication)
         function LoginPage({ auth, onLoginSuccess }) {
@@ -354,6 +404,8 @@
             const [loading, setLoading] = useState(true);
             const [message, setMessage] = useState('');
             const [messageType, setMessageType] = useState('');
+            const [sortColumn, setSortColumn] = useState('timestamp'); // Default sort by timestamp
+            const [sortDirection, setSortDirection] = useState('desc'); // Default sort descending
 
             // Function to set message and clear it after a delay
             const showMessage = (text, type = 'default') => {
@@ -383,16 +435,16 @@
                     const fetchedSubmissions = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        // For data stored directly under public/data/formData, 'ownerUserId' might not be needed
-                        // if we're not querying by user-specific paths.
-                        // However, if `interviewerUid` is stored in the doc, we can use it.
                         fetchedSubmissions.push({ 
                             id: doc.id, 
+                            // Note: 'userId' (owner of the doc) might not be directly in data if it's a public collection.
+                            // The path segment extraction from previous version is correct for that scenario:
+                            // const pathSegments = doc.ref.path.split('/');
+                            // const ownerUserId = pathSegments[3]; 
+                            // userId: ownerUserId,
                             ...data 
                         });
                     });
-                    // Sort by timestamp descending
-                    fetchedSubmissions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                     setSubmissions(fetchedSubmissions);
                     setLoading(false);
                     showMessage('הנתונים נטענו בהצלחה.', 'success'); // Success message
@@ -409,48 +461,172 @@
                 return () => unsubscribe(); // Cleanup listener on unmount
             }, [db, auth]); // Re-run when db or auth instances change
 
+            // Memoized sorted submissions to avoid re-sorting on every render
+            const sortedSubmissions = useMemo(() => {
+                let sortableSubmissions = [...submissions];
+                if (sortColumn) {
+                    sortableSubmissions.sort((a, b) => {
+                        let valA = a[sortColumn];
+                        let valB = b[sortColumn];
+
+                        // Handle timestamp conversion for sorting
+                        if (sortColumn === 'timestamp') {
+                            valA = valA || 0; // Treat undefined/null as 0
+                            valB = valB || 0; // Treat undefined/null as 0
+                        }
+
+                        // For string comparisons (like names), use localeCompare for Hebrew
+                        if (typeof valA === 'string' && typeof valB === 'string') {
+                            return sortDirection === 'asc' ? valA.localeCompare(valB, 'he') : valB.localeCompare(valA, 'he');
+                        }
+                        
+                        // For numbers or other comparable types
+                        if (valA < valB) {
+                            return sortDirection === 'asc' ? -1 : 1;
+                        }
+                        if (valA > valB) {
+                            return sortDirection === 'asc' ? 1 : -1;
+                        }
+                        return 0;
+                    });
+                }
+                return sortableSubmissions;
+            }, [submissions, sortColumn, sortDirection]);
+
+            // Handle sort click
+            const handleSort = (column) => {
+                if (sortColumn === column) {
+                    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                } else {
+                    setSortColumn(column);
+                    setSortDirection('desc'); // Default to descending for new column
+                }
+            };
+
+            // Handle export to CSV
+            const exportToCsv = () => {
+                if (sortedSubmissions.length === 0) {
+                    showMessage('אין נתונים לייצוא.', 'warning');
+                    return;
+                }
+
+                const headers = [
+                    "תאריך דיווח",
+                    "מראיין",
+                    "שם פרטי (אזרח)",
+                    "שם משפחה (אזרח)",
+                    "ת.ז. (אזרח)",
+                    "טלפון",
+                    "מרחב מוגן תקין?",
+                    "פירוט מרחב מוגן",
+                    "הערות"
+                ];
+
+                const rows = sortedSubmissions.map(sub => [
+                    sub.timestamp ? new Date(sub.timestamp).toLocaleString('he-IL') : '',
+                    `${sub.interviewerFirstName || ''} ${sub.interviewerFamilyName || ''}`,
+                    sub.firstName || '',
+                    sub.familyName || '',
+                    sub.idNumber || '',
+                    sub.phoneNumber || '',
+                    sub.protectedSpaceStatus === 'yes' ? 'כן' : sub.protectedSpaceStatus === 'no' ? 'לא' : sub.protectedSpaceStatus === 'not_sure' ? 'לא בטוח' : '',
+                    sub.protectedSpaceDetails || '',
+                    sub.comments || ''
+                ]);
+
+                // Convert to CSV format, handling Hebrew characters (UTF-8 BOM)
+                let csvContent = "\ufeff" + headers.join(',') + "\n"; // Add BOM for Hebrew
+                rows.forEach(row => {
+                    csvContent += row.map(field => {
+                        // Enclose fields with commas or newlines in quotes, and escape existing quotes
+                        const escapedField = String(field).replace(/"/g, '""');
+                        return `"${escapedField}"`;
+                    }).join(',') + "\n";
+                });
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                if (link.download !== undefined) { // Feature detection for download attribute
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', 'דיווחים_הגנה_אזרחית.csv');
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showMessage('הנתונים יוצאו בהצלחה לאקסל.', 'success');
+                } else {
+                    showMessage('הדפדפן שלך אינו תומך בייצוא ישיר. אנא העתק את הנתונים ידנית.', 'warning');
+                }
+            };
+
 
             return (
                 <div className="container">
                     <h1>כל הדיווחים</h1>
-                    <div className="button-container">
-                        <a href="index.html" className="action-button secondary" style={{ textDecoration: 'none' }}>
-                            דיווח חדש
+                    <div className="top-buttons-container">
+                        <a href="index.html" className="action-button secondary">
+                            <i className="fas fa-plus"></i> דיווח חדש
                         </a>
-                        <button onClick={onLogout} className="action-button danger">
-                            התנתק
-                        </button>
+                        <div className="button-group">
+                            <button onClick={exportToCsv} className="action-button">
+                                <i className="fas fa-file-excel"></i> ייצוא לאקסל
+                            </button>
+                            <button onClick={onLogout} className="action-button danger">
+                                <i className="fas fa-sign-out-alt"></i> התנתק
+                            </button>
+                        </div>
                     </div>
 
                     {message && <div className={`message-box ${messageType}`}>{message}</div>}
 
                     {loading ? (
-                        <p style={{textAlign: 'center'}}>טוען דיווחים...</p>
-                    ) : submissions.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '50px' }}>
+                            <div className="spinner"></div>
+                            <p>טוען דיווחים...</p>
+                        </div>
+                    ) : sortedSubmissions.length === 0 ? (
                         <p style={{textAlign: 'center'}}>אין דיווחים להצגה במערכת.</p>
                     ) : (
                         <div className="data-table-container">
                             <table className="data-table">
                                 <thead>
                                     <tr>
-                                        <th>תאריך דיווח</th>
+                                        <th>
+                                            תאריך דיווח
+                                            <button className="sort-button" onClick={() => handleSort('timestamp')}>
+                                                <i className={`fas fa-sort${sortColumn === 'timestamp' ? (sortDirection === 'asc' ? '-up' : '-down') : ''}`}></i>
+                                            </button>
+                                        </th>
                                         <th>מראיין</th>
-                                        <th>שם פרטי (אזרח)</th>
+                                        <th>
+                                            שם פרטי (אזרח)
+                                            <button className="sort-button" onClick={() => handleSort('firstName')}>
+                                                <i className={`fas fa-sort${sortColumn === 'firstName' ? (sortDirection === 'asc' ? '-up' : '-down') : ''}`}></i>
+                                            </button>
+                                        </th>
                                         <th>שם משפחה (אזרח)</th>
                                         <th>ת.ז. (אזרח)</th>
                                         <th>טלפון</th>
                                         <th>מרחב מוגן תקין?</th>
                                         <th>פירוט מרחב מוגן</th>
                                         <th>הערות</th>
-                                        {/* Removed "פעולות" column for simplicity, as no edit/view details page is implemented for this table */}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {submissions.map((sub) => (
+                                    {sortedSubmissions.map((sub) => (
                                         <tr key={sub.id}>
                                             <td>{sub.timestamp ? new Date(sub.timestamp).toLocaleString('he-IL') : 'לא ידוע'}</td>
                                             <td>{sub.interviewerFirstName || 'לא הוזן'} {sub.interviewerFamilyName || ''}</td>
-                                            <td>{sub.firstName || 'לא הוזן'}</td>
+                                            <td>
+                                                {/* Make reported person's name a link to details.html */}
+                                                <a 
+                                                    href={`details.html?id=${sub.id}&userId=${sub.interviewerUid}`}
+                                                    className="action-link"
+                                                >
+                                                    {sub.firstName || 'לא הוזן'}
+                                                </a>
+                                            </td>
                                             <td>{sub.familyName || 'לא הוזן'}</td>
                                             <td>{sub.idNumber || 'לא הוזן'}</td>
                                             <td>{sub.phoneNumber || 'לא הוזן'}</td>
