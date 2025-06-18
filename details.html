@@ -17,7 +17,7 @@
         // Import Firebase functions
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, updateDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; // Added deleteDoc
 
         // Global variables provided by the Canvas environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -88,6 +88,7 @@
         window.updateDocFirebaseGlobal = updateDoc; // Expose updateDoc
         window.getDocFirebaseGlobal = getDoc; // Expose getDoc
         window.onSnapshotFirebaseGlobal = onSnapshot; // Expose onSnapshot correctly
+        window.deleteDocFirebaseGlobal = deleteDoc; // EXPOSED: deleteDocFirebaseGlobal
     </script>
 
     <style>
@@ -838,7 +839,7 @@
                 setLoading(true);
                 try {
                     const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`, submission.id);
-                    await window.deleteDocFirebaseGlobal(docRef);
+                    await window.deleteDocFirebaseGlobal(docRef); // This line now should work
                     showMessage('הדיווח נמחק בהצלחה! מפנה לרשימת הדיווחים...', 'success');
                     setTimeout(() => {
                         window.location.href = 'data.html'; // Redirect to data page after delete
