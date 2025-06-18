@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>צפייה בכל הדיווחים</title>
+    <!-- React Libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX compilation directly in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Firebase Libraries - Initialized here and exposed globally -->
+    <script type="module">
+        // Import Firebase functions (These must be standard ES module imports in this block)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collectionGroup, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment (do not modify these directly)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // --- חובה: הדבק כאן את אובייקט ה-firebaseConfig שלך מ-Firebase Console ---
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyA38-uZwniXXCCK954yjcICl56mwVXbHDk",
+            authDomain: "ateam-3cf3d.firebaseapp.com",
+            projectId: "ateam-3cf3d",
+            storageBucket: "ateam-3cf3d.firebasestorage.app",
+            messagingSenderId: "760383317284",
+            appId: "1:760383317284:web:a33ae7d2a89911b77f3fb1",
+            measurementId: "G-NCVXFH3R6X"
+        }; 
+
+        let firebaseConfig;
+        try {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config !== null && String(__firebase_config).trim() !== '') {
+                const parsedConfig = JSON.parse(__firebase_config);
+                if (Object.keys(parsedConfig).length > 0) {
+                    firebaseConfig = parsedConfig;
+                } else {
+                    firebaseConfig = myFirebaseConfig;
+                    console.warn("Environmental __firebase_config was empty after parsing. Falling back to hardcoded myFirebaseConfig.");
+                }
+            } else {
+                firebaseConfig = myFirebaseConfig;
+                console.log("Environmental __firebase_config not found or is empty. Using hardcoded myFirebaseConfig.");
+            }
+        } catch (e) {
+            console.error("Error parsing __firebase_config, falling back to hardcoded config:", e);
+            firebaseConfig = myFirebaseConfig;
+        }
+
+        // Initialize Firebase app and services
+        let app;
+        let auth;
+        let db;
+
+        try {
+            if (Object.keys(firebaseConfig).length === 0) {
+                console.error("Firebase config is empty. Cannot initialize Firebase.");
+            } else {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                console.log("Firebase initialized in global script for data.html.");
+            }
+        } catch (error) {
+            console.error("Failed to initialize Firebase in global script for data.html:", error);
+            // Ensure instances are null if initialization fails
+            app = null;
+            auth = null;
+            db = null;
+        }
+
+        // Expose Firebase instances and functions globally for React to access
+        window.firebaseApp = app;
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.globalAppId = appId; 
+
+        // Expose specific Firebase functions globally
+        window.onAuthStateChangedGlobal = onAuthStateChanged;
+        window.signOutFirebaseGlobal = signOut; 
+        window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
+        window.collectionGroupFirebaseGlobal = collectionGroup; // Expose collectionGroup
+        window.queryFirebaseGlobal = query; // Expose query
+        window.onSnapshotFirebaseGlobal = onSnapshot; // Expose onSnapshot
+    </script>
+
+    <style>
+        /* General styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top for scrolling content */
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Container for forms/pages */
+        .container {
+            background-color: #ffffff;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 1000px; /* Wider container for data table */
+            box-sizing: border-box;
+            text-align: right; /* RTL alignment */
+            margin: 0 auto;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+                border-radius: 0;
+                box-shadow: none;
+            }
+        }
+
+        h1 {
+            text-align: center;
+            color: #333333;
+            margin-bottom: 24px;
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 24px;
+            margin-bottom: 24px; /* Added margin-bottom for spacing */
+        }
+
+        .action-button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            box-shadow: none;
+            text-decoration: none; /* For anchor tags */
+            display: flex; /* For centering content */
+            justify-content: center;
+            align-items: center;
+        }
+        .action-button:hover {
+            background-color: #2980b9;
+        }
+
+        .action-button.secondary {
+            background-color: #ffffff;
+            color: #666666;
+            border: 1px solid #dddddd;
+        }
+        .action-button.secondary:hover {
+            background-color: #f0f0f0;
+            color: #333333;
+        }
+
+        .action-button.danger {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .action-button.danger:hover {
+            background-color: #c0392b;
+        }
+
+        .message-box {
+            background-color: #f8f8f8;
+            color: #333333;
+            padding: 12px;
+            border: 1px solid #cccccc;
+            border-radius: 6px;
+            margin-top: 16px;
+            margin-bottom: 16px;
+            text-align: right;
+            font-size: 0.9em;
+            font-weight: normal;
+        }
+        .message-box.success {
+            background-color: #e6ffe6;
+            color: #2e7d32;
+            border-color: #a3e6a3;
+        }
+        .message-box.danger { 
+            background-color: #ffe6e6;
+            color: #c62828;
+            border-color: #e6a3a3;
+        }
+
+        /* Table styles */
+        .data-table-container {
+            overflow-x: auto; /* Enable horizontal scrolling on small screens */
+            width: 100%;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: #fcfcfc;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .data-table th, .data-table td {
+            padding: 12px 15px;
+            border: 1px solid #e0e0e0;
+            text-align: right; /* RTL alignment */
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #555;
+            white-space: nowrap; /* Prevent headers from wrapping */
+        }
+
+        .data-table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .data-table tbody tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+        }
+
+        .status-open { background-color: #ff9800; /* Orange */ }
+        .status-social_worker { background-color: #2196f3; /* Blue */ }
+        .status-other { background-color: #9c27b0; /* Purple */ }
+        .status-closed { background-color: #4caf50; /* Green */ }
+        .status-default { background-color: #757575; /* Grey */ }
+        
+        .action-link {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s ease;
+        }
+        .action-link:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Component for the Login Page (reused for authentication)
+        function LoginPage({ auth, onLoginSuccess }) {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [message, setMessage] = useState('');
+            const [loading, setLoading] = useState(false);
+            
+            const handleLogin = async () => {
+                setMessage('');
+                setLoading(true);
+                try {
+                    if (!auth) {
+                        setMessage('שגיאה: שירותי Firebase Auth אינם זמינים. אנא וודא את הגדרות Firebase.');
+                        setLoading(false);
+                        return;
+                    }
+                    const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password);
+                    setMessage('התחברות הצליחה! נא המתן...');
+                    onLoginSuccess(userCredential.user);
+                } catch (error) {
+                    console.error("Login error:", error);
+                    let errorMessage = 'שגיאה בהתחברות. וודא מייל וסיסמה.';
+                    if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+                        errorMessage = 'מייל או סיסמה שגויים.';
+                    } else if (error.code === 'auth/invalid-email') {
+                        errorMessage = 'פורמט מייל לא תקין.';
+                    } else if (error.code === 'auth/user-disabled') {
+                        errorMessage = 'המשתמש הושבת. פנה למנהל המערכת.';
+                    }
+                    setMessage(errorMessage);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <h1>הזדהות לצפייה בנתונים</h1>
+                    {message && (
+                        <div className={`message-box ${message.includes('הצליחה') ? 'success' : ''}`}>
+                            {message}
+                        </div>
+                    )}
+                    <div className="form-group">
+                        <label htmlFor="email">מייל:</label>
+                        <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="הזן מייל" required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="password">סיסמה:</label>
+                        <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="הזן סיסמה" required />
+                    </div>
+                    <div className="button-container">
+                        <button className="action-button secondary" onClick={handleLogin} disabled={loading}>
+                            {loading ? 'מתחבר...' : 'התחבר'}
+                        </button>
+                    </div>
+                    <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
+                        <strong style={{color: '#F44336'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
+                    </p>
+                </div>
+            );
+        }
+
+        // Main Data Display Component
+        function DataDisplayComponent({ auth, db, onLogout }) {
+            const [submissions, setSubmissions] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [message, setMessage] = useState('');
+            const [messageType, setMessageType] = useState('');
+
+            // Function to set message and clear it after a delay
+            const showMessage = (text, type = 'default') => {
+                setMessage(text);
+                setMessageType(type);
+                setTimeout(() => {
+                    setMessage('');
+                    setMessageType('');
+                }, 5000); // Message disappears after 5 seconds
+            };
+
+            useEffect(() => {
+                if (!db || !auth || !auth.currentUser) {
+                    showMessage('שגיאה: שירותי Firebase Db או Auth אינם זמינים או שאינך מחובר.', 'danger');
+                    setLoading(false);
+                    return;
+                }
+
+                setLoading(true);
+                // Query all 'formData' collections across all users using a collection group query
+                // This requires a collection group index on 'formData' in Firestore rules.
+                const submissionsQuery = window.queryFirebaseGlobal(
+                    window.collectionGroupFirebaseGlobal(db, 'formData')
+                );
+
+                const unsubscribe = window.onSnapshotFirebaseGlobal(submissionsQuery, (snapshot) => {
+                    const fetchedSubmissions = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        // Extract the userId who owns this specific submission from the document reference path
+                        // The path is typically like: artifacts/APP_ID/users/USER_ID/formData/DOC_ID
+                        const pathSegments = doc.ref.path.split('/');
+                        const ownerUserId = pathSegments[3]; // 'users' is index 2, userId is index 3
+                        
+                        fetchedSubmissions.push({ 
+                            id: doc.id, 
+                            userId: ownerUserId, // Store the actual user ID who owns this document
+                            ...data 
+                        });
+                    });
+                    // Sort by timestamp descending
+                    fetchedSubmissions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                    setSubmissions(fetchedSubmissions);
+                    setLoading(false);
+                    showMessage('הנתונים נטענו בהצלחה.', 'success'); // Success message
+                }, (error) => {
+                    console.error("Error fetching all submissions:", error);
+                    let errorMessage = `שגיאה באחזור נתונים: ${error.message}.`;
+                    if (error.code === 'permission-denied') {
+                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מ-collection group 'formData' עבור המשתמש המחובר.";
+                    }
+                    showMessage(errorMessage, 'danger');
+                    setLoading(false);
+                });
+
+                return () => unsubscribe(); // Cleanup listener on unmount
+            }, [db, auth]); // Re-run when db or auth instances change
+
+
+            return (
+                <div className="container">
+                    <h1>כל הדיווחים</h1>
+                    <div className="button-container">
+                        <a href="index.html" className="action-button secondary" style={{ textDecoration: 'none' }}>
+                            דיווח חדש
+                        </a>
+                        <button onClick={onLogout} className="action-button danger">
+                            התנתק
+                        </button>
+                    </div>
+
+                    {message && <div className={`message-box ${messageType}`}>{message}</div>}
+
+                    {loading ? (
+                        <p style={{textAlign: 'center'}}>טוען דיווחים...</p>
+                    ) : submissions.length === 0 ? (
+                        <p style={{textAlign: 'center'}}>אין דיווחים להצגה במערכת.</p>
+                    ) : (
+                        <div className="data-table-container">
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>תאריך דיווח</th>
+                                        <th>שם המדווח</th>
+                                        <th>ת.ז. המדווח</th>
+                                        <th>שם האדם המדווח</th>
+                                        <th>ת.ז. האדם המדווח</th>
+                                        <th>כתובת</th>
+                                        <th>סטטוס</th>
+                                        <th>פעולות</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {submissions.map((sub) => (
+                                        <tr key={sub.id}>
+                                            <td>{sub.timestamp ? new Date(sub.timestamp).toLocaleString('he-IL') : 'לא ידוע'}</td>
+                                            {/* Display reporter's name and ID. Use new fields, fallback to old. */}
+                                            <td>{sub.reporterFirstName || sub.firstName || 'לא הוזן'} {sub.reporterFamilyName || sub.familyName || ''}</td>
+                                            <td>{sub.reporterIdentityId || sub.userId || 'לא הוזן'}</td>
+                                            {/* Display reported person's name and ID. Use new fields, fallback to old. */}
+                                            <td>{sub.reportedPersonFirstName || 'לא הוזן'} {sub.reportedPersonFamilyName || ''}</td>
+                                            <td>{sub.reportedPersonIdNumber || sub.idNumber || 'לא הוזן'}</td>
+                                            <td>{sub.address || 'לא הוזן'}</td>
+                                            <td>
+                                                <span className={`status-badge status-${sub.referralStatus || 'default'}`}>
+                                                    {sub.referralStatus === 'open' ? 'פתוחה' :
+                                                     sub.referralStatus === 'social_worker' ? 'הועבר לטיפול עו"ס' :
+                                                     sub.referralStatus === 'other' ? `אחר: ${sub.otherStatusText || 'לא פורט'}` :
+                                                     sub.referralStatus === 'closed' ? 'סגורה' :
+                                                     'טרם הוגדר'}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <a 
+                                                    href={`details.html?id=${sub.id}&userId=${sub.userId}`} 
+                                                    className="action-link"
+                                                >
+                                                    צפה/ערוך
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Main App Component (Authentication handling)
+        function App() {
+            const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
+            const [isAuthReady, setIsAuthReady] = useState(false);
+            const [userUid, setUserUid] = useState(null);
+            const logoutTriggeredRef = useRef(false);
+
+            useEffect(() => {
+                if (!window.firebaseApp || !window.firebaseAuth || !window.firebaseDb) {
+                    console.error("Global Firebase instances are not available. Cannot initialize App component.");
+                    return;
+                }
+
+                setFirebaseInstances({
+                    app: window.firebaseApp,
+                    auth: window.firebaseAuth,
+                    db: window.firebaseDb
+                });
+
+                const unsubscribe = window.onAuthStateChangedGlobal(window.firebaseAuth, (user) => {
+                    if (!logoutTriggeredRef.current) {
+                        if (user) {
+                            setUserUid(user.uid);
+                        } else {
+                            setUserUid(null);
+                        }
+                        setIsAuthReady(true);
+                    }
+                });
+
+                return () => unsubscribe();
+            }, []);
+
+            const handleLogout = async () => {
+                logoutTriggeredRef.current = true;
+                if (firebaseInstances.auth) {
+                    try {
+                        await window.signOutFirebaseGlobal(firebaseInstances.auth);
+                        setUserUid(null);
+                        window.location.href = 'index.html'; // Redirect to login page after logout
+                    } catch (error) {
+                        console.error("Error signing out:", error);
+                    } finally {
+                        logoutTriggeredRef.current = false;
+                    }
+                }
+            };
+
+            if (!isAuthReady) {
+                return <div className="container"><p>טוען הגדרות אבטחה...</p></div>;
+            }
+
+            if (!userUid) {
+                return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={(user) => setUserUid(user.uid)} />;
+            }
+            
+            // Render the DataDisplayComponent if authenticated
+            return (
+                <DataDisplayComponent
+                    auth={firebaseInstances.auth}
+                    db={firebaseInstances.db}
+                    onLogout={handleLogout}
+                />
+            );
+        }
+        // Corrected React 18 rendering method
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
