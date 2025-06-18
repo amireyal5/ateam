@@ -402,30 +402,31 @@
                 return () => unsubscribeAuth();
             }, [db, auth, interviewerId]); // Re-run if db, auth, or interviewerId changes
 
-            const handleDelete = async (id) => {
-                if (window.confirm('האם אתה בטוח שברצונך למחוק דיווח זה?')) {
-                    setLoading(true);
-                    try {
-                        const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`, id);
-                        await window.deleteDocFirebaseGlobal(docRef);
-                        setSubmissions(submissions.filter(sub => sub.id !== id));
-                        showMessage('הדיווח נמחק בהצלחה!', 'success');
-                    } catch (error) {
-                        console.error("Error deleting document:", error);
-                        let errorMessage = `שגיאה במחיקת הדיווח: ${error.message}.`;
-                        if (error.code === 'permission-denied') {
-                            errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים מחיקה מקולקציית 'formData'.";
-                        }
-                        showMessage(errorMessage, 'danger');
-                    } finally {
-                        setLoading(false);
-                    }
-                }
-            };
+            // Removed handleDelete and handleEdit functions as they are no longer needed.
+            // const handleDelete = async (id) => {
+            //     if (window.confirm('האם אתה בטוח שברצונך למחוק דיווח זה?')) {
+            //         setLoading(true);
+            //         try {
+            //             const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`, id);
+            //             await window.deleteDocFirebaseGlobal(docRef);
+            //             setSubmissions(submissions.filter(sub => sub.id !== id));
+            //             showMessage('הדיווח נמחק בהצלחה!', 'success');
+            //         } catch (error) {
+            //             console.error("Error deleting document:", error);
+            //             let errorMessage = `שגיאה במחיקת הדיווח: ${error.message}.`;
+            //             if (error.code === 'permission-denied') {
+            //                 errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים מחיקה מקולקציית 'formData'.";
+            //             }
+            //             showMessage(errorMessage, 'danger');
+            //         } finally {
+            //             setLoading(false);
+            //         }
+            //     }
+            // };
 
-            const handleEdit = (id) => {
-                window.location.href = `details.html?id=${id}`;
-            };
+            // const handleEdit = (id) => {
+            //     window.location.href = `details.html?id=${id}`;
+            // };
 
             if (loading) {
                 return (
@@ -462,7 +463,8 @@
                                         <th>שם משפחה אזרח</th>
                                         <th>סטטוס מרחב מוגן</th>
                                         <th>זמן הגשה</th>
-                                        <th>פעולות</th>
+                                        {/* Removed the 'פעולות' (Actions) header */}
+                                        {/* <th>פעולות</th> */}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -478,14 +480,15 @@
                                                 {sub.protectedSpaceDetails && ` (${sub.protectedSpaceDetails})`}
                                             </td>
                                             <td data-label="זמן הגשה">{new Date(sub.timestamp).toLocaleString('he-IL')}</td>
-                                            <td data-label="פעולות" class="actions">
+                                            {/* Removed the 'פעולות' (Actions) cell with buttons */}
+                                            {/* <td data-label="פעולות" class="actions">
                                                 <button onClick={() => handleEdit(sub.id)} className="action-button secondary small-button">
                                                     <i className="fas fa-edit"></i> ערוך
                                                 </button>
                                                 <button onClick={() => handleDelete(sub.id)} className="action-button danger small-button" style={{ marginLeft: '5px' }}>
                                                     <i className="fas fa-trash-alt"></i> מחק
                                                 </button>
-                                            </td>
+                                            </td> */}
                                         </tr>
                                     ))}
                                 </tbody>
