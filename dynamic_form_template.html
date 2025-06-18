@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>תבנית טופס דינמית</title>
+    <!-- React Libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX compilation directly in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Firebase Libraries - Initialized here and exposed globally -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyA38-uZwniXXCCK954yjcICl56mwVXbHDk",
+            authDomain: "ateam-3cf3d.firebaseapp.com",
+            projectId: "ateam-3cf3d",
+            storageBucket: "ateam-3cf3d.firebasestorage.app",
+            messagingSenderId: "760383317284",
+            appId: "1:760383317284:web:a33ae7d2a89911b77f3fb1",
+            measurementId: "G-NCVXFH3R6X"
+        };
+        
+        let firebaseConfigFromEnv;
+        try {
+            firebaseConfigFromEnv = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        } catch (e) {
+            console.error("Error parsing __firebase_config, treating as empty:", e);
+            firebaseConfigFromEnv = {};
+        }
+
+        let finalFirebaseConfig;
+        if (Object.keys(firebaseConfigFromEnv).length > 0) {
+            finalFirebaseConfig = firebaseConfigFromEnv;
+        } else {
+            finalFirebaseConfig = myFirebaseConfig;
+            if (typeof __firebase_config !== 'undefined') {
+                console.warn("Environmental __firebase_config was empty after parsing or invalid. Falling back to hardcoded myFirebaseConfig.");
+            } else {
+                console.log("Environmental __firebase_config not found. Using hardcoded myFirebaseConfig.");
+            }
+        }
+
+        let app;
+        let auth;
+        let db;
+
+        if (finalFirebaseConfig) {
+            try {
+                app = initializeApp(finalFirebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                console.log("Firebase initialized in global script for dynamic_form_template.html.");
+            } catch (error) {
+                console.error("Failed to initialize Firebase in global script for dynamic_form_template.html:", error);
+                app = null;
+                auth = null;
+                db = null;
+            }
+        } else {
+            console.error("Skipping Firebase initialization due to empty config.");
+        }
+
+        window.firebaseApp = app;
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.globalAppId = appId;
+        window.signInAnonymouslyGlobal = signInAnonymously;
+        window.collectionFirebaseGlobal = collection;
+        window.addDocFirebaseGlobal = addDoc;
+        window.docFirebaseGlobal = doc;
+        window.getDocFirebaseGlobal = getDoc;
+    </script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            direction: rtl;
+            text-align: right;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 900px; /* Base max-width */
+            box-sizing: border-box;
+            margin: 0 auto;
+        }
+
+        @media (min-width: 1200px) {
+            .container {
+                max-width: 1200px;
+            }
+        }
+        @media (min-width: 1600px) {
+            .container {
+                max-width: 1600px; /* Consistent wide view */
+            }
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+                border-radius: 0;
+                box-shadow: none;
+            }
+        }
+
+        h1 {
+            text-align: center;
+            color: #333333;
+            margin-bottom: 24px;
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        h2 {
+            color: #333333;
+            margin-top: 20px;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            font-weight: bold;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #333333;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        @media (min-width: 1200px) {
+            .form-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        @media (min-width: 1600px) {
+            .form-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        @media (max-width: 600px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            text-align: right;
+        }
+
+        .form-group label {
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+            font-size: 0.95em;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="tel"],
+        .form-group input[type="email"],
+        .form-group input[type="number"],
+        .form-group textarea,
+        .form-group select {
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1.1em;
+            color: #333;
+            box-sizing: border-box;
+            width: 100%;
+            direction: rtl;
+            text-align: right;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-group select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url('data:image/svg+xml;utf8,<svg fill="%23333333" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18px" height="18px"><path d="M7 10l5 5 5-5z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: left 10px center;
+            padding-left: 30px;
+            direction: rtl;
+            text-align: right;
+        }
+
+        /* Error styling for form fields */
+        .form-group.error input,
+        .form-group.error textarea,
+        .form-group.error select {
+            border-color: #e74c3c;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 0.85em;
+            margin-top: 5px;
+            text-align: right;
+        }
+
+        .message-box {
+            background-color: #f8f8f8;
+            color: #333333;
+            padding: 12px;
+            border: 1px solid #cccccc;
+            border-radius: 6px;
+            margin-top: 16px;
+            margin-bottom: 16px;
+            text-align: right;
+            font-size: 0.9em;
+            font-weight: normal;
+        }
+        .message-box.success {
+            background-color: #e6ffe6;
+            color: #2e7d32;
+            border-color: #a3e6a3;
+        }
+        .message-box.danger {
+            background-color: #ffe6e6;
+            color: #c62828;
+            border-color: #e6a3a3;
+        }
+        .message-box.warning {
+            background-color: #fff3e0;
+            color: #ff8f00;
+            border-color: #ffd699;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+
+        .action-button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: none;
+            text-decoration: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+        .action-button:hover {
+            background-color: #2980b9;
+            transform: translateY(-1px);
+        }
+        .action-button:active {
+            transform: translateY(0);
+        }
+        .action-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .action-button.secondary {
+            background-color: #ffffff;
+            color: #666666;
+            border: 1px solid #dddddd;
+        }
+        .action-button.secondary:hover {
+            background-color: #f0f0f0;
+            color: #333333;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Function to validate Israeli ID Number
+        function validateIsraeliId(id) {
+            id = String(id).trim();
+            if (id.length > 9 || !/^\d+$/.test(id)) {
+                return false;
+            }
+            id = id.padStart(9, '0');
+            let sum = 0;
+            for (let i = 0; i < 9; i++) {
+                let digit = parseInt(id[i], 10);
+                sum += (i % 2 === 0) ? digit : (digit * 2 > 9 ? digit * 2 - 9 : digit * 2);
+            }
+            return (sum % 10 === 0);
+        }
+
+        // --- Start of Form Configuration ---
+        // You can edit this object to define your dynamic form structure.
+        const formConfig = {
+            title: "טופס הרשמה לאירוע", // Overall form title
+            collectionName: "eventRegistrations", // Firestore collection name to save data (e.g., 'eventRegistrations', 'customerFeedback')
+            pages: [
+                {
+                    title: "פרטי המשתתף",
+                    sections: [
+                        {
+                            title: "מידע אישי",
+                            fields: [
+                                { id: "firstName", label: "שם פרטי", type: "text", placeholder: "הזן שם פרטי", required: true },
+                                { id: "lastName", label: "שם משפחה", type: "text", placeholder: "הזן שם משפחה", required: true },
+                                { id: "idNumber", label: "תעודת זהות", type: "tel", placeholder: "הזן תעודת זהות (9 ספרות)", required: true, validation: "idIsraeli" },
+                                { id: "email", label: "דוא''ל", type: "email", placeholder: "הזן כתובת מייל", required: true },
+                                { id: "phone", label: "טלפון", type: "tel", placeholder: "הזן מספר טלפון", required: true, validation: "phoneIsraeli" },
+                            ]
+                        },
+                        {
+                            title: "כתובת",
+                            fields: [
+                                { id: "city", label: "עיר", type: "text", placeholder: "הזן עיר מגורים", required: false },
+                                { id: "street", label: "רחוב ומספר בית", type: "text", placeholder: "הזן רחוב ומספר בית", required: false },
+                            ]
+                        }
+                    ]
+                },
+                {
+                    title: "בחירת פעילויות",
+                    sections: [
+                        {
+                            title: "פעילויות מועדפות",
+                            fields: [
+                                { 
+                                    id: "activity1", 
+                                    label: "בחר פעילות ראשונה", 
+                                    type: "select", 
+                                    required: true, 
+                                    options: [
+                                        { value: "", label: "בחר אפשרות" },
+                                        { value: "hiking", label: "טיול רגלי" },
+                                        { value: "cycling", label: "רכיבה על אופניים" },
+                                        { value: "swimming", label: "שחייה" }
+                                    ] 
+                                },
+                                { 
+                                    id: "activity2", 
+                                    label: "בחר פעילות שנייה (אופציונלי)", 
+                                    type: "select", 
+                                    required: false, 
+                                    options: [
+                                        { value: "", label: "בחר אפשרות" },
+                                        { value: "reading", label: "קריאה" },
+                                        { value: "painting", label: "ציור" },
+                                        { value: "music", label: "האזנה למוזיקה" }
+                                    ] 
+                                },
+                                { id: "specialRequests", label: "הערות ובקשות מיוחדות", type: "textarea", placeholder: "הזן בקשות מיוחדות או הערות", required: false }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+        // --- End of Form Configuration ---
+
+        function DynamicForm() {
+            const [currentPageIndex, setCurrentPageIndex] = useState(0);
+            const [formData, setFormData] = useState({});
+            const [fieldErrors, setFieldErrors] = useState({});
+            const [message, setMessage] = useState('');
+            const [messageType, setMessageType] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [authReady, setAuthReady] = useState(false);
+            const [userUid, setUserUid] = useState(null);
+
+            // Authentication for anonymous user
+            useEffect(() => {
+                if (!window.firebaseAuth) {
+                    setMessage('שגיאה: שירותי Firebase Auth אינם זמינים. אנא וודא את הגדרות Firebase.', 'danger');
+                    return;
+                }
+
+                const auth = window.firebaseAuth;
+                const authenticateAnonymously = async () => {
+                    try {
+                        if (!auth.currentUser) {
+                            await window.signInAnonymouslyGlobal(auth);
+                            console.log("Signed in anonymously for dynamic form submission.");
+                        } else {
+                            console.log("User already signed in for dynamic form. UID:", auth.currentUser.uid);
+                        }
+                    } catch (error) {
+                        console.error("Firebase anonymous authentication error:", error);
+                        setMessage('שגיאה בהתחברות אנונימית. וודא ש-Anonymous Authentication מופעל בפיירבייס.', 'danger');
+                    } finally {
+                        setAuthReady(true);
+                        setUserUid(auth.currentUser ? auth.currentUser.uid : null);
+                    }
+                };
+
+                authenticateAnonymously();
+            }, []);
+
+            // Function to set message and clear it after a delay
+            const showMessage = (text, type = 'default') => {
+                setMessage(text);
+                setMessageType(type);
+                setTimeout(() => {
+                    setMessage('');
+                    setMessageType('');
+                }, 5000); 
+            };
+
+            const handleInputChange = (e) => {
+                const { id, value, type } = e.target;
+                let processedValue = value;
+
+                // Specific handling for tel inputs to remove non-digits
+                if (type === 'tel') {
+                    processedValue = value.replace(/\D/g, '');
+                }
+
+                setFormData(prevData => ({
+                    ...prevData,
+                    [id]: processedValue
+                }));
+                // Clear error for this field as user is typing
+                setFieldErrors(prevErrors => ({
+                    ...prevErrors,
+                    [id]: false
+                }));
+            };
+
+            const validateCurrentPage = () => {
+                const currentPage = formConfig.pages[currentPageIndex];
+                let errors = {};
+                let isValid = true;
+
+                currentPage.sections.forEach(section => {
+                    section.fields.forEach(field => {
+                        if (field.required) {
+                            const value = formData[field.id] || '';
+                            if (!value.trim()) {
+                                errors[field.id] = true;
+                                isValid = false;
+                            }
+                        }
+                        // Specific validations
+                        if (field.validation === "idIsraeli" && formData[field.id]) {
+                            if (!validateIsraeliId(formData[field.id])) {
+                                errors[field.id] = true;
+                                isValid = false;
+                                showMessage('מספר תעודת זהות לא תקין.', 'danger');
+                            }
+                        }
+                        if (field.validation === "phoneIsraeli" && formData[field.id]) {
+                            const phone = formData[field.id].replace(/\D/g, ''); // Ensure only digits
+                            if (!/^\d{9,10}$/.test(phone)) {
+                                errors[field.id] = true;
+                                isValid = false;
+                                showMessage('מספר טלפון לא תקין (9-10 ספרות).', 'danger');
+                            }
+                        }
+                    });
+                });
+
+                setFieldErrors(errors);
+                return isValid;
+            };
+
+            const handleNextPage = () => {
+                if (!validateCurrentPage()) {
+                    showMessage('אנא מלא את כל השדות הנדרשים כראוי בעמוד זה.', 'danger');
+                    return;
+                }
+                if (currentPageIndex < formConfig.pages.length - 1) {
+                    setCurrentPageIndex(prevIndex => prevIndex + 1);
+                    window.scrollTo(0, 0); // Scroll to top on page change
+                }
+            };
+
+            const handlePreviousPage = () => {
+                if (currentPageIndex > 0) {
+                    setCurrentPageIndex(prevIndex => prevIndex - 1);
+                    window.scrollTo(0, 0); // Scroll to top on page change
+                }
+            };
+
+            const handleSubmit = async () => {
+                if (!validateCurrentPage()) {
+                    showMessage('אנא מלא את כל השדות הנדרשים כראוי לפני השליחה.', 'danger');
+                    return;
+                }
+
+                if (!authReady || !userUid) {
+                    showMessage('שגיאה: המערכת לא מוכנה לשליחה. אנא המתן או רענן את הדף.', 'danger');
+                    return;
+                }
+
+                setLoading(true);
+                try {
+                    const db = window.firebaseDb;
+                    const collectionRef = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/${formConfig.collectionName}`);
+                    
+                    // Add submission timestamp and UID of anonymous user
+                    const submissionData = {
+                        ...formData,
+                        submittedAt: Date.now(),
+                        submitterUid: userUid,
+                        formType: formConfig.collectionName // Save which form config was used
+                    };
+
+                    await window.addDocFirebaseGlobal(collectionRef, submissionData);
+                    showMessage('הטופס נשלח בהצלחה!', 'success');
+                    setFormData({}); // Clear form after submission
+                    setCurrentPageIndex(0); // Reset to first page
+                } catch (error) {
+                    console.error("Error submitting form:", error);
+                    let errorMessage = `שגיאה בשליחת הטופס: ${error.message}.`;
+                    if (error.code === 'permission-denied') {
+                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים יצירה בנתיב זה.";
+                    }
+                    showMessage(errorMessage, 'danger');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const currentPage = formConfig.pages[currentPageIndex];
+            const isFirstPage = currentPageIndex === 0;
+            const isLastPage = currentPageIndex === formConfig.pages.length - 1;
+
+            if (!authReady) {
+                return (
+                    <div className="container" style={{ textAlign: 'center', padding: '50px' }}>
+                        <h1>טוען מערכת...</h1>
+                        <div className="spinner"></div>
+                        <p style={{marginTop: '10px', color: '#888'}}>ממתין להתחברות לפיירבייס.</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="container">
+                    <h1>{formConfig.title}</h1>
+                    {formConfig.pages.length > 1 && (
+                        <p style={{textAlign: 'center', color: '#666', marginBottom: '20px'}}>
+                            עמוד {currentPageIndex + 1} מתוך {formConfig.pages.length}
+                        </p>
+                    )}
+
+                    {message && <div className={`message-box ${messageType}`}>{message}</div>}
+
+                    <h2>{currentPage.title}</h2>
+                    
+                    <form onSubmit={(e) => { e.preventDefault(); isLastPage ? handleSubmit() : handleNextPage(); }}>
+                        {currentPage.sections.map((section, sectionIndex) => (
+                            <div key={sectionIndex} className="section-block">
+                                {section.title && <h3>{section.title}</h3>}
+                                <div className="form-grid">
+                                    {section.fields.map(field => (
+                                        <div key={field.id} className={`form-group ${fieldErrors[field.id] ? 'error' : ''}`}>
+                                            <label htmlFor={field.id}>
+                                                {field.label}
+                                                {field.required && <span style={{color: '#e74c3c', marginRight: '5px'}}>*</span>}
+                                            </label>
+                                            {field.type === "select" ? (
+                                                <select
+                                                    id={field.id}
+                                                    value={formData[field.id] || ''}
+                                                    onChange={handleInputChange}
+                                                    required={field.required}
+                                                >
+                                                    {field.options.map(option => (
+                                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                                    ))}
+                                                </select>
+                                            ) : field.type === "textarea" ? (
+                                                <textarea
+                                                    id={field.id}
+                                                    value={formData[field.id] || ''}
+                                                    onChange={handleInputChange}
+                                                    placeholder={field.placeholder}
+                                                    required={field.required}
+                                                ></textarea>
+                                            ) : (
+                                                <input
+                                                    type={field.type}
+                                                    id={field.id}
+                                                    value={formData[field.id] || ''}
+                                                    onChange={handleInputChange}
+                                                    placeholder={field.placeholder}
+                                                    required={field.required}
+                                                    maxLength={field.type === 'tel' && field.validation === 'phoneIsraeli' ? 10 : undefined} // Limit phone to 10 digits
+                                                />
+                                            )}
+                                            {fieldErrors[field.id] && <p className="error-message">שדה חובה או ערך לא תקין.</p>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+
+                        <div className="button-container">
+                            {!isFirstPage && (
+                                <button type="button" onClick={handlePreviousPage} className="action-button secondary">
+                                    <i className="fas fa-arrow-right" style={{transform: 'scaleX(-1)'}}></i> חזור
+                                </button>
+                            )}
+                            {isLastPage ? (
+                                <button type="submit" className="action-button" disabled={loading}>
+                                    {loading ? <>שולח... <div className="spinner"></div></> : <>שלח טופס <i className="fas fa-paper-plane"></i></>}
+                                </button>
+                            ) : (
+                                <button type="submit" className="action-button">
+                                    הבא <i className="fas fa-arrow-left" style={{transform: 'scaleX(-1)'}}></i>
+                                </button>
+                            )}
+                        </div>
+                    </form>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<DynamicForm />);
+    </script>
+</body>
+</html>
