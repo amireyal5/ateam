@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>טיפול בדיווח מאזור תקרית</title>
+    <!-- React Libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX compilation directly in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Firebase Libraries - Initialized here and exposed globally -->
+    <script type="module">
+        // Import Firebase functions (These must be standard ES module imports in this block)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; // Explicitly import onSnapshot for exposure
+
+        // Global variables provided by the Canvas environment (do not modify these directly)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // --- חובה: הדבק כאן את אובייקט ה-firebaseConfig שלך מ-Firebase Console ---
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyA38-uZwniXXCCK954yjcICl56mwVXbHDk",
+            authDomain: "ateam-3cf3d.firebaseapp.com",
+            projectId: "ateam-3cf3d",
+            storageBucket: "ateam-3cf3d.firebasestorage.app",
+            messagingSenderId: "760383317284",
+            appId: "1:760383317284:web:a33ae7d2a89911b77f3fb1",
+            measurementId: "G-NCVXFH3R6X"
+        }; 
+
+        let firebaseConfig;
+        try {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config !== null && String(__firebase_config).trim() !== '') {
+                const parsedConfig = JSON.parse(__firebase_config);
+                if (Object.keys(parsedConfig).length > 0) {
+                    firebaseConfig = parsedConfig;
+                } else {
+                    firebaseConfig = myFirebaseConfig;
+                    console.warn("Environmental __firebase_config was empty after parsing. Falling back to hardcoded myFirebaseConfig.");
+                }
+            } else {
+                firebaseConfig = myFirebaseConfig;
+                console.log("Environmental __firebase_config not found or is empty. Using hardcoded myFirebaseConfig.");
+            }
+        } catch (e) {
+            console.error("Error parsing __firebase_config, falling back to hardcoded config:", e);
+            firebaseConfig = myFirebaseConfig;
+        }
+
+        // Initialize Firebase app and services
+        let app;
+        let auth;
+        let db;
+
+        try {
+            if (Object.keys(firebaseConfig).length === 0) {
+                console.error("Firebase config is empty. Cannot initialize Firebase.");
+            } else {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                console.log("Firebase initialized in global script for details.html.");
+            }
+        } catch (error) {
+            console.error("Failed to initialize Firebase in global script for details.html:", error);
+            // Ensure instances are null if initialization fails
+            app = null;
+            auth = null;
+            db = null;
+        }
+
+        // Expose Firebase instances and functions globally for React to access
+        window.firebaseApp = app;
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.globalAppId = appId; 
+
+        // Expose specific Firebase functions globally
+        window.onAuthStateChangedGlobal = onAuthStateChanged;
+        window.signOutFirebaseGlobal = signOut; 
+        window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword;
+        window.docFirebaseGlobal = doc; // Expose doc
+        window.updateDocFirebaseGlobal = updateDoc; // Expose updateDoc
+        window.getDocFirebaseGlobal = getDoc; // Expose getDoc
+        window.onSnapshotFirebaseGlobal = onSnapshot; // Expose onSnapshot correctly
+    </script>
+
+    <style>
+        /* הגדרות בסיסיות לגוף הדף */
+        body {
+            font-family: 'Inter', Arial, sans-serif; /* שימוש בפונט Inter */
+            background-color: #f8f8f8; /* צבע רקע אפור בהיר מאוד */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* יישור למעלה כדי לא למרכז אנכית אם התוכן ארוך */
+            min-height: 100vh; /* גובה מינימלי של 100% מגובה המסך */
+            margin: 0;
+            padding: 20px; /* ריפוד כללי לדף */
+            box-sizing: border-box; /* מבטיח שריפוד וגבולות לא יגדילו את הגודל הכולל של האלמנט */
+        }
+
+        /* מכל הטופס והלוגין */
+        .container {
+            background-color: #ffffff; /* רקע לבן */
+            padding: 35px;
+            border-radius: 12px; /* פינות מעוגלות */
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); /* צל עדין מאוד */
+            width: 100%;
+            max-width: 1920px; /* Increased max-width for very wide desktops */
+            box-sizing: border-box;
+            border: 1px solid #e0e0e0; /* גבול אפור עדין */
+            text-align: right; /* יישור לימין עבור RTL */
+        }
+
+        h1 {
+            text-align: center;
+            color: #333333; /* צבע כהה לכותרת */
+            margin-bottom: 25px; /* מרווח תחתון מוגדל */
+            font-size: 2em; /* גודל פונט מוגדל לכותרת */
+            font-weight: 700; /* עובי פונט מודגש */
+        }
+        
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 12px; /* מרווח בין כפתורים */
+            margin-top: 30px;
+        }
+
+        .action-button {
+            background-color: #444444; /* אפור כהה (כפתור ראשי) */
+            color: white;
+            padding: 12px 25px; /* ריפוד מוגדל */
+            border: none;
+            border-radius: 6px;
+            font-size: 1.05em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease, opacity 0.2s ease;
+            box-shadow: none; /* ביטול צל */
+        }
+
+        .action-button.secondary {
+            background-color: #888888; /* אפור בינוני (כפתור משני) */
+        }
+
+        .action-button.danger {
+            background-color: #bbbbbb; /* אפור בהיר (כפתור התנתקות/סכנה) */
+            color: #333333; /* טקסט כהה לכפתור בהיר */
+        }
+
+        .action-button:hover {
+            background-color: #555555;
+            opacity: 1;
+        }
+
+        .action-button.secondary:hover {
+            background-color: #999999;
+        }
+
+        .action-button.danger:hover {
+            background-color: #cccccc;
+        }
+
+        .action-button:active {
+            opacity: 0.8;
+            transform: none;
+        }
+
+        .message-box {
+            background-color: #f0f0f0;
+            color: #333333;
+            padding: 12px;
+            border: 1px solid #cccccc;
+            border-radius: 6px;
+            margin-top: 15px;
+            text-align: right;
+            font-size: 0.9em;
+            font-weight: normal;
+        }
+        .message-box.success {
+            background-color: #e6ffe6;
+            color: #2e7d32;
+            border-color: #a3e6a3;
+        }
+        .message-box.danger { 
+            background-color: #ffe6e6;
+            color: #c62828;
+            border-color: #e6a3a3;
+        }
+        .message-box.warning {
+            background-color: #fffacd;
+            color: #a87200;
+            border-color: #ffd966;
+        }
+
+        /* Styles for Submission Details */
+        .details-grid {
+            display: grid;
+            /* Allow more columns on large screens for better utilization */
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+            gap: 20px; /* Space between grid items */
+            margin-top: 25px;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background-color: #fcfcfc;
+        }
+
+        .details-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end; /* Align to the right for RTL */
+            text-align: right;
+        }
+
+        .details-item label {
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 5px;
+            font-size: 0.95em;
+        }
+
+        .details-item p {
+            background-color: #f0f0f0;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 10px 12px;
+            width: 100%;
+            box-sizing: border-box;
+            color: #333;
+            font-size: 1em;
+            word-wrap: break-word; /* Ensure long words wrap */
+        }
+
+        .details-item textarea,
+        .details-item select,
+        .details-item input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #cccccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 1em;
+            color: #333;
+            margin-top: 5px; /* Adjust margin to align with labels */
+            resize: vertical; /* Allow vertical resizing for textareas */
+            min-height: 40px; /* Default min-height for textarea/input */
+        }
+
+        .details-item textarea.large-notes {
+            min-height: 150px; /* Expanded height for notes */
+        }
+
+        .details-item select {
+            appearance: none; /* Remove default arrow */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url('data:image/svg+xml;utf8,<svg fill="%23333333" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18px" height="18px"><path d="M7 10l5 5 5-5z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: left 10px center; /* Position arrow to the left for RTL */
+            padding-left: 30px; /* Space for the arrow */
+            direction: rtl; /* Ensure text is RTL within select */
+            text-align: right; /* Align selected text to the right */
+        }
+
+        .details-actions {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        /* Responsive adjustments */
+        /* For very large desktops */
+        @media (min-width: 1600px) { /* Adjust breakpoint as needed for more columns */
+            .details-grid {
+                grid-template-columns: repeat(4, 1fr); /* 4 columns on very large screens */
+            }
+        }
+        /* For large desktops */
+        @media (min-width: 1200px) and (max-width: 1599px) {
+            .details-grid {
+                grid-template-columns: repeat(3, 1fr); /* 3 columns on large screens */
+            }
+        }
+        /* For medium desktops/large tablets */
+        @media (min-width: 769px) and (max-width: 1199px) {
+            .details-grid {
+                grid-template-columns: repeat(2, 1fr); /* 2 columns on medium screens */
+            }
+        }
+        @media (max-width: 768px) { /* Tablets */
+            .container {
+                padding: 25px;
+                max-width: 100%; /* Full width on small screens */
+            }
+            h1 {
+                font-size: 1.6em;
+            }
+            .details-grid {
+                grid-template-columns: 1fr; /* Single column on smaller screens */
+                gap: 15px;
+            }
+            .details-item p,
+            .details-item textarea,
+            .details-item select,
+            .details-item input {
+                font-size: 0.95em;
+            }
+            .action-button {
+                padding: 10px 20px;
+                font-size: 0.95em;
+            }
+        }
+        @media (max-width: 480px) { /* Mobile phones */
+            .container {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 1.4em;
+            }
+            .action-button {
+                padding: 8px 15px;
+                font-size: 0.9em;
+            }
+            .details-actions {
+                flex-direction: column; /* Stack buttons vertically */
+                align-items: center;
+            }
+            .details-actions button,
+            .details-actions a {
+                width: 100%; /* Full width for stacked buttons */
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Component for the Login Page (reused if not authenticated)
+        function LoginPage({ auth, onLoginSuccess }) {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [message, setMessage] = useState('');
+            const [loading, setLoading] = useState(false);
+            
+            const handleLogin = async () => {
+                setMessage('');
+                setLoading(true);
+                try {
+                    if (!auth) {
+                        setMessage('שגיאה: שירותי Firebase Auth אינם זמינים. אנא וודא את הגדרות Firebase.');
+                        setLoading(false);
+                        return;
+                    }
+                    const userCredential = await window.signInWithEmailAndPasswordGlobal(auth, email, password);
+                    setMessage('התחברות הצליחה! נא המתן...');
+                    onLoginSuccess(userCredential.user);
+                } catch (error) {
+                    console.error("Login error:", error);
+                    let errorMessage = 'שגיאה בהתחברות. וודא מייל וסיסמה.';
+                    if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+                        errorMessage = 'מייל או סיסמה שגויים.';
+                    } else if (error.code === 'auth/invalid-email') {
+                        errorMessage = 'פורמט מייל לא תקין.';
+                    } else if (error.code === 'auth/user-disabled') {
+                        errorMessage = 'המשתמש הושבת. פנה למנהל המערכת.';
+                    }
+                    setMessage(errorMessage);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <h1>הזדהות לדף הנתונים</h1>
+                    {message && (
+                        <div className={`message-box ${message.includes('הצליחה') ? 'success' : ''}`}>
+                            {message}
+                        </div>
+                    )}
+                    <div className="form-group">
+                        <label htmlFor="email">מייל:</label>
+                        <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="הזן מייל" required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="password">סיסמה:</label>
+                        <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="הזן סיסמה" required />
+                    </div>
+                    <div className="button-container">
+                        <button className="action-button secondary" onClick={handleLogin} disabled={loading}>
+                            {loading ? 'מתחבר...' : 'התחבר'}
+                        </button>
+                    </div>
+                    <p style={{marginTop: '20px', fontSize: '0.9em', color: '#888'}}>
+                        <strong style={{color: '#F44336'}}>הערה:</strong> רק משתמשים שהוספו ידנית ב-Firebase Console (Authentication -> Users) יכולים להתחבר.
+                    </p>
+                </div>
+            );
+        }
+
+        // New Component: SubmissionDetailsComponent for individual submission
+        function SubmissionDetailsComponent({ auth, db, userUid, onLogout }) {
+            const [submission, setSubmission] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [message, setMessage] = useState('');
+            const [messageType, setMessageType] = useState(''); // Added for dynamic message styling
+            const [referralStatus, setReferralStatus] = useState('');
+            const [otherStatusText, setOtherStatusText] = useState('');
+            const [adminNotes, setAdminNotes] = useState('');
+            const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // State to track unsaved changes
+
+            // Refs to store original loaded values for comparison
+            const originalReferralStatusRef = useRef('');
+            const originalOtherStatusTextRef = useRef('');
+            const originalAdminNotesRef = useRef('');
+
+            // Map for physical injury values to Hebrew
+            const physicalInjuryMap = {
+                'none': 'לא (1)',
+                'light': 'קלה (2)',
+                'medium': 'בינונית (3)',
+                'severe': 'קשה (4)'
+            };
+
+            // Function to set message and clear it after a delay
+            const showMessage = (text, type = 'default') => {
+                setMessage(text);
+                setMessageType(type);
+                setTimeout(() => {
+                    setMessage('');
+                    setMessageType('');
+                }, 5000); // Message disappears after 5 seconds
+            };
+
+
+            useEffect(() => {
+                if (!db || !auth) {
+                    showMessage('שגיאה: שירותי Firebase Db או Auth אינם זמינים.', 'danger');
+                    setLoading(false);
+                    return;
+                }
+                if (!auth.currentUser) {
+                    showMessage('שגיאה: אינך מחובר. אנא התחבר כדי לצפות בנתונים.', 'danger');
+                    setLoading(false);
+                    return;
+                }
+
+                setLoading(true);
+                // Parse submissionId and userId from URL query parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const submissionId = urlParams.get('id');
+                const submissionUserId = urlParams.get('userId'); // Get the userId that owns the submission
+
+                if (!submissionId || !submissionUserId) {
+                    showMessage('שגיאה: מזהה דיווח או מזהה משתמש חסרים בכתובת האתר.', 'danger');
+                    setLoading(false);
+                    return;
+                }
+                
+                // Construct the document reference using the original userId that submitted the data
+                const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submissionUserId}/formData`, submissionId);
+
+                // Use onSnapshot for real-time updates
+                const unsubscribe = window.onSnapshotFirebaseGlobal(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        setSubmission({ id: docSnap.id, ...data });
+                        setReferralStatus(data.referralStatus || '');
+                        setOtherStatusText(data.otherStatusText || '');
+                        setAdminNotes(data.adminNotes || '');
+                        
+                        // Store original values when data is freshly loaded
+                        originalReferralStatusRef.current = data.referralStatus || '';
+                        originalOtherStatusTextRef.current = data.otherStatusText || '';
+                        originalAdminNotesRef.current = data.adminNotes || '';
+                        
+                        setHasUnsavedChanges(false); // Reset unsaved changes flag on fresh load
+                        // Only clear message if it was NOT an error message from a previous attempt
+                        if (messageType !== 'danger') {
+                            showMessage(''); // Clear any previous general messages on successful data load
+                        }
+                    } else {
+                        showMessage('שגיאה: דיווח לא נמצא.', 'danger');
+                        setSubmission(null);
+                    }
+                    setLoading(false);
+                }, (error) => {
+                    console.error("Error fetching submission details:", error);
+                    let errorMessage = `שגיאה באחזור פרטי דיווח: ${error.message}.`;
+                    if (error.code === 'permission-denied') {
+                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מנתיב זה עבור המשתמש המחובר.";
+                    }
+                    showMessage(errorMessage, 'danger');
+                    setLoading(false);
+                });
+
+                return () => unsubscribe();
+            }, [db, auth]); // Re-run if db or auth instances change
+
+
+            // Effect to track changes in form fields (comparing to original loaded values)
+            useEffect(() => {
+                // Only mark as unsaved if original values are loaded (i.e., submission is not null)
+                if (submission) { 
+                    const changed = 
+                        referralStatus !== originalReferralStatusRef.current ||
+                        (referralStatus === 'other' ? otherStatusText !== originalOtherStatusTextRef.current : originalOtherStatusTextRef.current !== '') || // Check if 'other' status changed or if it was 'other' and then changed away
+                        adminNotes !== originalAdminNotesRef.current;
+                    setHasUnsavedChanges(changed);
+                    // Add console log to see if hasUnsavedChanges is updated correctly
+                    console.log("Unsaved changes status:", changed, {
+                        referralStatus, originalReferralStatus: originalReferralStatusRef.current,
+                        otherStatusText, originalOtherStatusText: originalOtherStatusTextRef.current,
+                        adminNotes, originalAdminNotes: originalAdminNotesRef.current
+                    });
+                }
+            }, [referralStatus, otherStatusText, adminNotes, submission]); // Add submission to dependencies to re-evaluate when it loads
+
+            // Effect for beforeunload warning to prevent accidental navigation
+            useEffect(() => {
+                const handleBeforeUnload = (event) => {
+                    if (hasUnsavedChanges) {
+                        event.preventDefault(); // Standard for browser to show prompt
+                        event.returnValue = ''; // For older browsers
+                        return ''; // For modern browsers
+                    }
+                };
+
+                window.addEventListener('beforeunload', handleBeforeUnload);
+
+                return () => {
+                    window.removeEventListener('beforeunload', handleBeforeUnload);
+                };
+            }, [hasUnsavedChanges]); // Dependency on hasUnsavedChanges
+
+            // Function to save current form data to Firestore
+            const handleUpdateSubmission = async () => {
+                setMessage('');
+                setMessageType('');
+                console.log("handleUpdateSubmission called. Attempting to save submission...");
+
+                if (!db || !submission) {
+                    showMessage('שגיאה: Firebase Db אינו מאותחל או שאין דיווח לטפל בו.', 'danger');
+                    console.error("Save failed: Firebase DB or submission missing. db:", db, "submission:", submission);
+                    return false; // Indicate failure
+                }
+
+                try {
+                    const submissionUserId = submission.userId; 
+                    console.log("Submission Owner UserId (from URL/loaded data):", submissionUserId);
+                    console.log("Currently Authenticated User UID:", auth.currentUser?.uid); // Use optional chaining for safety
+
+                    if (!submissionUserId) {
+                         showMessage('שגיאה: מזהה משתמש ששלח את הדיווח חסר.', 'danger');
+                         console.error("Save failed: Submission userId missing from submission object.");
+                         return false; // Indicate failure
+                    }
+
+                    const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submissionUserId}/formData`, submission.id);
+                    console.log("Targeting Firestore document at path:", docRef.path);
+
+                    const updateData = {
+                        referralStatus: referralStatus,
+                        otherStatusText: referralStatus === 'other' ? otherStatusText : '', // Clear if not 'other'
+                        adminNotes: adminNotes,
+                        lastUpdatedBy: auth.currentUser.email || auth.currentUser.uid, // Track who last updated
+                        lastUpdatedAt: Date.now() // Timestamp of last update
+                    };
+                    console.log("Attempting to update with data:", updateData);
+
+                    await window.updateDocFirebaseGlobal(docRef, updateData);
+                    showMessage('הדיווח נשמר בהצלחה!', 'success');
+                    console.log("Submission saved successfully.");
+                    setHasUnsavedChanges(false); // Reset changes on successful save
+                    return true; // Indicate success
+                } catch (error) {
+                    console.error("Error updating submission:", error);
+                    let errorMessage = `שגיאה בשמירת דיווח: ${error.message}.`;
+                    if (error.code === 'permission-denied') {
+                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים כתיבה לנתיב זה עבור המשתמש המחובר.";
+                    }
+                    showMessage(errorMessage, 'danger');
+                    console.error("Save failed due to error:", error);
+                    return false; // Indicate failure
+                }
+            };
+
+            // Function to handle sending email (no automatic save here)
+            const handleSendEmail = () => {
+                console.log("handleSendEmail called. No automatic save.");
+                if (hasUnsavedChanges) {
+                    showMessage('שים לב: קיימים שינויים שלא נשמרו. אנא לחץ "שמור שינויים" לפני שליחת המייל אם ברצונך לשמור אותם.', 'warning');
+                }
+                if (!submission) {
+                    showMessage('אין דיווח לשליחה במייל.', 'danger');
+                    return;
+                }
+
+                // Construct email subject and body
+                const subject = `טיפול בדיווח תקרית - ת"ז: ${submission.idNumber}`;
+                const body = `
+פרטי דיווח תקרית:
+--------------------
+שם מלא: ${submission.firstName || ''} ${submission.familyName || ''}
+תעודת זהות: ${submission.idNumber || 'לא הוזן'}
+גיל: ${submission.age || ''}
+מין: ${submission.gender === 'male' ? 'זכר' : (submission.gender === 'female' ? 'נקבה' : 'לא הוזן')}
+טלפון: ${submission.phone || 'לא הוזן'}
+כתובת: ${submission.address || 'לא הוזן'}
+שוהים בדירה: ${submission.residents || 'לא הוזן'}
+פציעה פיזית: ${physicalInjuryMap[submission.physicalInjury] || submission.physicalInjury || 'לא הוזן'}
+הרוגים/פצועים: ${submission.casualties === 'yes' ? 'כן' : 'לא'}
+מנותקי קשר: ${submission.disconnected === 'yes' ? 'כן' : 'לא'}
+סיוע בפינוי: ${submission.evacuationAssistance === 'yes' ? 'כן' : 'לא'}
+הערות ממלא הטופס: ${submission.notes || 'אין'}
+
+סטטוס הפניה (נוכחי): ${referralStatus === 'closed' ? 'סגורה' : referralStatus === 'social_worker' ? 'הועבר לטיפול עו"ס' : referralStatus === 'other' ? `הועבר להמשך טיפול אחר: ${otherStatusText}` : 'טרם הוגדר'}
+הנחיות והערות נוספות (מנהל): ${adminNotes || 'אין'}
+
+תאריך דיווח: ${new Date(submission.timestamp).toLocaleString('he-IL')}
+מזהה דיווח: ${submission.id}
+                    `;
+
+                const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                
+                try {
+                    window.location.href = mailtoLink;
+                } catch (e) {
+                    showMessage('שגיאה בפתיחת המייל. ייתכן שנגרם עקב אורך תוכן ארוך מדי או חסימה על ידי הדפדפן.', 'danger');
+                    console.error("Error opening mailto link:", e);
+                }
+            };
+
+            // Function to handle going back to data.html (no automatic save here)
+            const handleGoBack = () => {
+                console.log("handleGoBack called. No automatic save.");
+                if (hasUnsavedChanges) {
+                    showMessage('שים לב: קיימים שינויים שלא נשמרו. אנא לחץ "שמור שינויים" אם ברצונך לשמור אותם לפני החזרה.', 'warning');
+                }
+                window.location.href = 'data.html';
+            };
+
+
+            if (loading) {
+                return <div className="container"><p>טוען פרטי דיווח...</p></div>;
+            }
+
+            if (!submission && !message) {
+                // Only show this if no submission data AND no specific error message is set
+                return <div className="container"><div className="message-box warning">אין נתונים זמינים עבור דיווח זה.</div></div>;
+            }
+
+            return (
+                <div className="container">
+                    <h1>טיפול בדיווח מאזור תקרית</h1>
+                    {message && (
+                        <div className={`message-box ${messageType}`}>
+                            {message}
+                        </div>
+                    )}
+                    <div className="details-grid">
+                        <div className="details-item">
+                            <label>שם מלא:</label>
+                            <p>{submission.firstName} {submission.familyName}</p>
+                        </div>
+                        <div className="details-item">
+                            <label>תעודת זהות:</label>
+                            <p>{submission.idNumber || 'לא הוזן'}</p>
+                        </div>
+                        <div className="details-item">
+                            <label>גיל:</label>
+                            <p>{submission.age}</p>
+                        </div>
+                        <div className="details-item">
+                            <label>מין:</label>
+                            <p>{submission.gender === 'male' ? 'זכר' : (submission.gender === 'female' ? 'נקבה' : '')}</p>
+                        </div>
+                        <div className="details-item">
+                            <label>טלפון:</label>
+                            <p>{submission.phone}</p>
+                        </div>
+                        <div className="details-item">
+                            <label>כתובת:</label>
+                            <p>{submission.address}</p>
+                        </div>
+                        <div className="details-item">
+                            <label>שוהים בדירה:</label>
+                            <p>{submission.residents}</p>
+                        </div>
+                        <div className="details-item">
+                            <label>פציעה פיזית:</label>
+                            <p>{physicalInjuryMap[submission.physicalInjury] || submission.physicalInjury || ''}</p>
+                        </div>
+                        <div className="details-item">
+                            <label>הרוגים/פצועים:</label>
+                            <p>{submission.casualties === 'yes' ? 'כן' : 'לא'}</p>
+                        </div>
+                        <div className="details-item">
+                            <label>מנותקי קשר:</label>
+                            <p>{submission.disconnected === 'yes' ? 'כן' : 'לא'}</p>
+                        </div>
+                        <div className="details-item">
+                            <label>סיוע בפינוי:</label>
+                            <p>{submission.evacuationAssistance === 'yes' ? 'כן' : 'לא'}</p>
+                        </div>
+                        <div className="details-item" style={{ gridColumn: '1 / -1' }}> {/* Spans full width */}
+                            <label>הערות ממלא הטופס:</label>
+                            <p>{submission.notes || 'אין'}</p>
+                        </div>
+                        
+                        {/* New fields for admin interaction */}
+                        <div className="details-item">
+                            <label htmlFor="referralStatus">סטטוס הפניה:</label>
+                            <select
+                                id="referralStatus"
+                                value={referralStatus}
+                                onChange={(e) => setReferralStatus(e.target.value)}
+                            >
+                                <option value="">בחר סטטוס</option>
+                                <option value="open">פתוחה</option>
+                                <option value="closed">סגורה</option>
+                                <option value="social_worker">הועבר לטיפול עו"ס</option>
+                                <option value="other">הועבר להמשך טיפול אחר</option>
+                            </select>
+                        </div>
+                        {referralStatus === 'other' && (
+                            <div className="details-item">
+                                <label htmlFor="otherStatusText">פירוט סטטוס אחר:</label>
+                                <input
+                                    type="text"
+                                    id="otherStatusText"
+                                    value={otherStatusText}
+                                    onChange={(e) => setOtherStatusText(e.target.value)}
+                                    placeholder="פרט סטטוס אחר..."
+                                />
+                            </div>
+                        )}
+                        <div className="details-item" style={{ gridColumn: '1 / -1' }}> {/* Spans full width */}
+                            <label htmlFor="adminNotes">הנחיות והערות נוספות (מנהל):</label>
+                            <textarea
+                                id="adminNotes"
+                                className="large-notes"
+                                value={adminNotes}
+                                onChange={(e) => setAdminNotes(e.target.value)}
+                                placeholder="הזן הנחיות והערות נוספות לטיפול..."
+                            ></textarea>
+                        </div>
+                    </div>
+                    
+                    <div className="details-actions">
+                        <button className="action-button" onClick={handleUpdateSubmission}>
+                            שמור שינויים
+                        </button>
+                        <button className="action-button secondary" onClick={handleSendEmail}>
+                            שלח במייל
+                        </button>
+                        <button className="action-button danger" onClick={handleGoBack}>
+                            חזור לכל הנתונים
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Main App Component for details.html
+        function App() {
+            const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
+            const [isAuthReady, setIsAuthReady] = useState(false);
+            const [userUid, setUserUid] = useState(null);
+            const logoutTriggeredRef = useRef(false);
+
+            useEffect(() => {
+                if (!window.firebaseApp || !window.firebaseAuth || !window.firebaseDb) {
+                    console.error("Global Firebase instances are not available in details.html. Cannot initialize App component.");
+                    return;
+                }
+
+                setFirebaseInstances({
+                    app: window.firebaseApp,
+                    auth: window.firebaseAuth,
+                    db: window.firebaseDb
+                });
+
+                const unsubscribe = window.onAuthStateChangedGlobal(window.firebaseAuth, (user) => {
+                    if (!logoutTriggeredRef.current) {
+                        if (user) {
+                            setUserUid(user.uid);
+                        } else {
+                            setUserUid(null);
+                        }
+                        setIsAuthReady(true);
+                    }
+                });
+
+                return () => unsubscribe();
+            }, []);
+
+            const handleLogout = async () => {
+                logoutTriggeredRef.current = true; // Set the flag to prevent re-login after logout
+                if (firebaseInstances.auth) {
+                    try {
+                        await window.signOutFirebaseGlobal(firebaseInstances.auth);
+                        setUserUid(null);
+                        // Redirect to login or home page after logout
+                        window.location.href = 'index.html'; // Or 'data.html' to force login again
+                    } catch (error) {
+                        console.error("Error signing out:", error);
+                    } finally {
+                        logoutTriggeredRef.current = false; // Reset flag
+                    }
+                }
+            };
+
+            if (!isAuthReady) {
+                return <div className="container"><p>טוען הגדרות אבטחה...</p></div>;
+            }
+
+            if (!userUid) {
+                return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={(user) => setUserUid(user.uid)} />;
+            }
+
+            return (
+                <SubmissionDetailsComponent 
+                    auth={firebaseInstances.auth} 
+                    db={firebaseInstances.db} 
+                    userUid={userUid} 
+                    onLogout={handleLogout} 
+                />
+            );
+        }
+        // Corrected React 18 rendering method
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
