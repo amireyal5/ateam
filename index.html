@@ -38,7 +38,6 @@
         let finalFirebaseConfig = Object.keys(firebaseConfig).length > 0 ? firebaseConfig : myFirebaseConfig;
         if (Object.keys(finalFirebaseConfig).length === 0) {
             console.error("Firebase config is empty. Cannot initialize Firebase.");
-            // Set finalFirebaseConfig to an invalid state to prevent app initialization
             finalFirebaseConfig = null; 
         }
 
@@ -79,7 +78,7 @@
         window.addDocFirebaseGlobal = addDoc;
         window.docFirebaseGlobal = doc;
         window.setDocFirebaseGlobal = setDoc;
-        window.getDocFirebaseGlobal = getDoc; // Corrected to use getDocFirebaseGlobal
+        window.getDocFirebaseGlobal = getDoc; 
         window.queryFirebaseGlobal = query;
         window.whereFirebaseGlobal = where;
         window.getDocsFirebaseGlobal = getDocs;
@@ -121,7 +120,7 @@
         }
         @media (min-width: 1600px) { /* On very large screens, allow even wider */
             .container {
-                max-width: 1400px; 
+                max-width: 1500px; /* Increased max-width for wider desktop view */
             }
         }
         @media (max-width: 768px) {
@@ -436,12 +435,12 @@
             // States for Interviewer Details (stored locally)
             const [interviewerFirstName, setInterviewerFirstName] = useState(() => localStorage.getItem('interviewerFirstName') || '');
             const [interviewerFamilyName, setInterviewerFamilyName] = useState(() => localStorage.getItem('interviewerFamilyName') || '');
-            const [interviewerUidSaved, setInterviewerUidSaved] = useState(() => localStorage.getItem('interviewerUid') || '');
+            const [interviewerIdNumber, setInterviewerIdNumber] = useState(() => localStorage.getItem('interviewerIdNumber') || ''); 
             
             // State to control visibility of interviewer details input fields
             const [isInterviewerDetailsEditable, setIsInterviewerDetailsEditable] = useState(
-                !localStorage.getItem('interviewerFirstName') || !localStorage.getItem('interviewerFamilyName')
-            ); // Initially editable if names are missing in localStorage
+                !localStorage.getItem('interviewerFirstName') || !localStorage.getItem('interviewerFamilyName') || !localStorage.getItem('interviewerIdNumber') 
+            ); 
 
             // States for Reporter Details (the person being reported)
             const [firstName, setFirstName] = useState('');
@@ -455,6 +454,7 @@
             // Validation states for form fields
             const [interviewerFirstNameError, setInterviewerFirstNameError] = useState(false);
             const [interviewerFamilyNameError, setInterviewerFamilyNameError] = useState(false);
+            const [interviewerIdNumberError, setInterviewerIdNumberError] = useState(false); 
             const [firstNameError, setFirstNameError] = useState(false);
             const [familyNameError, setFamilyNameError] = useState(false);
             const [idNumberError, setIdNumberError] = useState(false);
@@ -467,7 +467,7 @@
             const [loading, setLoading] = useState(false);
             const [message, setMessage] = useState('');
             const [messageType, setMessageType] = useState('');
-            const [duplicateIdInfo, setDuplicateIdInfo] = useState(null); // State for duplicate ID info
+            const [duplicateIdInfo, setDuplicateIdInfo] = useState(null); 
 
             // Reference to setTimeout for debouncing ID check
             const debounceTimeoutRef = useRef(null);
@@ -479,28 +479,34 @@
                 setTimeout(() => {
                     setMessage('');
                     setMessageType('');
-                }, 5000); // Message disappears after 5 seconds
+                }, 5000); 
             };
 
             // Load interviewer details from localStorage on component mount
             useEffect(() => {
                 const storedFirstName = localStorage.getItem('interviewerFirstName');
                 const storedFamilyName = localStorage.getItem('interviewerFamilyName');
-                const storedUid = localStorage.getItem('interviewerUid');
+                const storedIdNumber = localStorage.getItem('interviewerIdNumber');
+                
                 if (storedFirstName) setInterviewerFirstName(storedFirstName);
                 if (storedFamilyName) setInterviewerFamilyName(storedFamilyName);
-                if (storedUid) setInterviewerUidSaved(storedUid); // Set saved UID if available
+                if (storedIdNumber) setInterviewerIdNumber(storedIdNumber); 
+
+                // If any of the required details are missing, keep the panel editable
+                if (!storedFirstName || !storedFamilyName || !storedIdNumber) {
+                    setIsInterviewerDetailsEditable(true);
+                }
             }, []);
 
-            // Save interviewer details to localStorage when userUid, firstName or familyName changes
+            // Save interviewer details to localStorage when userUid, firstName, familyName, or idNumber changes
             useEffect(() => {
-                if (userUid) { // Ensure userUid is available before saving anything to localStorage
+                // Ensure all required fields for interviewer are present and valid before saving to localStorage
+                if (interviewerFirstName.trim() && interviewerFamilyName.trim() && interviewerIdNumber.trim().length === 9 && validateIsraeliId(interviewerIdNumber)) {
                     localStorage.setItem('interviewerFirstName', interviewerFirstName);
                     localStorage.setItem('interviewerFamilyName', interviewerFamilyName);
-                    localStorage.setItem('interviewerUid', userUid);
-                    setInterviewerUidSaved(userUid); // Update local state for display
+                    localStorage.setItem('interviewerIdNumber', interviewerIdNumber); 
                 }
-            }, [interviewerFirstName, interviewerFamilyName, userUid]);
+            }, [interviewerFirstName, interviewerFamilyName, interviewerIdNumber]);
 
 
             // Effect to check for duplicate ID numbers when idNumber changes
@@ -542,7 +548,7 @@
                             setDuplicateIdInfo(null);
                             // It's a non-critical check, so don't show a general error message to user
                         }
-                    }, 500); // Debounce by 500ms
+                    }, 500); 
                 } else {
                     setDuplicateIdInfo(null); // Clear duplicate info if ID is invalid or empty
                 }
@@ -553,7 +559,7 @@
                         clearTimeout(debounceTimeoutRef.current);
                     }
                 };
-            }, [idNumber, db]); // Only re-run if idNumber or db changes
+            }, [idNumber, db]); 
 
             // Handles form validation
             const validateForm = () => {
@@ -562,6 +568,7 @@
                 // Reset all errors
                 setInterviewerFirstNameError(false);
                 setInterviewerFamilyNameError(false);
+                setInterviewerIdNumberError(false); 
                 setFirstNameError(false);
                 setFamilyNameError(false);
                 setIdNumberError(false);
@@ -574,16 +581,24 @@
                 if (!interviewerFirstName.trim()) {
                     setInterviewerFirstNameError(true);
                     isValid = false;
-                    setIsInterviewerDetailsEditable(true); // Force open if details are missing
                 }
                 if (!interviewerFamilyName.trim()) {
                     setInterviewerFamilyNameError(true);
                     isValid = false;
-                    setIsInterviewerDetailsEditable(true); // Force open if details are missing
                 }
-                if (!interviewerFirstName.trim() || !interviewerFamilyName.trim()) {
-                    showMessage('אנא מלא את פרטי המראיין (שם ושם משפחה).', 'danger');
-                    return false; // Exit early if interviewer details are missing
+                const trimmedInterviewerId = interviewerIdNumber.trim();
+                if (!trimmedInterviewerId || !/^\d{9}$/.test(trimmedInterviewerId)) {
+                    setInterviewerIdNumberError(true);
+                    isValid = false;
+                } else if (!validateIsraeliId(trimmedInterviewerId)) {
+                    setInterviewerIdNumberError(true);
+                    isValid = false;
+                }
+
+                if (!interviewerFirstName.trim() || !interviewerFamilyName.trim() || !trimmedInterviewerId || !validateIsraeliId(trimmedInterviewerId)) {
+                    showMessage('אנא מלא את פרטי המראיין (שם, שם משפחה ומספר ת.ז. תקין).', 'danger');
+                    setIsInterviewerDetailsEditable(true); // Force open if details are missing/invalid
+                    return false; // Exit early if interviewer details are missing or invalid
                 }
 
 
@@ -632,8 +647,8 @@
 
             // Handles form submission
             const handleSubmit = async (e) => {
-                e.preventDefault(); // Prevent default form submission
-                setMessage(''); // Clear previous messages
+                e.preventDefault(); 
+                setMessage(''); 
                 setMessageType('');
                 
                 if (!db) {
@@ -646,32 +661,33 @@
                 }
 
                 if (!validateForm()) {
-                    // Message already set by validateForm
                     return;
                 }
 
-                // If a duplicate ID is found, show a warning and potentially prevent submission
                 if (duplicateIdInfo) {
                     showMessage('אזהרה: תעודת זהות זו כבר קיימת במערכת. אם אתה בטוח שזהו דיווח חדש, לחץ "שלח דיווח" שוב כדי לאשר.', 'warning');
-                    // This allows a double-click to submit despite warning
-                    setDuplicateIdInfo(null); // Clear to allow re-submission
+                    setDuplicateIdInfo(null); 
                     return; 
                 }
 
                 setLoading(true);
                 try {
-                    // Save interviewer details to profile (if they don't exist or need update)
-                    // This also serves as a check that interviewer details are valid and present
+                    // Save interviewer details to profile
                     const interviewerProfileRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/profile/details`);
                     const interviewerProfileSnap = await window.getDocFirebaseGlobal(interviewerProfileRef);
 
-                    if (!interviewerProfileSnap.exists() || interviewerProfileSnap.data().firstName !== interviewerFirstName || interviewerProfileSnap.data().familyName !== interviewerFamilyName) {
+                    // Only update profile if data has changed or it's new
+                    if (!interviewerProfileSnap.exists() || 
+                        interviewerProfileSnap.data().firstName !== interviewerFirstName || 
+                        interviewerProfileSnap.data().familyName !== interviewerFamilyName ||
+                        interviewerProfileSnap.data().idNumber !== interviewerIdNumber) { 
                         await window.setDocFirebaseGlobal(interviewerProfileRef, {
                             firstName: interviewerFirstName.trim(),
                             familyName: interviewerFamilyName.trim(),
+                            idNumber: interviewerIdNumber.trim(), 
                             uid: userUid,
                             lastUpdated: Date.now()
-                        }, { merge: true }); // Use merge to avoid overwriting other fields
+                        }, { merge: true }); 
                     }
 
                     // Save form data to the PUBLIC collection
@@ -680,6 +696,7 @@
                         interviewerUid: userUid,
                         interviewerFirstName: interviewerFirstName.trim(),
                         interviewerFamilyName: interviewerFamilyName.trim(),
+                        interviewerIdNumber: interviewerIdNumber.trim(), 
                         firstName: firstName.trim(),
                         familyName: familyName.trim(),
                         idNumber: idNumber.trim(),
@@ -687,11 +704,10 @@
                         protectedSpaceStatus: protectedSpaceStatus,
                         protectedSpaceDetails: protectedSpaceDetails.trim(),
                         comments: comments.trim(),
-                        timestamp: Date.now() // Record submission time
+                        timestamp: Date.now() 
                     });
 
                     showMessage('הדיווח נשלח בהצלחה!', 'success');
-                    // Clear the form fields after successful submission (except interviewer details)
                     setFirstName('');
                     setFamilyName('');
                     setIdNumber('');
@@ -699,7 +715,7 @@
                     setProtectedSpaceStatus('');
                     setProtectedSpaceDetails('');
                     setComments('');
-                    setDuplicateIdInfo(null); // Clear any remaining duplicate ID warning
+                    setDuplicateIdInfo(null); 
                 } catch (error) {
                     console.error("Error adding document:", error);
                     let errorMessage = `שגיאה בשליחת הדיווח: ${error.message}.`;
@@ -712,25 +728,37 @@
                 }
             };
 
+            // Handle navigation to "My Submissions"
+            const handleMySubmissionsClick = () => {
+                // Ensure interviewer's ID is saved before navigating
+                if (!interviewerFirstName.trim() || !interviewerFamilyName.trim() || !interviewerIdNumber.trim()) {
+                    showMessage('אנא מלא את פרטי המראיין (שם, שם משפחה ות.ז.) לפני הצגת הדיווחים שלך.', 'danger');
+                    setIsInterviewerDetailsEditable(true); // Open panel to prompt for details
+                    return;
+                }
+                // Redirect to my_submissions.html with interviewer's ID as a query parameter
+                window.location.href = `my_submissions.html?interviewerId=${encodeURIComponent(interviewerIdNumber)}`;
+            };
+
             return (
                 <div className="container">
                     <div className="button-container" style={{ justifyContent: 'flex-end', marginBottom: '20px' }}>
-                        <a href="data.html" className="action-button secondary">
-                            <i className="fas fa-list"></i> צפה בכל הדיווחים
-                        </a>
+                        {/* "הצג דיווחים שלי" button added */}
+                        <button onClick={handleMySubmissionsClick} className="action-button secondary">
+                            <i className="fas fa-list-alt"></i> הצג דיווחים שלי
+                        </button>
                         <button onClick={onLogout} className="action-button danger">
                             <i className="fas fa-sign-out-alt"></i> התנתק
                         </button>
                     </div>
 
-                    <h1 style={{marginTop: '0'}}>טופס דיווח חדש לאזרח</h1>
+                    <h1 style={{marginTop: '0'}}>טופס שאלון לתושב</h1>
                     
                     {/* Interviewer Panel - Displayed subtly at the top */}
                     <div className="interviewer-panel">
-                        {interviewerFirstName && interviewerFamilyName && !isInterviewerDetailsEditable ? (
+                        {interviewerFirstName && interviewerFamilyName && interviewerIdNumber && !isInterviewerDetailsEditable ? (
                             <div className="interviewer-display">
                                 <span>שלום {interviewerFirstName} {interviewerFamilyName}</span>
-                                <span style={{ fontSize: '0.8em', color: '#888', marginRight: '10px' }}> (UID: {interviewerUidSaved || userUid || 'טוען...'})</span>
                                 <button type="button" className="action-button secondary small-button" onClick={() => setIsInterviewerDetailsEditable(true)}>
                                     <i className="fas fa-edit"></i> ערוך פרטים
                                 </button>
@@ -763,13 +791,21 @@
                                         />
                                         {interviewerFamilyNameError && <p className="error-message">שם משפחה נדרש.</p>}
                                     </div>
-                                    <div className="form-group">
-                                        <label>UID מראיין:</label>
-                                        <input type="text" value={interviewerUidSaved || userUid || 'טוען...'} readOnly />
-                                        <p className="info-message">מזהה זה משמש לזיהויך במערכת.</p>
+                                    <div className={`form-group ${interviewerIdNumberError ? 'error' : ''}`}>
+                                        <label htmlFor="interviewerIdNumber" className="required">תעודת זהות:</label>
+                                        <input
+                                            type="tel"
+                                            id="interviewerIdNumber"
+                                            value={interviewerIdNumber}
+                                            onChange={(e) => { setInterviewerIdNumber(e.target.value.replace(/\D/g, '').slice(0, 9)); setInterviewerIdNumberError(false); }}
+                                            placeholder="הזן תעודת זהות (9 ספרות)"
+                                            maxLength="9"
+                                            required
+                                        />
+                                        {interviewerIdNumberError && <p className="error-message">מספר תעודת זהות לא תקין (9 ספרות).</p>}
                                     </div>
                                 </div>
-                                {(interviewerFirstName.trim() && interviewerFamilyName.trim()) && (
+                                {(interviewerFirstName.trim() && interviewerFamilyName.trim() && interviewerIdNumber.trim().length === 9 && validateIsraeliId(interviewerIdNumber)) && (
                                     <button type="button" className="action-button secondary small-button" onClick={() => {
                                         setIsInterviewerDetailsEditable(false);
                                     }}>
@@ -913,13 +949,11 @@
             const [isAuthReady, setIsAuthReady] = useState(false);
             const [userUid, setUserUid] = useState(null);
             const logoutTriggeredRef = useRef(false);
+            const initialAuthAttemptedRef = useRef(false); 
 
             useEffect(() => {
-                // Check if Firebase instances are globally exposed and valid
                 if (!window.firebaseApp || !window.firebaseAuth || !window.firebaseDb) {
                     console.error("Global Firebase instances are not available. Cannot initialize App component.");
-                    // Optionally, show a message to the user that Firebase is not configured
-                    // For now, it will just show the loading state indefinitely or until config is fixed.
                     return;
                 }
 
@@ -929,70 +963,84 @@
                     db: window.firebaseDb
                 });
 
-                // Authenticate anonymously or with custom token
                 const authenticateFirebase = async () => {
-                    try {
-                        const authInstance = window.firebaseAuth;
-                        if (authInstance) {
-                            if (window.initialAuthToken) {
+                    const authInstance = window.firebaseAuth;
+                    if (!authInstance) {
+                        console.error("Firebase Auth instance is not available for authentication.");
+                        return;
+                    }
+
+                    if (!authInstance.currentUser) {
+                        try {
+                            if (window.initialAuthToken && !initialAuthAttemptedRef.current) {
+                                console.log("Attempting initial sign-in with custom token...");
                                 await window.signInWithCustomTokenGlobal(authInstance, window.initialAuthToken);
-                                console.log("Signed in with custom token.");
+                                console.log("Signed in with custom token (initial).");
+                                initialAuthAttemptedRef.current = true; 
                             } else {
+                                console.log("Attempting to sign in anonymously...");
                                 await window.signInAnonymouslyGlobal(authInstance);
-                                console.log("Signed in anonymously.");
+                                console.log("Signed in anonymously (or re-authenticated anonymously).");
+                                initialAuthAttemptedRef.current = true; 
                             }
-                        } else {
-                            console.error("Firebase Auth instance is not available for authentication.");
+                        } catch (error) {
+                            console.error("Firebase authentication error during sign-in attempt:", error);
+                            initialAuthAttemptedRef.current = true; 
                         }
-                    } catch (error) {
-                        console.error("Firebase authentication error:", error);
-                        // Handle authentication errors, e.g., show login page or error message
+                    } else {
+                        console.log("User already signed in. No re-authentication needed at this moment.");
                     }
                 };
 
-                // Listen for auth state changes
                 const unsubscribeAuth = window.onAuthStateChangedGlobal(window.firebaseAuth, (user) => {
-                    if (!logoutTriggeredRef.current) {
+                    console.log("onAuthStateChanged triggered. Current user:", user ? user.uid : "null", "Logout triggered ref:", logoutTriggeredRef.current);
+                    if (!logoutTriggeredRef.current) { 
                         if (user) {
                             setUserUid(user.uid);
                             console.log("Auth State Changed: User is signed in with UID:", user.uid);
                         } else {
                             setUserUid(null);
-                            console.log("Auth State Changed: No user is signed in.");
-                            // If no user is signed in and it's not a logout, try to authenticate
-                            if (!window.firebaseAuth.currentUser) {
-                                authenticateFirebase();
-                            }
+                            console.log("Auth State Changed: No user is signed in. Attempting anonymous re-authentication...");
+                            authenticateFirebase(); 
                         }
-                        setIsAuthReady(true); // Mark auth as ready once initial check is done
+                        setIsAuthReady(true); 
+                    } else {
+                        console.log("onAuthStateChanged triggered during explicit logout. Waiting for re-auth to settle.");
+                        setTimeout(() => {
+                            logoutTriggeredRef.current = false;
+                            console.log("logoutTriggeredRef reset after delay.");
+                        }, 200); 
                     }
                 });
 
-                // Initial authentication attempt if no user is present
-                if (!window.firebaseAuth.currentUser) {
+                if (!window.firebaseAuth.currentUser && !initialAuthAttemptedRef.current) {
+                    console.log("App initial load: No user, attempting authentication...");
                     authenticateFirebase();
                 }
 
                 return () => {
-                    unsubscribeAuth(); // Clean up auth listener on unmount
+                    unsubscribeAuth(); 
                 };
-            }, []); // Empty dependency array means this runs once on mount
+            }, []); 
 
             const handleLogout = async () => {
-                logoutTriggeredRef.current = true; // Set flag to prevent re-authentication immediately
+                logoutTriggeredRef.current = true; 
                 if (firebaseInstances.auth) {
                     try {
+                        console.log("Attempting to sign out explicitly...");
                         await window.signOutFirebaseGlobal(firebaseInstances.auth);
-                        setUserUid(null);
+                        // Clear interviewer specific local storage items upon explicit logout
                         localStorage.removeItem('interviewerFirstName');
                         localStorage.removeItem('interviewerFamilyName');
-                        localStorage.removeItem('interviewerUid');
-                        console.log("User signed out successfully.");
-                        // No redirect here, QuestionnaireForm component will be rendered automatically
+                        localStorage.removeItem('interviewerIdNumber');
+                        localStorage.removeItem('interviewerUid'); 
+
+                        console.log("Explicit sign out completed. Redirecting to landing page.");
+                        // Redirect to the new landing page after explicit logout
+                        window.location.href = 'landing.html'; 
                     } catch (error) {
-                        console.error("Error signing out:", error);
+                        console.error("Error during explicit sign out:", error);
                     } finally {
-                        logoutTriggeredRef.current = false; // Reset flag after logout attempt
                     }
                 }
             };
@@ -1001,26 +1049,22 @@
                 return (
                     <div className="container" style={{ textAlign: 'center', padding: '50px' }}>
                         <h1>טוען הגדרות אבטחה...</h1>
-                        <p style={{color: '#555'}}>ממתין לסטטוס הזדהות.</p>
+                        <p style={{color: '#555'}}>ממתין לסטטוס הזדהות. אם הודעה זו נשארת זמן רב, וודא ש-Firebase Authentication מוגדר כראוי (Anonymous Enabled).</p>
                         <div className="spinner"></div>
                     </div>
                 );
             }
 
-            // If Firebase is initialized but no user is logged in, show a message or redirect to a more appropriate entry point
-            // In this setup, we assume that signInAnonymously will eventually succeed and userUid will be populated.
-            // If it fails permanently, the user will be stuck in the loading state, or an error message will be shown.
             if (!userUid) {
                  return (
                     <div className="container" style={{ textAlign: 'center', padding: '50px' }}>
                         <h1>ממתין לזיהוי המראיין...</h1>
-                        <p style={{color: '#555'}}>נא המתן. אם ההודעה הזו נשארת זמן רב, ייתכן שישנה בעיה בהגדרות Firebase.</p>
+                        <p style={{color: '#555'}}>נא המתן. אם ההודעה הזו נשארת זמן רב, ייתכן שישנה בעיה בהגדרות Firebase Authentication (אנונימי).</p>
                         <div className="spinner"></div>
                     </div>
                 );
             }
             
-            // Render the QuestionnaireForm if authenticated
             return (
                 <QuestionnaireForm
                     auth={firebaseInstances.auth}
@@ -1030,7 +1074,6 @@
                 />
             );
         }
-        // Corrected React 18 rendering method
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
