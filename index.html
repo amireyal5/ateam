@@ -15,8 +15,9 @@
     <!-- Firebase Libraries - Initialized here and exposed globally -->
     <script type="module">
         // Import Firebase functions (These must be standard ES module imports in this block)
+        // Added signInWithCustomToken and signInAnonymously to the imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         // Added getDoc, setDoc, and updateDoc for user profile and form updates
         import { getFirestore, collection, addDoc, onSnapshot, query, where, getDocs, collectionGroup, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -98,6 +99,8 @@
         window.getDocFirebaseGlobal = getDoc; 
         window.setDocFirebaseGlobal = setDoc; 
         window.updateDocFirebaseGlobal = updateDoc; /* Exposed for updating existing docs */
+        window.signInWithCustomTokenGlobal = signInWithCustomToken; // Exposed for custom token login
+        window.signInAnonymouslyGlobal = signInAnonymously; // Exposed for anonymous login
 
 
     </script>
@@ -542,7 +545,7 @@
                 <div className="container">
                     <h1>הזדהות</h1>
                     {message && (
-                        <div className={`message-box ${message.includes('הצליחה') ? 'success' : ''}`}>
+                        <div className={`message-box ${message.includes('הצליחה') ? 'success' : 'danger'}`}>
                             {message}
                         </div>
                     )}
@@ -725,10 +728,7 @@
 
                 setLoading(true);
                 try {
-                    // Removed the check for ID number existence in formData collection
-                    // This check is irrelevant for setting the REPORTER'S identity
-                    // and was the cause of the reported problem.
-
+                    // This check is for the REPORTER'S identity and does not need to check existing formData
                     const profileRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/profile`, 'details');
                     await window.setDocFirebaseGlobal(profileRef, {
                         firstName: firstName.trim(),
@@ -765,11 +765,10 @@
                             id="setupFirstName"
                             value={firstName}
                             onChange={(e) => { setFirstName(e.target.value); setFirstNameError(false); }}
-                            onBlur={() => setFirstNameError(!firstName.trim())}
-                            required
                             placeholder="הזן שם פרטי"
+                            required
                         />
-                        {firstNameError && <span className="error-message">שדה חובה</span>}
+                        {firstNameError && <p className="error-message">שם פרטי נדרש.</p>}
                     </div>
                     <div className={`form-group ${familyNameError ? 'error' : ''}`}>
                         <label htmlFor="setupFamilyName" className="required">שם משפחה:</label>
@@ -778,293 +777,202 @@
                             id="setupFamilyName"
                             value={familyName}
                             onChange={(e) => { setFamilyName(e.target.value); setFamilyNameError(false); }}
-                            onBlur={() => setFamilyNameError(!familyName.trim())}
-                            required
                             placeholder="הזן שם משפחה"
+                            required
                         />
-                        {familyNameError && <span className="error-message">שדה חובה</span>}
+                        {familyNameError && <p className="error-message">שם משפחה נדרש.</p>}
                     </div>
-                    {/* Removed idNumberExistsError class from form-group */}
                     <div className={`form-group ${idNumberError ? 'error' : ''}`}>
-                        <label htmlFor="setupIdNumber" className="required">תעודת זהות (9 ספרות):</label>
+                        <label htmlFor="setupIdNumber" className="required">מספר תעודת זהות:</label>
                         <input
-                            type="text"
+                            type="tel" // Use tel for numerical input on mobile devices with appropriate keyboard
                             id="setupIdNumber"
                             value={idNumber}
-                            onChange={(e) => { 
-                                const val = e.target.value.replace(/\D/g, '').substring(0, 9); // Only digits, max 9
-                                setIdNumber(val); 
-                                setIdNumberError(false); 
-                                // Removed setIdNumberExistsError(false)
-                                setMessage(''); // Clear general message
-                            }}
-                            onBlur={() => {
-                                const trimmedId = idNumber.trim();
-                                if (!trimmedId || !/^\d{9}$/.test(trimmedId)) {
-                                    setIdNumberError(true);
-                                    setMessage('מספר תעודת זהות חייב להיות בן 9 ספרות בדיוק.');
-                                } else if (!validateIsraeliId(trimmedId)) {
-                                    setIdNumberError(true);
-                                    setMessage('מספר תעודת הזהות שהוזן אינו תקין.');
-                                } else {
-                                    setIdNumberError(false);
-                                    setMessage('');
-                                }
-                            }}
+                            onChange={(e) => { setIdNumber(e.target.value.replace(/\D/g, '').slice(0, 9)); setIdNumberError(false); }} // Allow only digits, max 9
+                            placeholder="הזן מספר ת.ז. (9 ספרות)"
+                            maxLength="9"
                             required
-                            placeholder="הזן תעודת זהות"
-                            inputMode="numeric" // Optimized for numeric input on mobile
                         />
-                        {idNumberError && <span className="error-message">{message}</span>}
-                        {/* Removed idNumberExistsError display */}
+                        {idNumberError && <p className="error-message">{message}</p>} {/* Display the specific ID error message */}
                     </div>
                     <div className="button-container">
-                        <button className="action-button" onClick={handleSaveProfile} disabled={loading} ref={saveButtonRef}>
-                            {loading ? 'שומר...' : 'שמור והמשך'}
+                        <button
+                            ref={saveButtonRef}
+                            className="action-button"
+                            onClick={handleSaveProfile}
+                            disabled={loading}
+                        >
+                            {loading ? 'שומר...' : 'שמור פרטים'}
                         </button>
                     </div>
                 </div>
             );
         }
 
-        // Main Form Component for data submission
-        function SubmissionForm({ db, userUid, userName, userFamilyName, userIdNumber, onLogout }) {
-            // State for reported person's details
-            const [reportedPersonFirstName, setReportedPersonFirstName] = useState('');
-            const [reportedPersonFamilyName, setReportedPersonFamilyName] = useState('');
-            const [reportedPersonIdNumber, setReportedPersonIdNumber] = useState('');
-
-            // Validation states for reported person's details
-            const [reportedPersonFirstNameError, setReportedPersonFirstNameError] = useState(false);
-            const [reportedPersonFamilyNameError, setReportedPersonFamilyNameError] = useState(false);
-            const [reportedPersonIdNumberError, setReportedPersonIdNumberError] = useState(false);
-            const [reportedPersonIdNumberExistsError, setReportedPersonIdNumberExistsError] = useState(false);
-
-
-            const [age, setAge] = useState('');
-            const [gender, setGender] = useState('');
-            const [phone, setPhone] = useState('');
-            const [address, setAddress] = useState('');
-            const [residents, setResidents] = useState('');
-            const [physicalInjury, setPhysicalInjury] = useState('');
-            const [casualties, setCasualties] = useState('');
-            const [disconnected, setDisconnected] = useState('');
-            const [evacuationAssistance, setEvacuationAssistance] = useState('');
-            const [notes, setNotes] = useState('');
+        // Main Application/Form Component
+        function MainApp({ user, userProfile, db, onLogout }) {
+            const [formData, setFormData] = useState({
+                firstName: userProfile.firstName || '',
+                familyName: userProfile.familyName || '',
+                idNumber: userProfile.idNumber || '', // Pre-filled from user profile, should be read-only
+                phoneNumber: '',
+                protectedSpaceStatus: '', // 'yes', 'no', 'not_sure'
+                protectedSpaceDetails: '',
+                comments: ''
+            });
             const [message, setMessage] = useState('');
             const [loading, setLoading] = useState(false);
-            const [lastSubmittedId, setLastSubmittedId] = useState(null); // Track the last submitted ID for viewing details
-            const [previousSubmissions, setPreviousSubmissions] = useState([]); // State for previous submissions
+            const [formErrors, setFormErrors] = useState({});
+            const [previousSubmissions, setPreviousSubmissions] = useState([]);
 
-            // State for validation errors for other form fields
-            const [ageError, setAgeError] = useState(false);
-            const [genderError, setGenderError] = useState(false);
-            const [phoneError, setPhoneError] = useState(false);
-            const [addressError, setAddressError] = useState(false);
-            const [residentsError, setResidentsError] = useState(false);
-            const [physicalInjuryError, setPhysicalInjuryError] = useState(false);
-            const [casualtiesError, setCasualtiesError] = useState(false);
-            const [disconnectedError, setDisconnectedError] = useState(false);
-            const [evacuationAssistanceError, setEvacuationAssistanceError] = useState(false);
-
-
-            // Speech Recognition (for 'notes' field)
-            const recognitionRef = useRef(null);
-            const [isListening, setIsListening] = useState(false);
-
+            // Listen for previous submissions by this user
             useEffect(() => {
-                if ('webkitSpeechRecognition' in window) {
-                    recognitionRef.current = new webkitSpeechRecognition();
-                    recognitionRef.current.continuous = true;
-                    recognitionRef.current.interimResults = true;
-                    recognitionRef.current.lang = 'he-IL'; // Set language to Hebrew
+                if (!db || !user) return;
 
-                    recognitionRef.current.onresult = (event) => {
-                        let interimTranscript = '';
-                        let finalTranscript = '';
-                        for (let i = event.resultIndex; i < event.results.length; ++i) {
-                            if (event.results[i].isFinal) {
-                                finalTranscript += event.results[i][0].transcript;
-                            } else {
-                                interimTranscript += event.results[i][0].transcript;
-                            }
-                        }
-                        setNotes((prevNotes) => prevNotes + finalTranscript); // Append final results
-                        // You might want to show interimTranscript in a temporary display, but for now, we just append final.
-                    };
-
-                    recognitionRef.current.onend = () => {
-                        setIsListening(false);
-                        console.log('Speech recognition ended.');
-                    };
-
-                    recognitionRef.current.onerror = (event) => {
-                        console.error('Speech recognition error:', event.error);
-                        setIsListening(false);
-                        setMessage(`שגיאת זיהוי דיבור: ${event.error}.`);
-                    };
-                } else {
-                    console.warn('Speech recognition not supported in this browser.');
-                }
-            }, []);
-
-            const toggleSpeechRecognition = () => {
-                if (!recognitionRef.current) {
-                    setMessage('זיהוי דיבור אינו נתמך בדפדפן זה.');
-                    return;
-                }
-                if (isListening) {
-                    recognitionRef.current.stop();
-                    setIsListening(false);
-                } else {
-                    setNotes(''); // Clear notes before starting new recognition
-                    recognitionRef.current.start();
-                    setIsListening(true);
-                    setMessage('מאזין...');
-                }
-            };
-
-
-            // Fetch previous submissions for the current user
-            useEffect(() => {
-                if (!db || !userUid) {
-                    console.warn("Firestore DB or user UID not available for fetching previous submissions.");
-                    return;
-                }
-
-                // Fetch submissions made by *this* user
-                const submissionsCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`);
-                const q = window.queryFirebaseGlobal(submissionsCollectionRef);
+                const formCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`);
+                // Query for submissions by the current user's ID number
+                // IMPORTANT: In a real application, you might want to query by UID for more robust security,
+                // but the request specifically mentioned checking ID for duplicate submissions.
+                // Firestore does not directly support querying arrays for sorting without indexes.
+                // Sorting will be done client-side after fetching.
+                const q = window.queryFirebaseGlobal(formCollectionRef, window.whereFirebaseGlobal('submitterIdNumber', '==', userProfile.idNumber));
 
                 const unsubscribe = window.onSnapshotGlobal(q, (snapshot) => {
-                    const subs = [];
-                    snapshot.forEach(doc => {
-                        subs.push({ id: doc.id, ...doc.data() });
-                    });
-                    // Sort by timestamp descending to show newest first
-                    subs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                    setPreviousSubmissions(subs);
+                    const submissions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    // Sort submissions by timestamp client-side as orderBy is avoided
+                    submissions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                    setPreviousSubmissions(submissions);
                 }, (error) => {
                     console.error("Error fetching previous submissions:", error);
-                    setMessage(`שגיאה באחזור דיווחים קודמים: ${error.message}`);
+                    setMessage('שגיאה בטעינת נתונים קודמים.');
                 });
 
-                return () => unsubscribe(); // Cleanup on unmount
-            }, [db, userUid]); // Re-run when db or userUid changes
+                return () => unsubscribe();
+            }, [db, user, userProfile.idNumber]);
 
 
-            // Handles form submission
+            const handleChange = (e) => {
+                const { name, value, type, checked } = e.target;
+                let newValue = value;
+
+                // Handle comments character limit
+                if (name === 'comments' && value.length > 50) {
+                    newValue = value.slice(0, 50);
+                }
+
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: type === 'radio' ? (checked ? value : prev[name]) : newValue
+                }));
+                // Clear error for the field being changed
+                setFormErrors(prev => ({ ...prev, [name]: false }));
+                setMessage(''); // Clear general message on input change
+            };
+
+            const validateForm = async () => {
+                let errors = {};
+                let isValid = true;
+
+                if (!formData.firstName.trim()) {
+                    errors.firstName = true;
+                    isValid = false;
+                }
+                if (!formData.familyName.trim()) {
+                    errors.familyName = true;
+                    isValid = false;
+                }
+                if (!formData.phoneNumber.trim()) {
+                    errors.phoneNumber = true;
+                    isValid = false;
+                } else if (!/^\d{9,10}$/.test(formData.phoneNumber.trim())) { // Simple phone number validation (9-10 digits)
+                    errors.phoneNumber = true;
+                    setMessage('מספר טלפון לא תקין. יש להזין 9 או 10 ספרות.');
+                    isValid = false;
+                }
+
+                if (!formData.protectedSpaceStatus) {
+                    errors.protectedSpaceStatus = true;
+                    isValid = false;
+                } else if ((formData.protectedSpaceStatus === 'no' || formData.protectedSpaceStatus === 'not_sure') && !formData.protectedSpaceDetails.trim()) {
+                    errors.protectedSpaceDetails = true;
+                    isValid = false;
+                }
+
+                if (formData.comments.length > 50) {
+                    errors.comments = true;
+                    setMessage('הערות: מקסימום 50 תווים.');
+                    isValid = false;
+                }
+                
+                // Check for duplicate submission by ID number
+                if (isValid) {
+                    const formCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`);
+                    const q = window.queryFirebaseGlobal(formCollectionRef, window.whereFirebaseGlobal('submitterIdNumber', '==', formData.idNumber));
+                    try {
+                        const querySnapshot = await window.getDocsFirebaseGlobal(q);
+                        if (!querySnapshot.empty) {
+                            errors.idNumber = true; // Set an error specifically for duplicate submission
+                            setMessage('מספר תעודת זהות זה כבר הגיש טופס. ניתן להגיש טופס אחד בלבד.');
+                            isValid = false;
+                        }
+                    } catch (error) {
+                        console.error("Error checking for duplicate ID:", error);
+                        setMessage('שגיאה בבדיקת כפילות תעודת זהות.');
+                        isValid = false;
+                    }
+                }
+
+                setFormErrors(errors);
+                if (!isValid && !message) { // Only set generic message if no specific error message was set
+                    setMessage('אנא מלא את כל השדות הנדרשים כראוי.');
+                }
+                return isValid;
+            };
+
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 setMessage('');
-                setLoading(true);
-                setReportedPersonIdNumberExistsError(false); // Reset existence error
-
-                let hasError = false;
-
-                // Validate reported person's fields
-                if (!reportedPersonFirstName.trim()) { setReportedPersonFirstNameError(true); hasError = true; } else { setReportedPersonFirstNameError(false); }
-                if (!reportedPersonFamilyName.trim()) { setReportedPersonFamilyNameError(true); hasError = true; } else { setReportedPersonFamilyNameError(false); }
-                
-                const trimmedReportedId = reportedPersonIdNumber.trim();
-                if (!trimmedReportedId || !/^\d{9}$/.test(trimmedReportedId)) {
-                    setReportedPersonIdNumberError(true);
-                    setMessage('מספר תעודת זהות של האדם המדווח חייב להיות בן 9 ספרות בדיוק.');
-                    hasError = true;
-                } else if (!validateIsraeliId(trimmedReportedId)) {
-                    setReportedPersonIdNumberError(true);
-                    setMessage('מספר תעודת הזהות של האדם המדווח אינו תקין.');
-                    hasError = true;
-                } else {
-                    setReportedPersonIdNumberError(false);
-                }
-
-                // Validate all other form fields
-                if (!age.trim() || isNaN(parseInt(age)) || parseInt(age) < 0) { setAgeError(true); hasError = true; } else { setAgeError(false); }
-                if (!gender) { setGenderError(true); hasError = true; } else { setGenderError(false); }
-                if (!phone.trim()) { setPhoneError(true); hasError = true; } else { setPhoneError(false); }
-                if (!address.trim()) { setAddressError(true); hasError = true; } else { setAddressError(false); }
-                if (!residents.trim() || isNaN(parseInt(residents)) || parseInt(residents) < 0) { setResidentsError(true); hasError = true; } else { setResidentsError(false); }
-                if (!physicalInjury) { setPhysicalInjuryError(true); hasError = true; } else { setPhysicalInjuryError(false); }
-                if (!casualties) { setCasualtiesError(true); hasError = true; } else { setCasualtiesError(false); }
-                if (!disconnected) { setDisconnectedError(true); hasError = true; } else { setDisconnectedError(false); }
-                if (!evacuationAssistance) { setEvacuationAssistanceError(true); hasError = true; } else { setEvacuationAssistanceError(false); }
-
-                if (hasError) {
-                    setMessage('אנא מלא את כל השדות הנדרשים המסומנים כראוי.');
-                    setLoading(false);
+                setFormErrors({});
+                if (!db) {
+                    setMessage('שגיאה: שירותי Firebase אינם זמינים.');
                     return;
                 }
 
+                if (!userProfile || !user) {
+                    setMessage('שגיאה: פרטי משתמש אינם זמינים. אנא התחבר מחדש.');
+                    return;
+                }
+
+                const isValid = await validateForm();
+                if (!isValid) {
+                    return;
+                }
+
+                setLoading(true);
                 try {
-                    // Check if the reported person's ID number already exists in *any* formData collection
-                    const idNumberQuery = window.queryFirebaseGlobal(
-                        window.collectionGroupFirebaseGlobal(db, 'formData'),
-                        window.whereFirebaseGlobal('reportedPersonIdNumber', '==', trimmedReportedId) // Use the new field
-                    );
-                    const querySnapshot = await window.getDocsFirebaseGlobal(idNumberQuery);
-
-                    if (!querySnapshot.empty) {
-                        setReportedPersonIdNumberExistsError(true);
-                        setMessage('מספר תעודת זהות של האדם המדווח כבר קיים במערכת. אנא וודא שאינך מדווח שוב על אותו אדם.');
-                        setLoading(false);
-                        return;
-                    }
-
-                    // Create a new document in the user's formData subcollection
-                    const docRef = await window.addDocFirebaseGlobal(
-                        window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${userUid}/formData`),
-                        {
-                            reporterUserId: userUid, // The UID of the person who submitted the form
-                            reporterIdentityId: userIdNumber, // The verified ID of the person who submitted the form
-                            reporterFirstName: userName,
-                            reporterFamilyName: userFamilyName,
-                            
-                            reportedPersonFirstName: reportedPersonFirstName.trim(), // New: Name of the person being reported on
-                            reportedPersonFamilyName: reportedPersonFamilyName.trim(), // New: Name of the person being reported on
-                            reportedPersonIdNumber: trimmedReportedId, // New: ID of the person being reported on
-
-                            age: parseInt(age),
-                            gender,
-                            phone,
-                            address,
-                            residents: parseInt(residents),
-                            physicalInjury,
-                            casualties,
-                            disconnected,
-                            evacuationAssistance,
-                            notes,
-                            timestamp: Date.now(), // Store submission time
-                            referralStatus: 'open', // Default status for new submissions
-                            adminNotes: '',
-                            otherStatusText: ''
-                        }
-                    );
-                    setMessage('הדיווח נשלח בהצלחה!');
-                    setLastSubmittedId(docRef.id); // Store ID of the new submission
-
-                    // Clear form fields after successful submission
-                    setReportedPersonFirstName('');
-                    setReportedPersonFamilyName('');
-                    setReportedPersonIdNumber('');
-                    setAge('');
-                    setGender('');
-                    setPhone('');
-                    setAddress('');
-                    setResidents('');
-                    setPhysicalInjury('');
-                    setCasualties('');
-                    setDisconnected('');
-                    setEvacuationAssistance('');
-                    setNotes('');
-
+                    const formCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`);
+                    await window.addDocFirebaseGlobal(formCollectionRef, {
+                        submitterUid: user.uid,
+                        submitterFirstName: formData.firstName,
+                        submitterFamilyName: formData.familyName,
+                        submitterIdNumber: formData.idNumber, // ID from user profile
+                        phoneNumber: formData.phoneNumber.trim(),
+                        protectedSpaceStatus: formData.protectedSpaceStatus,
+                        protectedSpaceDetails: formData.protectedSpaceDetails.trim(),
+                        comments: formData.comments.trim(),
+                        timestamp: Date.now() // Use timestamp for ordering
+                    });
+                    setMessage('הטופס נשלח בהצלחה!');
+                    setFormData(prev => ({ // Reset only modifiable fields, keep pre-filled
+                        ...prev,
+                        phoneNumber: '',
+                        protectedSpaceStatus: '',
+                        protectedSpaceDetails: '',
+                        comments: ''
+                    }));
                 } catch (error) {
-                    console.error("Error adding document: ", error);
-                    let displayMessage = `שגיאה בשליחת הדיווח: ${error.message}`;
-                    if (error.code === 'permission-denied') {
-                        displayMessage += " (ייתכן שאין לך הרשאה לכתיבה ל-Firestore).";
-                    }
-                    setMessage(displayMessage);
+                    console.error("Error adding document:", error);
+                    setMessage(`שגיאה בשליחת הטופס: ${error.message}.`);
                 } finally {
                     setLoading(false);
                 }
@@ -1073,13 +981,17 @@
             return (
                 <div className="container">
                     <div className="top-bar">
-                        <h1>טופס דיווח חדש</h1>
+                        <h1>טופס נתונים</h1>
                         <div className="button-group">
-                            <a href="data.html" className="action-button secondary" style={{ textDecoration: 'none' }}>
-                                צפייה בנתונים
-                            </a>
-                            <button onClick={onLogout} className="action-button danger">
-                                התנתק
+                            <button className="action-button secondary" onClick={() => {
+                                // For simplicity, this button can edit the profile if needed
+                                // In a real app, this might lead to a dedicated profile edit page
+                                setMessage('פונקציונליות עריכת פרופיל תוצג כאן.');
+                            }}>
+                                <i className="fas fa-user-edit"></i> עריכת פרופיל
+                            </button>
+                            <button className="action-button danger" onClick={onLogout}>
+                                <i className="fas fa-sign-out-alt"></i> יציאה
                             </button>
                         </div>
                     </div>
@@ -1092,372 +1004,270 @@
 
                     <form onSubmit={handleSubmit}>
                         <div className="form-section">
-                            <h2>פרטי מדווח</h2>
-                            <div className="form-group">
-                                <label>שם מלא:</label>
-                                <input type="text" value={`${userName} ${userFamilyName}`} readOnly disabled />
-                            </div>
-                            <div className="form-group">
-                                <label>תעודת זהות:</label>
-                                <input type="text" value={userIdNumber} readOnly disabled />
-                            </div>
-                        </div>
-
-                        <div className="form-section">
-                            <h2>פרטי אדם באזור התקרית</h2>
-                            {/* New fields for reported person's name and ID */}
-                            <div className={`form-group ${reportedPersonFirstNameError ? 'error' : ''}`}>
-                                <label htmlFor="reportedPersonFirstName" className="required">שם פרטי (מדווח עליו):</label>
+                            <div className={`form-group ${formErrors.firstName ? 'error' : ''}`}>
+                                <label htmlFor="firstName" className="required">שם פרטי:</label>
                                 <input
                                     type="text"
-                                    id="reportedPersonFirstName"
-                                    value={reportedPersonFirstName}
-                                    onChange={(e) => { setReportedPersonFirstName(e.target.value); setReportedPersonFirstNameError(false); }}
-                                    onBlur={() => setReportedPersonFirstNameError(!reportedPersonFirstName.trim())}
-                                    placeholder="הזן שם פרטי של האדם"
+                                    id="firstName"
+                                    name="firstName"
+                                    value={formData.firstName}
+                                    onChange={handleChange}
+                                    placeholder="הזן שם פרטי"
                                     required
                                 />
-                                {reportedPersonFirstNameError && <span className="error-message">שדה חובה</span>}
+                                {formErrors.firstName && <p className="error-message">שם פרטי נדרש.</p>}
                             </div>
-                            <div className={`form-group ${reportedPersonFamilyNameError ? 'error' : ''}`}>
-                                <label htmlFor="reportedPersonFamilyName" className="required">שם משפחה (מדווח עליו):</label>
+                            <div className={`form-group ${formErrors.familyName ? 'error' : ''}`}>
+                                <label htmlFor="familyName" className="required">שם משפחה:</label>
                                 <input
                                     type="text"
-                                    id="reportedPersonFamilyName"
-                                    value={reportedPersonFamilyName}
-                                    onChange={(e) => { setReportedPersonFamilyName(e.target.value); setReportedPersonFamilyNameError(false); }}
-                                    onBlur={() => setReportedPersonFamilyNameError(!reportedPersonFamilyName.trim())}
-                                    placeholder="הזן שם משפחה של האדם"
+                                    id="familyName"
+                                    name="familyName"
+                                    value={formData.familyName}
+                                    onChange={handleChange}
+                                    placeholder="הזן שם משפחה"
                                     required
                                 />
-                                {reportedPersonFamilyNameError && <span className="error-message">שדה חובה</span>}
+                                {formErrors.familyName && <p className="error-message">שם משפחה נדרש.</p>}
                             </div>
-                            <div className={`form-group ${reportedPersonIdNumberError || reportedPersonIdNumberExistsError ? 'error' : ''}`}>
-                                <label htmlFor="reportedPersonIdNumber" className="required">תעודת זהות (מדווח עליו, 9 ספרות):</label>
+                            <div className={`form-group ${formErrors.idNumber ? 'error' : ''}`}>
+                                <label htmlFor="idNumber" className="required">תעודת זהות:</label>
                                 <input
                                     type="text"
-                                    id="reportedPersonIdNumber"
-                                    value={reportedPersonIdNumber}
-                                    onChange={(e) => { 
-                                        const val = e.target.value.replace(/\D/g, '').substring(0, 9); // Only digits, max 9
-                                        setReportedPersonIdNumber(val); 
-                                        setReportedPersonIdNumberError(false); 
-                                        setReportedPersonIdNumberExistsError(false); // Clear existence error on change
-                                        setMessage(''); // Clear general message
-                                    }}
-                                    onBlur={() => {
-                                        const trimmedId = reportedPersonIdNumber.trim();
-                                        if (!trimmedId || !/^\d{9}$/.test(trimmedId)) {
-                                            setReportedPersonIdNumberError(true);
-                                            setMessage('מספר תעודת זהות של האדם המדווח חייב להיות בן 9 ספרות בדיוק.');
-                                        } else if (!validateIsraeliId(trimmedId)) {
-                                            setReportedPersonIdNumberError(true);
-                                            setMessage('מספר תעודת הזהות של האדם המדווח אינו תקין.');
-                                        } else {
-                                            setReportedPersonIdNumberError(false);
-                                            setMessage('');
-                                        }
-                                    }}
-                                    required
-                                    placeholder="הזן תעודת זהות של האדם"
-                                    inputMode="numeric" // Optimized for numeric input on mobile
+                                    id="idNumber"
+                                    name="idNumber"
+                                    value={formData.idNumber}
+                                    readOnly // ID number is from user profile, not editable in form
+                                    disabled // Visually indicate it's not editable
                                 />
-                                {reportedPersonIdNumberError && <span className="error-message">{message}</span>}
-                                {reportedPersonIdNumberExistsError && <span className="error-message">{message}</span>}
+                                {formErrors.idNumber && <p className="error-message">{message}</p>} {/* Display specific ID error */}
                             </div>
-                            
-                            <div className={`form-group ${ageError ? 'error' : ''}`}>
-                                <label htmlFor="age" className="required">גיל:</label>
-                                <input
-                                    type="number"
-                                    id="age"
-                                    value={age}
-                                    onChange={(e) => { setAge(e.target.value); setAgeError(false); }}
-                                    onBlur={() => setAgeError(!age.trim() || isNaN(parseInt(age)) || parseInt(age) < 0)}
-                                    placeholder="הזן גיל"
-                                    min="0"
-                                    required
-                                />
-                                {ageError && <span className="error-message">שדה חובה (מספר חיובי)</span>}
-                            </div>
-                            <div className={`form-group ${genderError ? 'error' : ''}`}>
-                                <label className="required">מין:</label>
-                                <div className="radio-group">
-                                    <label>
-                                        <input type="radio" name="gender" value="male" checked={gender === 'male'} onChange={() => { setGender('male'); setGenderError(false); }} />
-                                        זכר
-                                    </label>
-                                    <label>
-                                        <input type="radio" name="gender" value="female" checked={gender === 'female'} onChange={() => { setGender('female'); setGenderError(false); }} />
-                                        נקבה
-                                    </label>
-                                </div>
-                                {genderError && <span className="error-message">שדה חובה</span>}
-                            </div>
-                            <div className={`form-group ${phoneError ? 'error' : ''}`}>
-                                <label htmlFor="phone" className="required">טלפון:</label>
+                            <div className={`form-group ${formErrors.phoneNumber ? 'error' : ''}`}>
+                                <label htmlFor="phoneNumber" className="required">טלפון:</label>
                                 <input
                                     type="tel"
-                                    id="phone"
-                                    value={phone}
-                                    onChange={(e) => { setPhone(e.target.value); setPhoneError(false); }}
-                                    onBlur={() => setPhoneError(!phone.trim())}
+                                    id="phoneNumber"
+                                    name="phoneNumber"
+                                    value={formData.phoneNumber}
+                                    onChange={handleChange}
                                     placeholder="הזן מספר טלפון"
                                     required
                                 />
-                                {phoneError && <span className="error-message">שדה חובה</span>}
+                                {formErrors.phoneNumber && <p className="error-message">מספר טלפון נדרש ותקין (9-10 ספרות).</p>}
                             </div>
-                            <div className={`form-group ${addressError ? 'error' : ''}`}>
-                                <label htmlFor="address" className="required">כתובת:</label>
-                                <input
-                                    type="text"
-                                    id="address"
-                                    value={address}
-                                    onChange={(e) => { setAddress(e.target.value); setAddressError(false); }}
-                                    onBlur={() => setAddressError(!address.trim())}
-                                    placeholder="הזן כתובת (רחוב, מספר בית, עיר)"
-                                    required
-                                />
-                                {addressError && <span className="error-message">שדה חובה</span>}
-                            </div>
-                            <div className={`form-group ${residentsError ? 'error' : ''}`}>
-                                <label htmlFor="residents" className="required">מספר שוהים בדירה:</label>
-                                <input
-                                    type="number"
-                                    id="residents"
-                                    value={residents}
-                                    onChange={(e) => { setResidents(e.target.value); setResidentsError(false); }}
-                                    onBlur={() => setResidentsError(!residents.trim() || isNaN(parseInt(residents)) || parseInt(residents) < 0)}
-                                    placeholder="מספר נפשות בכתובת"
-                                    min="0"
-                                    required
-                                />
-                                {residentsError && <span className="error-message">שדה חובה (מספר חיובי)</span>}
-                            </div>
-                            <div className={`form-group ${physicalInjuryError ? 'error' : ''}`}>
-                                <label htmlFor="physicalInjury" className="required">האם קיימת פציעה פיזית?</label>
-                                <select
-                                    id="physicalInjury"
-                                    value={physicalInjury}
-                                    onChange={(e) => { setPhysicalInjury(e.target.value); setPhysicalInjuryError(false); }}
-                                    onBlur={() => setPhysicalInjuryError(!physicalInjury)}
-                                    required
-                                >
-                                    <option value="">בחר</option>
-                                    <option value="none">לא (1)</option>
-                                    <option value="light">קלה (2)</option>
-                                    <option value="medium">בינונית (3)</option>
-                                    <option value="severe">קשה (4)</option>
-                                </select>
-                                {physicalInjuryError && <span className="error-message">שדה חובה</span>}
-                            </div>
-                            <div className={`form-group ${casualtiesError ? 'error' : ''}`}>
-                                <label className="required">האם קיימים הרוגים/פצועים?</label>
+
+                            <div className={`form-group ${formErrors.protectedSpaceStatus ? 'error' : ''}`}>
+                                <label className="required">האם המרחב המוגן שלך תקין?</label>
                                 <div className="radio-group">
                                     <label>
-                                        <input type="radio" name="casualties" value="yes" checked={casualties === 'yes'} onChange={() => { setCasualties('yes'); setCasualtiesError(false); }} />
+                                        <input
+                                            type="radio"
+                                            name="protectedSpaceStatus"
+                                            value="yes"
+                                            checked={formData.protectedSpaceStatus === 'yes'}
+                                            onChange={handleChange}
+                                            required
+                                        />
                                         כן
                                     </label>
                                     <label>
-                                        <input type="radio" name="casualties" value="no" checked={casualties === 'no'} onChange={() => { setCasualties('no'); setCasualtiesError(false); }} />
+                                        <input
+                                            type="radio"
+                                            name="protectedSpaceStatus"
+                                            value="no"
+                                            checked={formData.protectedSpaceStatus === 'no'}
+                                            onChange={handleChange}
+                                        />
                                         לא
                                     </label>
-                                </div>
-                                {casualtiesError && <span className="error-message">שדה חובה</span>}
-                            </div>
-                            <div className={`form-group ${disconnectedError ? 'error' : ''}`}>
-                                <label className="required">האם מנותקי קשר?</label>
-                                <div className="radio-group">
                                     <label>
-                                        <input type="radio" name="disconnected" value="yes" checked={disconnected === 'yes'} onChange={() => { setDisconnected('yes'); setDisconnectedError(false); }} />
-                                        כן
-                                    </label>
-                                    <label>
-                                        <input type="radio" name="disconnected" value="no" checked={disconnected === 'no'} onChange={() => { setDisconnected('no'); setDisconnectedError(false); }} />
-                                        לא
+                                        <input
+                                            type="radio"
+                                            name="protectedSpaceStatus"
+                                            value="not_sure"
+                                            checked={formData.protectedSpaceStatus === 'not_sure'}
+                                            onChange={handleChange}
+                                        />
+                                        לא בטוח
                                     </label>
                                 </div>
-                                {disconnectedError && <span className="error-message">שדה חובה</span>}
+                                {formErrors.protectedSpaceStatus && <p className="error-message">בחירה נדרשת.</p>}
                             </div>
-                            <div className={`form-group ${evacuationAssistanceError ? 'error' : ''}`}>
-                                <label className="required">האם נדרש סיוע בפינוי?</label>
-                                <div className="radio-group">
-                                    <label>
-                                        <input type="radio" name="evacuationAssistance" value="yes" checked={evacuationAssistance === 'yes'} onChange={() => { setEvacuationAssistance('yes'); setEvacuationAssistanceError(false); }} />
-                                        כן
-                                    </label>
-                                    <label>
-                                        <input type="radio" name="evacuationAssistance" value="no" checked={evacuationAssistance === 'no'} onChange={() => { setEvacuationAssistance('no'); setEvacuationAssistanceError(false); }} />
-                                        לא
-                                    </label>
-                                </div>
-                                {evacuationAssistanceError && <span className="error-message">שדה חובה</span>}
-                            </div>
-                            <div className="form-group">
-                                <label htmlFor="notes">הערות:</label>
-                                <div className="textarea-with-button">
+
+                            {(formData.protectedSpaceStatus === 'no' || formData.protectedSpaceStatus === 'not_sure') && (
+                                <div className={`form-group ${formErrors.protectedSpaceDetails ? 'error' : ''}`}>
+                                    <label htmlFor="protectedSpaceDetails" className="required">פירוט (למה לא תקין / לא בטוח):</label>
                                     <textarea
-                                        id="notes"
-                                        value={notes}
-                                        onChange={(e) => setNotes(e.target.value)}
-                                        placeholder="הזן הערות נוספות (ניתן להשתמש בזיהוי דיבור)"
+                                        id="protectedSpaceDetails"
+                                        name="protectedSpaceDetails"
+                                        value={formData.protectedSpaceDetails}
+                                        onChange={handleChange}
+                                        placeholder="פרט מדוע המרחב המוגן אינו תקין או שאינך בטוח."
+                                        rows="3"
+                                        required
                                     ></textarea>
-                                    <button
-                                        type="button"
-                                        onClick={toggleSpeechRecognition}
-                                        className={`speech-button ${isListening ? 'listening' : ''}`}
-                                        title="התחל/הפסק זיהוי דיבור"
-                                    >
-                                        <i className={`fas ${isListening ? 'fa-microphone' : 'fa-microphone-alt-slash'}`}></i>
-                                    </button>
+                                    {formErrors.protectedSpaceDetails && <p className="error-message">פירוט נדרש עבור בחירה זו.</p>}
                                 </div>
+                            )}
+
+                            <div className={`form-group ${formErrors.comments ? 'error' : ''}`}>
+                                <label htmlFor="comments">הערות: <span style={{fontSize: '0.8em', color: '#888'}}>(עד 50 תווים)</span></label>
+                                <textarea
+                                    id="comments"
+                                    name="comments"
+                                    value={formData.comments}
+                                    onChange={handleChange}
+                                    placeholder="הוסף הערות נוספות כאן."
+                                    rows="2"
+                                    maxLength="50" // Enforce max length
+                                ></textarea>
+                                <p style={{fontSize: '0.8em', color: '#888', textAlign: 'left', marginTop: '4px'}}>
+                                    {formData.comments.length}/50 תווים
+                                </p>
+                                {formErrors.comments && <p className="error-message">{message || 'הערות: מקסימום 50 תווים.'}</p>}
                             </div>
                         </div>
 
                         <div className="button-container">
-                            <button type="submit" className="action-button" disabled={loading}>
-                                {loading ? 'שולח...' : 'שלח דיווח'}
+                            <button className="action-button" type="submit" disabled={loading}>
+                                {loading ? 'שולח...' : 'שלח טופס'}
                             </button>
                         </div>
                     </form>
 
-                    {/* Previous Submissions Section (for current user) */}
-                    {previousSubmissions.length > 0 && (
-                        <div className="previous-submissions">
-                            <h2>דיווחים קודמים שלי</h2>
-                            {previousSubmissions.map((item) => (
-                                <div key={item.id} className="submission-item">
-                                    <span><strong>תאריך:</strong> {new Date(item.timestamp).toLocaleString('he-IL')}</span>
-                                    {/* Display reported person's name and ID, if available. Fallback to general ID if structure is old. */}
-                                    <span><strong>שם:</strong> {item.reportedPersonFirstName ? `${item.reportedPersonFirstName} ${item.reportedPersonFamilyName}` : `${item.firstName || ''} ${item.familyName || ''}`}</span>
-                                    <span><strong>תעודת זהות:</strong> {item.reportedPersonIdNumber || item.idNumber || 'לא הוזן'}</span>
-                                    <span><strong>סטטוס הפניה:</strong> {item.referralStatus === 'closed' ? 'סגורה' : item.referralStatus === 'social_worker' ? 'הועבר לטיפול עו"ס' : item.referralStatus === 'other' ? `הועבר להמשך טיפול אחר: ${item.otherStatusText}` : 'טרם הוגדר'}</span>
-                                    <span><strong>כתובת:</strong> {item.address}</span>
-                                    <span><strong>הערות:</strong> {item.notes || 'אין'}</span>
-                                    <a href={`details.html?id=${item.id}&userId=${item.reporterUserId || item.userId}`} className="edit-button"> {/* Use reporterUserId for link */}
-                                        פרטים וטיפול
-                                    </a>
+                    <div className="previous-submissions">
+                        <h2>הגשות קודמות של {userProfile.firstName}</h2>
+                        {previousSubmissions.length === 0 ? (
+                            <p style={{textAlign: 'center', color: '#888'}}>עדיין לא הגשת טפסים.</p>
+                        ) : (
+                            previousSubmissions.map((submission) => (
+                                <div key={submission.id} className="submission-item">
+                                    <span><strong>סטטוס מרחב מוגן:</strong> {submission.protectedSpaceStatus === 'yes' ? 'כן' : submission.protectedSpaceStatus === 'no' ? 'לא' : 'לא בטוח'}</span>
+                                    {submission.protectedSpaceDetails && <span><strong>פירוט:</strong> {submission.protectedSpaceDetails}</span>}
+                                    <span><strong>טלפון:</strong> {submission.phoneNumber}</span>
+                                    {submission.comments && <span><strong>הערות:</strong> {submission.comments}</span>}
+                                    <span><strong>תאריך הגשה:</strong> {new Date(submission.timestamp).toLocaleString('he-IL')}</span>
+                                    {/* Edit functionality not implemented in this version based on requirements, but could be added here */}
+                                    {/* <button className="edit-button">ערוך</button> */}
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            ))
+                        )}
+                    </div>
                 </div>
             );
         }
 
 
-        // Main App Component
+        // Main App Component to manage routing and authentication
         function App() {
-            const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
-            const [isAuthReady, setIsAuthReady] = useState(false);
-            const [userUid, setUserUid] = useState(null);
-            const [userName, setUserName] = useState('');
-            const [userFamilyName, setUserFamilyName] = useState('');
-            const [userIdNumber, setUserIdNumber] = useState('');
-            const logoutTriggeredRef = useRef(false);
+            const [user, setUser] = useState(null);
+            const [userProfile, setUserProfile] = useState(null);
+            const [isAuthReady, setIsAuthReady] = useState(false); // New state to track auth readiness
+            const [db, setDb] = useState(null);
+            const [auth, setAuth] = useState(null);
 
+            // Initialize Firebase and set up auth listener
             useEffect(() => {
-                if (!window.firebaseApp || !window.firebaseAuth || !window.firebaseDb) {
-                    console.error("Global Firebase instances are not available. Cannot initialize App component.");
-                    return;
-                }
+                // Ensure Firebase is initialized and available globally
+                if (window.firebaseApp && window.firebaseAuth && window.firebaseDb) {
+                    setDb(window.firebaseDb);
+                    setAuth(window.firebaseAuth);
 
-                setFirebaseInstances({
-                    app: window.firebaseApp,
-                    auth: window.firebaseAuth,
-                    db: window.firebaseDb
-                });
-
-                const unsubscribe = window.onAuthStateChangedGlobal(window.firebaseAuth, async (user) => {
-                    if (!logoutTriggeredRef.current) {
-                        if (user) {
-                            setUserUid(user.uid);
-                            // Attempt to fetch user profile
-                            const profileRef = window.docFirebaseGlobal(window.firebaseDb, `artifacts/${window.globalAppId}/users/${user.uid}/profile`, 'details');
+                    // Set up the authentication state change listener
+                    const unsubscribe = window.onAuthStateChangedGlobal(window.firebaseAuth, async (currentUser) => {
+                        setUser(currentUser);
+                        if (currentUser) {
+                            // If user is logged in, attempt to load their profile
+                            const profileRef = window.docFirebaseGlobal(window.firebaseDb, `artifacts/${window.globalAppId}/users/${currentUser.uid}/profile`, 'details');
                             try {
                                 const docSnap = await window.getDocFirebaseGlobal(profileRef);
                                 if (docSnap.exists()) {
-                                    const data = docSnap.data();
-                                    setUserName(data.firstName || '');
-                                    setUserFamilyName(data.familyName || '');
-                                    setUserIdNumber(data.idNumber || '');
+                                    setUserProfile(docSnap.data());
                                 } else {
-                                    console.log("No profile found for user, prompt for setup.");
+                                    // Profile doesn't exist, set to null to trigger setup page
+                                    setUserProfile(null);
+                                    console.log("No profile found for user:", currentUser.uid);
                                 }
-                            } catch (e) {
-                                console.error("Error fetching user profile:", e);
+                            } catch (error) {
+                                console.error("Error fetching user profile:", error);
+                                setUserProfile(null); // Ensure profile is null on error
                             }
                         } else {
-                            setUserUid(null);
-                            setUserName('');
-                            setUserFamilyName('');
-                            setUserIdNumber('');
+                            setUserProfile(null); // Clear profile if no user
                         }
-                        setIsAuthReady(true);
-                    }
-                });
+                        setIsAuthReady(true); // Auth state has been determined
+                    });
 
-                return () => unsubscribe();
+                    // Initial sign-in logic using custom token or anonymous login
+                    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                    if (initialAuthToken) {
+                        window.signInWithCustomTokenGlobal(window.firebaseAuth, initialAuthToken) // Use exposed global function
+                            .then(() => console.log("Signed in with custom token."))
+                            .catch(error => {
+                                console.error("Error signing in with custom token:", error);
+                                // Fallback to anonymous sign-in if custom token fails or is not available
+                                if (!window.firebaseAuth.currentUser) {
+                                    window.signInAnonymouslyGlobal(window.firebaseAuth) // Use exposed global function
+                                        .then(() => console.log("Signed in anonymously as fallback."))
+                                        .catch(anonError => console.error("Anonymous sign-in failed:", anonError));
+                                }
+                            });
+                    } else {
+                        // If no custom token, sign in anonymously if not already signed in
+                        if (!window.firebaseAuth.currentUser) {
+                            window.signInAnonymouslyGlobal(window.firebaseAuth) // Use exposed global function
+                                .then(() => console.log("Signed in anonymously."))
+                                .catch(anonError => console.error("Anonymous sign-in failed:", anonError));
+                        }
+                    }
+
+                    return () => unsubscribe(); // Cleanup auth listener on unmount
+                }
             }, []);
 
+            const handleLoginSuccess = (loggedInUser) => {
+                setUser(loggedInUser);
+                // Profile will be loaded by useEffect's onAuthStateChanged listener
+            };
+
             const handleIdentitySetupComplete = (firstName, familyName, idNumber) => {
-                setUserName(firstName);
-                setUserFamilyName(familyName);
-                setUserIdNumber(idNumber);
+                setUserProfile({ firstName, familyName, idNumber });
             };
 
             const handleLogout = async () => {
-                logoutTriggeredRef.current = true; // Set the flag to prevent re-login after logout
-                if (firebaseInstances.auth) {
-                    try {
-                        await window.signOutFirebaseGlobal(firebaseInstances.auth);
-                        setUserUid(null);
-                        setUserName('');
-                        setUserFamilyName('');
-                        setUserIdNumber('');
-                        // Redirect to login or home page after logout
-                        window.location.href = 'index.html';
-                    } catch (error) {
-                        console.error("Error signing out:", error);
-                    } finally {
-                        logoutTriggeredRef.current = false; // Reset flag
-                    }
+                try {
+                    await window.signOutFirebaseGlobal(auth);
+                    setUser(null);
+                    setUserProfile(null);
+                    // Optionally, redirect to login or show a logged out message
+                } catch (error) {
+                    console.error("Logout error:", error);
                 }
             };
 
             if (!isAuthReady) {
-                return <div className="container"><p>טוען הגדרות אבטחה...</p></div>;
-            }
-
-            if (!userUid) {
-                return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={(user) => setUserUid(user.uid)} />;
-            }
-
-            // If user is logged in but profile is not complete
-            if (userUid && (!userName || !userFamilyName || !userIdNumber)) {
                 return (
-                    <IdentitySetupPage 
-                        db={firebaseInstances.db} 
-                        userUid={userUid} 
-                        onIdentitySetupComplete={handleIdentitySetupComplete} 
-                    />
+                    <div className="container" style={{ textAlign: 'center', padding: '50px' }}>
+                        <h1>טוען...</h1>
+                        <p style={{color: '#555'}}>ממתין לסטטוס הזדהות.</p>
+                    </div>
                 );
             }
 
-            // If user is logged in and profile is complete
-            return (
-                <SubmissionForm
-                    auth={firebaseInstances.auth}
-                    db={firebaseInstances.db}
-                    userUid={userUid}
-                    userName={userName}
-                    userFamilyName={userFamilyName}
-                    userIdNumber={userIdNumber}
-                    onLogout={handleLogout}
-                />
-            );
+            if (!user) {
+                return <LoginPage auth={auth} onLoginSuccess={handleLoginSuccess} />;
+            }
+
+            // User is logged in, check for profile completion
+            if (!userProfile) {
+                return <IdentitySetupPage db={db} userUid={user.uid} onIdentitySetupComplete={handleIdentitySetupComplete} />;
+            }
+
+            // User is logged in and has a profile
+            return <MainApp user={user} userProfile={userProfile} db={db} onLogout={handleLogout} />;
         }
-        // Corrected React 18 rendering method
+
+        // Use createRoot for React 18 compatibility
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
