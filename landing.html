@@ -16,13 +16,11 @@
     <script type="module">
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global variables provided by the Canvas environment (do not modify these directly)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; // Not strictly used here, but good to have
 
         // Fallback for myFirebaseConfig if __firebase_config is empty or not provided
         const myFirebaseConfig = {
@@ -35,10 +33,26 @@
             measurementId: "G-NCVXFH3R6X"
         };
         
-        let finalFirebaseConfig = Object.keys(firebaseConfig).length > 0 ? firebaseConfig : myFirebaseConfig;
-        if (Object.keys(finalFirebaseConfig).length === 0) {
-            console.error("Firebase config is empty. Cannot initialize Firebase.");
-            finalFirebaseConfig = null; 
+        let firebaseConfigFromEnv; // Declare this variable to hold the parsed config from environment
+        try {
+            // Attempt to parse __firebase_config. If it's undefined or invalid JSON, it will fall back to an empty object.
+            firebaseConfigFromEnv = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        } catch (e) {
+            console.error("Error parsing __firebase_config, treating as empty:", e);
+            firebaseConfigFromEnv = {}; // If parsing fails, treat it as an empty config
+        }
+
+        let finalFirebaseConfig;
+        if (Object.keys(firebaseConfigFromEnv).length > 0) { // This now correctly uses firebaseConfigFromEnv
+            finalFirebaseConfig = firebaseConfigFromEnv;
+        } else {
+            finalFirebaseConfig = myFirebaseConfig;
+            // Provide a more specific message if __firebase_config was present but empty/invalid vs entirely missing
+            if (typeof __firebase_config !== 'undefined') {
+                console.warn("Environmental __firebase_config was empty after parsing or invalid. Falling back to hardcoded myFirebaseConfig.");
+            } else {
+                console.log("Environmental __firebase_config not found. Using hardcoded myFirebaseConfig.");
+            }
         }
 
         let app;
@@ -66,8 +80,18 @@
         window.firebaseAuth = auth;
         window.firebaseDb = db;
         window.globalAppId = appId;
+        // initialAuthToken is correctly exposed from the global scope by the environment
+        window.initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
+
+        // Expose specific Firebase functions globally
+        window.signInAnonymouslyGlobal = signInAnonymously;
+        window.signInWithCustomTokenGlobal = signInWithCustomToken;
+        window.onAuthStateChangedGlobal = onAuthStateChanged;
         window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword; // For employee login
         window.signOutFirebaseGlobal = signOut; // For employee logout
+        window.docFirebaseGlobal = doc;
+        window.setDocFirebaseGlobal = setDoc;
+        window.getDocFirebaseGlobal = getDoc;
     </script>
 
     <style>
@@ -142,15 +166,6 @@
             transform: translateY(0);
         }
 
-        .action-button.secondary {
-            background-color: #f0f2f5;
-            color: #666;
-            border: 1px solid #ddd;
-        }
-        .action-button.secondary:hover {
-            background-color: #e0e2e5;
-            color: #333;
-        }
         .action-button:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
@@ -171,7 +186,9 @@
         }
 
         .form-group input[type="email"],
-        .form-group input[type="password"] {
+        .form-group input[type="password"],
+        .form-group input[type="text"],
+        .form-group input[type="tel"] {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid #ddd;
@@ -179,6 +196,16 @@
             font-size: 1em;
             box-sizing: border-box;
         }
+        .form-group.error input {
+            border-color: #e74c3c;
+        }
+        .error-message {
+            color: #e74c3c;
+            font-size: 0.85em;
+            margin-top: 5px;
+            text-align: right;
+        }
+
         .message-box {
             background-color: #f8f8f8;
             color: #333333;
@@ -224,7 +251,22 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
+
+        // Function to validate Israeli ID Number (reused)
+        function validateIsraeliId(id) {
+            id = String(id).trim();
+            if (id.length > 9 || !/^\d+$/.test(id)) {
+                return false;
+            }
+            id = id.padStart(9, '0');
+            let sum = 0;
+            for (let i = 0; i < 9; i++) {
+                let digit = parseInt(id[i], 10);
+                sum += (i % 2 === 0) ? digit : (digit * 2 > 9 ? digit * 2 - 9 : digit * 2);
+            }
+            return (sum % 10 === 0);
+        }
 
         // Login Page Component for Employees
         function EmployeeLoginPage({ auth }) {
@@ -287,21 +329,199 @@
             );
         }
 
+        // Interviewer Registration Form (within Landing Page)
+        function InterviewerRegistrationForm({ auth, db, globalAppId, onRegistrationSuccess }) {
+            const [firstName, setFirstName] = useState('');
+            const [familyName, setFamilyName] = useState('');
+            const [idNumber, setIdNumber] = useState('');
+            const [message, setMessage] = useState('');
+            const [messageType, setMessageType] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [isAuthReady, setIsAuthReady] = useState(false);
+            const [userUid, setUserUid] = useState(null);
+            const initialAuthAttemptedRef = useRef(false);
+
+            // Function to set message and clear it after a delay
+            const showMessage = (text, type = 'default') => {
+                setMessage(text);
+                setMessageType(type);
+                setTimeout(() => {
+                    setMessage('');
+                    setMessageType('');
+                }, 5000); 
+            };
+
+            useEffect(() => {
+                if (!auth) {
+                    showMessage('שגיאה: שירותי Firebase Auth אינם זמינים. אנא וודא את הגדרות Firebase.', 'danger');
+                    return;
+                }
+
+                const authenticateFirebase = async () => {
+                    if (!auth.currentUser && !initialAuthAttemptedRef.current) {
+                        try {
+                            if (window.initialAuthToken) {
+                                await window.signInWithCustomTokenGlobal(auth, window.initialAuthToken);
+                                console.log("Signed in with custom token (initial).");
+                            } else {
+                                await window.signInAnonymouslyGlobal(auth);
+                                console.log("Signed in anonymously.");
+                            }
+                            initialAuthAttemptedRef.current = true;
+                        } catch (error) {
+                            console.error("Firebase authentication error:", error);
+                            showMessage('שגיאה בהתחברות אוטומטית. אנא וודא ש-Anonymous Authentication מופעל.', 'danger');
+                            initialAuthAttemptedRef.current = true;
+                        }
+                    } else if (auth.currentUser) {
+                         console.log("User already signed in. UID:", auth.currentUser.uid);
+                    }
+                };
+
+                const unsubscribe = window.onAuthStateChangedGlobal(auth, (user) => {
+                    if (user) {
+                        setUserUid(user.uid);
+                        setIsAuthReady(true);
+                    } else {
+                        setUserUid(null);
+                        setIsAuthReady(true); // Still ready, just no user means need to authenticate
+                        authenticateFirebase(); // Attempt to authenticate if no user is found
+                    }
+                });
+
+                authenticateFirebase(); // Initial call to authenticate
+
+                return () => unsubscribe();
+            }, [auth]);
+
+            const handleRegister = async () => {
+                setMessage('');
+                setMessageType('');
+
+                if (!firstName.trim()) {
+                    showMessage('שם פרטי נדרש.', 'danger');
+                    return;
+                }
+                if (!familyName.trim()) {
+                    showMessage('שם משפחה נדרש.', 'danger');
+                    return;
+                }
+                const trimmedId = idNumber.trim();
+                if (!trimmedId || !/^\d{9}$/.test(trimmedId) || !validateIsraeliId(trimmedId)) {
+                    showMessage('מספר תעודת זהות לא תקין (9 ספרות).', 'danger');
+                    return;
+                }
+
+                if (!userUid) {
+                    showMessage('שגיאה: לא ניתן לזהות את המשתמש. נא רענן את הדף ונסה שוב.', 'danger');
+                    return;
+                }
+
+                setLoading(true);
+                try {
+                    // Save interviewer details to localStorage
+                    localStorage.setItem('interviewerFirstName', firstName.trim());
+                    localStorage.setItem('interviewerFamilyName', familyName.trim());
+                    localStorage.setItem('interviewerIdNumber', trimmedId);
+                    localStorage.setItem('interviewerUid', userUid); // Store anonymous UID for future use
+
+                    // Save interviewer details to Firebase (profile linked to anonymous UID)
+                    const interviewerProfileRef = window.docFirebaseGlobal(db, `artifacts/${globalAppId}/users/${userUid}/profile/details`);
+                    await window.setDocFirebaseGlobal(interviewerProfileRef, {
+                        firstName: firstName.trim(),
+                        familyName: familyName.trim(),
+                        idNumber: trimmedId,
+                        uid: userUid,
+                        lastRegistered: Date.now()
+                    }, { merge: true });
+
+                    showMessage('ההרשמה הצליחה! מפנה לטופס השאלון...', 'success');
+                    onRegistrationSuccess(); // Notify parent component about successful registration
+                } catch (error) {
+                    console.error("Registration error:", error);
+                    showMessage(`שגיאה בהרשמה: ${error.message}.`, 'danger');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (!isAuthReady || !userUid) {
+                return (
+                    <div style={{ padding: '20px', border: '1px solid #eee', borderRadius: '8px', marginTop: '20px', backgroundColor: '#fcfcfc' }}>
+                        <h2>טוען הרשמת מראיין...</h2>
+                        <div className="spinner"></div>
+                        <p style={{marginTop: '10px', fontSize: '0.9em', color: '#888'}}>
+                            ממתין לזיהוי אוטומטי. אנא וודא ש-Firebase Authentication מוגדר כראוי (Anonymous Enabled).
+                        </p>
+                    </div>
+                );
+            }
+
+            return (
+                <div style={{ padding: '20px', border: '1px solid #eee', borderRadius: '8px', marginTop: '20px', backgroundColor: '#fcfcfc' }}>
+                    <h2>הרשמה מהירה למראיין</h2>
+                    {message && (
+                        <div className={`message-box ${messageType}`}>{message}</div>
+                    )}
+                    <div className="form-group">
+                        <label htmlFor="interviewerRegFirstName">שם פרטי:</label>
+                        <input type="text" id="interviewerRegFirstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="הזן שם פרטי" required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="interviewerRegFamilyName">שם משפחה:</label>
+                        <input type="text" id="interviewerRegFamilyName" value={familyName} onChange={(e) => setFamilyName(e.target.value)} placeholder="הזן שם משפחה" required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="interviewerRegIdNumber">תעודת זהות (9 ספרות):</label>
+                        <input type="tel" id="interviewerRegIdNumber" value={idNumber} onChange={(e) => setIdNumber(e.target.value.replace(/\D/g, '').slice(0, 9))} placeholder="הזן תעודת זהות" maxLength="9" required />
+                    </div>
+                    <button className="action-button" onClick={handleRegister} disabled={loading}>
+                        {loading ? <>מרשם... <div className="spinner"></div></> : 'המשך לטופס השאלון'}
+                    </button>
+                    <p style={{marginTop: '15px', fontSize: '0.85em', color: '#888'}}>
+                        <i className="fas fa-info-circle"></i> פרטים אלו ישמרו במחשבך לזיהוי מהיר בפעמים הבאות.
+                    </p>
+                </div>
+            );
+        }
+
         // Main Landing Page Component
         function LandingPage() {
             const [showEmployeeLogin, setShowEmployeeLogin] = useState(false);
+            const [showInterviewerRegistration, setShowInterviewerRegistration] = useState(false);
+            const [interviewerAlreadyRegistered, setInterviewerAlreadyRegistered] = useState(false);
             const [firebaseReady, setFirebaseReady] = useState(false);
             const [firebaseAuth, setFirebaseAuth] = useState(null);
+            const [firebaseDb, setFirebaseDb] = useState(null);
+            const [globalAppId, setGlobalAppId] = useState(null);
 
             useEffect(() => {
-                // Wait for global Firebase instances to be available
-                if (window.firebaseApp && window.firebaseAuth && window.firebaseDb) {
+                // Check localStorage for interviewer details
+                const storedFirstName = localStorage.getItem('interviewerFirstName');
+                const storedFamilyName = localStorage.getItem('interviewerFamilyName');
+                const storedIdNumber = localStorage.getItem('interviewerIdNumber');
+                if (storedFirstName && storedFamilyName && storedIdNumber && validateIsraeliId(storedIdNumber)) {
+                    setInterviewerAlreadyRegistered(true);
+                } else {
+                    setInterviewerAlreadyRegistered(false);
+                }
+
+                if (window.firebaseApp && window.firebaseAuth && window.firebaseDb && window.globalAppId) {
                     setFirebaseReady(true);
                     setFirebaseAuth(window.firebaseAuth);
+                    setFirebaseDb(window.firebaseDb);
+                    setGlobalAppId(window.globalAppId);
                 } else {
-                    console.error("Firebase is not initialized. Please check Firebase config in the script module.");
+                    console.error("Firebase or App ID is not initialized. Please check Firebase config in the script module.");
                 }
             }, []);
+
+            const handleInterviewerRegistrationSuccess = () => {
+                // After successful registration, mark as registered and redirect
+                setInterviewerAlreadyRegistered(true);
+                setShowInterviewerRegistration(false); // Hide the registration form
+                window.location.href = 'index.html'; // Redirect to questionnaire form
+            };
 
             return (
                 <div className="container">
@@ -311,12 +531,29 @@
                     </p>
 
                     <div className="entry-options">
-                        <a href="index.html" className="action-button">
-                            <i className="fas fa-file-alt"></i> כניסה למראיין (מילוי טופס)
-                        </a>
+                        {firebaseReady ? (
+                            interviewerAlreadyRegistered ? (
+                                <a href="index.html" className="action-button">
+                                    <i className="fas fa-file-alt"></i> המשך לטופס מראיין
+                                </a>
+                            ) : (
+                                <button className="action-button" onClick={() => {
+                                    setShowInterviewerRegistration(true);
+                                    setShowEmployeeLogin(false);
+                                }}>
+                                    <i className="fas fa-file-alt"></i> התחל כמראיין (הרשמה חד פעמית)
+                                </button>
+                            )
+                        ) : (
+                            <button className="action-button" disabled>טוען... <div className="spinner"></div></button>
+                        )}
+                       
                         <button 
                             className="action-button secondary" 
-                            onClick={() => setShowEmployeeLogin(!showEmployeeLogin)}
+                            onClick={() => {
+                                setShowEmployeeLogin(!showEmployeeLogin);
+                                setShowInterviewerRegistration(false); // Hide interviewer form if showing employee login
+                            }}
                         >
                             <i className="fas fa-users-cog"></i> כניסה לעובד / מנהל
                         </button>
@@ -325,10 +562,19 @@
                     {showEmployeeLogin && firebaseReady && (
                         <EmployeeLoginPage auth={firebaseAuth} />
                     )}
-                    {!firebaseReady && showEmployeeLogin && (
+                     {showEmployeeLogin && !firebaseReady && (
                         <div className="message-box danger">
                             שגיאה: שירותי Firebase אינם זמינים. אנא וודא את הגדרות Firebase.
                         </div>
+                    )}
+
+                    {showInterviewerRegistration && firebaseReady && (
+                        <InterviewerRegistrationForm 
+                            auth={firebaseAuth} 
+                            db={firebaseDb} 
+                            globalAppId={globalAppId}
+                            onRegistrationSuccess={handleInterviewerRegistrationSuccess}
+                        />
                     )}
                 </div>
             );
