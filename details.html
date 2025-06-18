@@ -3,20 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>טיפול בדיווח מאזור תקרית</title>
+    <title>טיפול בדיווח</title>
     <!-- React Libraries -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <!-- Babel for JSX compilation directly in the browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <!-- Firebase Libraries - Initialized here and exposed globally -->
     <script type="module">
         // Import Firebase functions (These must be standard ES module imports in this block)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"; // Explicitly import onSnapshot for exposure
+        // Added getDoc, setDoc, and updateDoc for user profile and form updates
+        import { getFirestore, doc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global variables provided by the Canvas environment (do not modify these directly)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -90,94 +92,111 @@
     </script>
 
     <style>
-        /* הגדרות בסיסיות לגוף הדף */
+        /* General styles */
         body {
-            font-family: 'Inter', Arial, sans-serif; /* שימוש בפונט Inter */
-            background-color: #f8f8f8; /* צבע רקע אפור בהיר מאוד */
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* יישור למעלה כדי לא למרכז אנכית אם התוכן ארוך */
-            min-height: 100vh; /* גובה מינימלי של 100% מגובה המסך */
+            align-items: flex-start; /* Align to top for scrolling content */
+            min-height: 100vh;
             margin: 0;
-            padding: 20px; /* ריפוד כללי לדף */
-            box-sizing: border-box; /* מבטיח שריפוד וגבולות לא יגדילו את הגודל הכולל של האלמנט */
+            padding: 20px;
+            box-sizing: border-box;
         }
 
-        /* מכל הטופס והלוגין */
+        /* Container for forms/pages */
         .container {
-            background-color: #ffffff; /* רקע לבן */
-            padding: 35px;
-            border-radius: 12px; /* פינות מעוגלות */
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); /* צל עדין מאוד */
+            background-color: #ffffff;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
             width: 100%;
-            max-width: 1920px; /* Increased max-width for very wide desktops */
+            max-width: 900px; /* Wider container for details form */
             box-sizing: border-box;
-            border: 1px solid #e0e0e0; /* גבול אפור עדין */
-            text-align: right; /* יישור לימין עבור RTL */
+            text-align: right; /* RTL alignment */
+            margin: 0 auto;
+        }
+        @media (max-width: 900px) { /* Adjust for smaller laptops/large tablets */
+            .container {
+                max-width: 100%; /* Ensure full width on smaller screens */
+                padding: 20px;
+            }
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+                border-radius: 0;
+                box-shadow: none;
+            }
         }
 
         h1 {
             text-align: center;
-            color: #333333; /* צבע כהה לכותרת */
-            margin-bottom: 25px; /* מרווח תחתון מוגדל */
-            font-size: 2em; /* גודל פונט מוגדל לכותרת */
-            font-weight: 700; /* עובי פונט מודגש */
+            color: #333333;
+            margin-bottom: 24px;
+            font-size: 1.8em;
+            font-weight: bold;
         }
-        
+
         .button-container {
             display: flex;
             justify-content: center;
-            gap: 12px; /* מרווח בין כפתורים */
-            margin-top: 30px;
+            gap: 12px;
+            margin-top: 24px;
         }
 
         .action-button {
-            background-color: #444444; /* אפור כהה (כפתור ראשי) */
+            background-color: #3498db;
             color: white;
-            padding: 12px 25px; /* ריפוד מוגדל */
+            padding: 12px 20px;
             border: none;
             border-radius: 6px;
-            font-size: 1.05em;
-            font-weight: 600;
+            font-size: 1em;
+            font-weight: bold;
             cursor: pointer;
-            transition: background-color 0.2s ease, opacity 0.2s ease;
-            box-shadow: none; /* ביטול צל */
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: none;
+            text-decoration: none; /* For anchor tags */
+            display: flex; /* For centering content */
+            justify-content: center;
+            align-items: center;
+            gap: 8px; /* Space between icon and text */
+        }
+        .action-button:hover {
+            background-color: #2980b9;
+            transform: translateY(-1px);
+        }
+        .action-button:active {
+            transform: translateY(0);
         }
 
         .action-button.secondary {
-            background-color: #888888; /* אפור בינוני (כפתור משני) */
+            background-color: #ffffff;
+            color: #666666;
+            border: 1px solid #dddddd;
+        }
+        .action-button.secondary:hover {
+            background-color: #f0f0f0;
+            color: #333333;
         }
 
         .action-button.danger {
-            background-color: #bbbbbb; /* אפור בהיר (כפתור התנתקות/סכנה) */
-            color: #333333; /* טקסט כהה לכפתור בהיר */
+            background-color: #e74c3c;
+            color: white;
         }
-
-        .action-button:hover {
-            background-color: #555555;
-            opacity: 1;
-        }
-
-        .action-button.secondary:hover {
-            background-color: #999999;
-        }
-
         .action-button.danger:hover {
-            background-color: #cccccc;
-        }
-
-        .action-button:active {
-            opacity: 0.8;
-            transform: none;
+            background-color: #c0392b;
         }
 
         .message-box {
-            background-color: #f0f0f0;
+            background-color: #f8f8f8;
             color: #333333;
             padding: 12px;
             border: 1px solid #cccccc;
             border-radius: 6px;
-            margin-top: 15px;
+            margin-top: 16px;
+            margin-bottom: 16px;
             text-align: right;
             font-size: 0.9em;
             font-weight: normal;
@@ -192,18 +211,12 @@
             color: #c62828;
             border-color: #e6a3a3;
         }
-        .message-box.warning {
-            background-color: #fffacd;
-            color: #a87200;
-            border-color: #ffd966;
-        }
 
-        /* Styles for Submission Details */
+        /* Styles for form fields within details page */
         .details-grid {
             display: grid;
-            /* Allow more columns on large screens for better utilization */
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
-            gap: 20px; /* Space between grid items */
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Adjusted minmax for better fit */
+            gap: 20px;
             margin-top: 25px;
             padding: 15px;
             border: 1px solid #eee;
@@ -225,14 +238,20 @@
             font-size: 0.95em;
         }
 
-        .details-item p {
-            background-color: #f0f0f0;
-            border: 1px solid #e0e0e0;
+        .details-item p.read-only-value,
+        .details-item input[readonly],
+        .details-item textarea[readonly] {
+            background-color: #e9ecef; /* Lighter background for read-only */
+            border: 1px solid #dee2e6;
+            color: #495057;
+            cursor: default;
+        }
+
+        .details-item p.read-only-value {
             border-radius: 5px;
             padding: 10px 12px;
             width: 100%;
             box-sizing: border-box;
-            color: #333;
             font-size: 1em;
             word-wrap: break-word; /* Ensure long words wrap */
         }
@@ -262,7 +281,7 @@
         .details-item select,
         .details-item input[type="text"],
         .details-item input[type="number"],
-        .details-item input[type="tel"] { /* Added input types for editability */
+        .details-item input[type="tel"] {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid #cccccc;
@@ -276,7 +295,7 @@
         }
 
         .details-item textarea.large-notes {
-            min-height: 150px; /* Expanded height for notes */
+            min-height: 120px; /* Adjusted height for comments/notes */
         }
 
         .details-item select {
@@ -291,36 +310,10 @@
             text-align: right; /* Align selected text to the right */
         }
 
-        .details-actions {
-            margin-top: 30px;
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-        }
-
         /* Responsive adjustments */
-        /* For very large desktops */
-        @media (min-width: 1600px) { /* Adjust breakpoint as needed for more columns */
-            .details-grid {
-                grid-template-columns: repeat(4, 1fr); /* 4 columns on very large screens */
-            }
-        }
-        /* For large desktops */
-        @media (min-width: 1200px) and (max-width: 1599px) {
-            .details-grid {
-                grid-template-columns: repeat(3, 1fr); /* 3 columns on large screens */
-            }
-        }
-        /* For medium desktops/large tablets */
-        @media (min-width: 769px) and (max-width: 1199px) {
-            .details-grid {
-                grid-template-columns: repeat(2, 1fr); /* 2 columns on medium screens */
-            }
-        }
-        @media (max-width: 768px) { /* Tablets */
+        @media (max-width: 768px) { /* Tablets and smaller */
             .container {
-                padding: 25px;
-                max-width: 100%; /* Full width on small screens */
+                padding: 15px;
             }
             h1 {
                 font-size: 1.6em;
@@ -329,20 +322,29 @@
                 grid-template-columns: 1fr; /* Single column on smaller screens */
                 gap: 15px;
             }
-            .details-item p,
+            .details-item p.read-only-value,
             .details-item textarea,
             .details-item select,
             .details-item input {
                 font-size: 0.95em;
             }
             .action-button {
-                padding: 10px 20px;
+                padding: 10px 18px;
                 font-size: 0.95em;
+            }
+            .button-container {
+                flex-direction: column; /* Stack buttons vertically */
+                align-items: center;
+            }
+            .button-container button,
+            .button-container a {
+                width: 100%; /* Full width for stacked buttons */
+                text-align: center;
             }
         }
         @media (max-width: 480px) { /* Mobile phones */
             .container {
-                padding: 15px;
+                padding: 10px;
             }
             h1 {
                 font-size: 1.4em;
@@ -351,15 +353,23 @@
                 padding: 8px 15px;
                 font-size: 0.9em;
             }
-            .details-actions {
-                flex-direction: column; /* Stack buttons vertically */
-                align-items: center;
-            }
-            .details-actions button,
-            .details-actions a {
-                width: 100%; /* Full width for stacked buttons */
-                text-align: center;
-            }
+        }
+
+        /* Custom spinner for loading */
+        .spinner {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto; /* Center spinner */
+            display: block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -369,15 +379,14 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Function to validate Israeli ID Number using the checksum algorithm (duplicated for self-contained file)
+        // Function to validate Israeli ID Number using the checksum algorithm
         function validateIsraeliId(id) {
             id = String(id).trim();
             if (id.length > 9 || !/^\d+$/.test(id)) {
                 return false;
             }
 
-            // Pad with leading zeros if less than 9 digits
-            id = id.padStart(9, '0');
+            id = id.padStart(9, '0'); // Pad with leading zeros if less than 9 digits
 
             let sum = 0;
             for (let i = 0; i < 9; i++) {
@@ -455,7 +464,7 @@
             );
         }
 
-        // New Component: SubmissionDetailsComponent for individual submission
+        // Component to display and edit individual submission details
         function SubmissionDetailsComponent({ auth, db, userUid, onLogout }) {
             const [submission, setSubmission] = useState(null);
             const [loading, setLoading] = useState(true);
@@ -463,58 +472,33 @@
             const [messageType, setMessageType] = useState('');
             
             // Editable states for the reported person's details
-            const [reportedPersonFirstName, setReportedPersonFirstName] = useState('');
-            const [reportedPersonFamilyName, setReportedPersonFamilyName] = useState('');
-            const [reportedPersonIdNumber, setReportedPersonIdNumber] = useState('');
+            const [firstName, setFirstName] = useState('');
+            const [familyName, setFamilyName] = useState('');
+            const [idNumber, setIdNumber] = useState('');
+            const [phoneNumber, setPhoneNumber] = useState('');
+            const [protectedSpaceStatus, setProtectedSpaceStatus] = useState('');
+            const [protectedSpaceDetails, setProtectedSpaceDetails] = useState('');
+            const [comments, setComments] = useState('');
 
             // Validation states for reported person's details
-            const [reportedPersonFirstNameError, setReportedPersonFirstNameError] = useState(false);
-            const [reportedPersonFamilyNameError, setReportedPersonFamilyNameError] = useState(false);
-            const [reportedPersonIdNumberError, setReportedPersonIdNumberError] = useState(false);
+            const [firstNameError, setFirstNameError] = useState(false);
+            const [familyNameError, setFamilyNameError] = useState(false);
+            const [idNumberError, setIdNumberError] = useState(false);
+            const [phoneNumberError, setPhoneNumberError] = useState(false);
+            const [protectedSpaceStatusError, setProtectedSpaceStatusError] = useState(false);
+            const [protectedSpaceDetailsError, setProtectedSpaceDetailsError] = useState(false);
+            const [commentsError, setCommentsError] = useState(false);
 
-            // Other editable fields from previous versions
-            const [age, setAge] = useState('');
-            const [gender, setGender] = useState('');
-            const [phone, setPhone] = useState('');
-            const [address, setAddress] = useState('');
-            const [residents, setResidents] = useState('');
-            const [physicalInjury, setPhysicalInjury] = useState('');
-            const [casualties, setCasualties] = useState('');
-            const [disconnected, setDisconnected] = useState('');
-            const [evacuationAssistance, setEvacuationAssistance] = useState('');
-            const [notes, setNotes] = useState('');
-
-            const [referralStatus, setReferralStatus] = useState('');
-            const [otherStatusText, setOtherStatusText] = useState('');
-            const [adminNotes, setAdminNotes] = useState('');
             const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // State to track unsaved changes
 
             // Refs to store original loaded values for comparison
-            const originalReportedPersonFirstNameRef = useRef('');
-            const originalReportedPersonFamilyNameRef = useRef('');
-            const originalReportedPersonIdNumberRef = useRef('');
-            const originalAgeRef = useRef('');
-            const originalGenderRef = useRef('');
-            const originalPhoneRef = useRef('');
-            const originalAddressRef = useRef('');
-            const originalResidentsRef = useRef('');
-            const originalPhysicalInjuryRef = useRef('');
-            const originalCasualtiesRef = useRef('');
-            const originalDisconnectedRef = useRef('');
-            const originalEvacuationAssistanceRef = useRef('');
-            const originalNotesRef = useRef('');
-
-            const originalReferralStatusRef = useRef('');
-            const originalOtherStatusTextRef = useRef('');
-            const originalAdminNotesRef = useRef('');
-
-            // Map for physical injury values to Hebrew
-            const physicalInjuryMap = {
-                'none': 'לא (1)',
-                'light': 'קלה (2)',
-                'medium': 'בינונית (3)',
-                'severe': 'קשה (4)'
-            };
+            const originalFirstNameRef = useRef('');
+            const originalFamilyNameRef = useRef('');
+            const originalIdNumberRef = useRef('');
+            const originalPhoneNumberRef = useRef('');
+            const originalProtectedSpaceStatusRef = useRef('');
+            const originalProtectedSpaceDetailsRef = useRef('');
+            const originalCommentsRef = useRef('');
 
             // Function to set message and clear it after a delay
             const showMessage = (text, type = 'default') => {
@@ -525,7 +509,6 @@
                     setMessageType('');
                 }, 5000); // Message disappears after 5 seconds
             };
-
 
             useEffect(() => {
                 if (!db || !auth) {
@@ -540,75 +523,51 @@
                 }
 
                 setLoading(true);
-                // Parse submissionId and userId from URL query parameters
+                // Parse submissionId from URL query parameters
                 const urlParams = new URLSearchParams(window.location.search);
                 const submissionId = urlParams.get('id');
-                const submissionUserId = urlParams.get('userId'); // Get the userId that owns the submission
+                // The userId parameter from data.html is no longer used for the path in details.html
+                // as data is now stored in a public collection: artifacts/{appId}/public/data/formData/{docId}
 
-                if (!submissionId || !submissionUserId) {
-                    showMessage('שגיאה: מזהה דיווח או מזהה משתמש חסרים בכתובת האתר.', 'danger');
+                if (!submissionId) {
+                    showMessage('שגיאה: מזהה דיווח חסר בכתובת האתר.', 'danger');
                     setLoading(false);
                     return;
                 }
                 
-                // Construct the document reference using the original userId that submitted the data
-                const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submissionUserId}/formData`, submissionId);
+                // Construct the document reference to the PUBLIC collection
+                const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`, submissionId);
 
                 // Use onSnapshot for real-time updates
                 const unsubscribe = window.onSnapshotFirebaseGlobal(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
-                        // Defensive check: Ensure data is not null/undefined even if docSnap.exists() is true
-                        if (data) { 
-                            setSubmission({ id: docSnap.id, userId: submissionUserId, ...data }); // Ensure userId is captured here
+                        if (data) {
+                            setSubmission({ id: docSnap.id, ...data });
 
-                            // Initialize reported person's fields with fallback for old data structure
-                            setReportedPersonFirstName(data.reportedPersonFirstName || data.firstName || ''); 
-                            setReportedPersonFamilyName(data.reportedPersonFamilyName || data.familyName || ''); 
-                            setReportedPersonIdNumber(data.reportedPersonIdNumber || data.idNumber || ''); 
-
-                            // Initialize other fields
-                            setAge(data.age || '');
-                            setGender(data.gender || '');
-                            setPhone(data.phone || '');
-                            setAddress(data.address || '');
-                            setResidents(data.residents || '');
-                            setPhysicalInjury(data.physicalInjury || '');
-                            setCasualties(data.casualties || '');
-                            setDisconnected(data.disconnected || '');
-                            setEvacuationAssistance(data.evacuationAssistance || '');
-                            setNotes(data.notes || '');
-
-                            setReferralStatus(data.referralStatus || '');
-                            setOtherStatusText(data.otherStatusText || '');
-                            setAdminNotes(data.adminNotes || '');
+                            // Initialize fields with fallback for old data structure
+                            setFirstName(data.firstName || '');
+                            setFamilyName(data.familyName || '');
+                            setIdNumber(data.idNumber || '');
+                            setPhoneNumber(data.phoneNumber || '');
+                            setProtectedSpaceStatus(data.protectedSpaceStatus || '');
+                            setProtectedSpaceDetails(data.protectedSpaceDetails || '');
+                            setComments(data.comments || '');
                             
                             // Store original values when data is freshly loaded for comparison
-                            originalReportedPersonFirstNameRef.current = data.reportedPersonFirstName || data.firstName || '';
-                            originalReportedPersonFamilyNameRef.current = data.reportedPersonFamilyName || data.familyName || '';
-                            originalReportedPersonIdNumberRef.current = data.reportedPersonIdNumber || data.idNumber || '';
-                            originalAgeRef.current = data.age || '';
-                            originalGenderRef.current = data.gender || '';
-                            originalPhoneRef.current = data.phone || '';
-                            originalAddressRef.current = data.address || '';
-                            originalResidentsRef.current = data.residents || '';
-                            originalPhysicalInjuryRef.current = data.physicalInjury || '';
-                            originalCasualtiesRef.current = data.casualties || '';
-                            originalDisconnectedRef.current = data.disconnected || '';
-                            originalEvacuationAssistanceRef.current = data.evacuationAssistance || '';
-                            originalNotesRef.current = data.notes || '';
-
-                            originalReferralStatusRef.current = data.referralStatus || '';
-                            originalOtherStatusTextRef.current = data.otherStatusText || '';
-                            originalAdminNotesRef.current = data.adminNotes || '';
+                            originalFirstNameRef.current = data.firstName || '';
+                            originalFamilyNameRef.current = data.familyName || '';
+                            originalIdNumberRef.current = data.idNumber || '';
+                            originalPhoneNumberRef.current = data.phoneNumber || '';
+                            originalProtectedSpaceStatusRef.current = data.protectedSpaceStatus || '';
+                            originalProtectedSpaceDetailsRef.current = data.protectedSpaceDetails || '';
+                            originalCommentsRef.current = data.comments || '';
                             
                             setHasUnsavedChanges(false); // Reset unsaved changes flag on fresh load
-                            // Only clear message if it was NOT an error message from a previous attempt
                             if (messageType !== 'danger') {
                                 showMessage(''); // Clear any previous general messages on successful data load
                             }
                         } else {
-                            // This scenario is highly unlikely with docSnap.exists() true, but for robustness
                             showMessage('שגיאה: נתוני הדיווח ריקים או אינם תקינים.', 'danger');
                             setSubmission(null);
                         }
@@ -633,39 +592,21 @@
 
             // Effect to track changes in form fields (comparing to original loaded values)
             useEffect(() => {
-                // Only mark as unsaved if original values are loaded (i.e., submission is not null)
-                // Also check if any of the mutable fields are different from their original loaded state
                 if (submission) {
                     const changed = 
-                        reportedPersonFirstName !== originalReportedPersonFirstNameRef.current ||
-                        reportedPersonFamilyName !== originalReportedPersonFamilyNameRef.current ||
-                        reportedPersonIdNumber !== originalReportedPersonIdNumberRef.current ||
-                        age !== originalAgeRef.current ||
-                        gender !== originalGenderRef.current ||
-                        phone !== originalPhoneRef.current ||
-                        address !== originalAddressRef.current ||
-                        residents !== originalResidentsRef.current ||
-                        physicalInjury !== originalPhysicalInjuryRef.current ||
-                        casualties !== originalCasualtiesRef.current ||
-                        disconnected !== originalDisconnectedRef.current ||
-                        evacuationAssistance !== originalEvacuationAssistanceRef.current ||
-                        notes !== originalNotesRef.current ||
-                        referralStatus !== originalReferralStatusRef.current ||
-                        (referralStatus === 'other' ? otherStatusText : '') !== (originalReferralStatusRef.current === 'other' ? originalOtherStatusTextRef.current : '') ||
-                        adminNotes !== originalAdminNotesRef.current;
-
+                        firstName !== originalFirstNameRef.current ||
+                        familyName !== originalFamilyNameRef.current ||
+                        idNumber !== originalIdNumberRef.current ||
+                        phoneNumber !== originalPhoneNumberRef.current ||
+                        protectedSpaceStatus !== originalProtectedSpaceStatusRef.current ||
+                        protectedSpaceDetails !== originalProtectedSpaceDetailsRef.current ||
+                        comments !== originalCommentsRef.current;
                     setHasUnsavedChanges(changed);
-                    // console.log("Unsaved changes status:", changed, {
-                    //     // Log relevant state and ref values for debugging if needed
-                    // });
                 }
             }, [
-                reportedPersonFirstName, reportedPersonFamilyName, reportedPersonIdNumber,
-                age, gender, phone, address, residents, physicalInjury,
-                casualties, disconnected, evacuationAssistance, notes,
-                referralStatus, otherStatusText, adminNotes, submission
-            ]); // Add all mutable states to dependencies
-
+                firstName, familyName, idNumber, phoneNumber,
+                protectedSpaceStatus, protectedSpaceDetails, comments, submission
+            ]);
 
             // Effect for beforeunload warning to prevent accidental navigation
             useEffect(() => {
@@ -684,411 +625,268 @@
                 };
             }, [hasUnsavedChanges]); // Dependency on hasUnsavedChanges
 
+
+            const validateForm = () => {
+                let errors = {};
+                let isValid = true;
+
+                if (!firstName.trim()) {
+                    errors.firstName = true;
+                    isValid = false;
+                }
+                if (!familyName.trim()) {
+                    errors.familyName = true;
+                    isValid = false;
+                }
+                
+                const trimmedId = idNumber.trim();
+                if (!trimmedId || !/^\d{9}$/.test(trimmedId)) {
+                    errors.idNumber = true;
+                    showMessage('מספר תעודת זהות חייב להיות בן 9 ספרות בדיוק.', 'danger');
+                    isValid = false;
+                } else if (!validateIsraeliId(trimmedId)) {
+                    errors.idNumber = true;
+                    showMessage('מספר תעודת הזהות שהוזן אינו תקין.', 'danger');
+                    isValid = false;
+                } else {
+                    errors.idNumber = false; // Clear error if valid
+                }
+
+                if (!phoneNumber.trim()) {
+                    errors.phoneNumber = true;
+                    isValid = false;
+                } else if (!/^\d{9,10}$/.test(phoneNumber.trim())) {
+                    errors.phoneNumber = true;
+                    showMessage('מספר טלפון לא תקין. יש להזין 9 או 10 ספרות.', 'danger');
+                    isValid = false;
+                }
+
+                if (!protectedSpaceStatus) {
+                    errors.protectedSpaceStatus = true;
+                    isValid = false;
+                } else if ((protectedSpaceStatus === 'no' || protectedSpaceStatus === 'not_sure') && !protectedSpaceDetails.trim()) {
+                    errors.protectedSpaceDetails = true;
+                    isValid = false;
+                }
+
+                if (comments.length > 50) {
+                    errors.comments = true;
+                    showMessage('הערות: מקסימום 50 תווים.', 'danger');
+                    isValid = false;
+                }
+
+                setFirstNameError(errors.firstName);
+                setFamilyNameError(errors.familyName);
+                setIdNumberError(errors.idNumber);
+                setPhoneNumberError(errors.phoneNumber);
+                setProtectedSpaceStatusError(errors.protectedSpaceStatus);
+                setProtectedSpaceDetailsError(errors.protectedSpaceDetails);
+                setCommentsError(errors.comments);
+
+                return isValid;
+            };
+
             // Function to save current form data to Firestore
             const handleUpdateSubmission = async () => {
                 setMessage('');
                 setMessageType('');
-                console.log("--- Starting handleUpdateSubmission ---");
-
-                if (!db || !submission) {
-                    const errMsg = 'שגיאה: Firebase Db אינו מאותחל או שאין דיווח לטפל בו.';
-                    showMessage(errMsg, 'danger');
-                    console.error("Save failed: " + errMsg, "db:", db, "submission:", submission);
-                    console.log("--- Finished handleUpdateSubmission (failed initial checks) ---");
-                    return false;
-                }
-
-                // Validation for editable fields
-                let hasValidationError = false;
-                const trimmedReportedId = reportedPersonIdNumber.trim();
-
-                // Validation for reported person's fields
-                if (!reportedPersonFirstName.trim()) { setReportedPersonFirstNameError(true); hasValidationError = true; } else { setReportedPersonFirstNameError(false); }
-                if (!reportedPersonFamilyName.trim()) { setReportedPersonFamilyNameError(true); hasValidationError = true; } else { setReportedPersonFamilyNameError(false); }
                 
-                if (!trimmedReportedId || !/^\d{9}$/.test(trimmedReportedId)) {
-                    setReportedPersonIdNumberError(true);
-                    showMessage('מספר תעודת זהות של האדם המדווח חייב להיות בן 9 ספרות בדיוק.', 'danger');
-                    hasValidationError = true;
-                } else if (!validateIsraeliId(trimmedReportedId)) {
-                    setReportedPersonIdNumberError(true);
-                    showMessage('מספר תעודת הזהות של האדם המדווח אינו תקין.', 'danger');
-                    hasValidationError = true;
-                } else {
-                    setReportedPersonIdNumberError(false);
+                if (!submission || !db) {
+                    showMessage('שגיאה: דיווח לא נמצא או שירותי Firebase אינם זמינים.', 'danger');
+                    return;
                 }
 
-                // Corrected validation for other fields (using their respective state setters for errors)
-                if (!String(age).trim() || isNaN(parseInt(age)) || parseInt(age) < 0) { setAgeError(true); hasValidationError = true; } else { setAgeError(false); }
-                if (!gender) { setGenderError(true); hasValidationError = true; } else { setGenderError(false); }
-                if (!phone.trim()) { setPhoneError(true); hasValidationError = true; } else { setPhoneError(false); }
-                if (!address.trim()) { setAddressError(true); hasValidationError = true; } else { setAddressError(false); }
-                if (!String(residents).trim() || isNaN(parseInt(residents)) || parseInt(residents) < 0) { setResidentsError(true); hasValidationError = true; } else { setResidentsError(false); }
-                if (!physicalInjury) { setPhysicalInjuryError(true); hasValidationError = true; } else { setPhysicalInjuryError(false); }
-                if (!casualties) { setCasualtiesError(true); hasValidationError = true; } else { setCasualtiesError(false); }
-                if (!disconnected) { setDisconnectedError(true); hasValidationError = true; } else { setDisconnectedError(false); }
-                if (!evacuationAssistance) { setEvacuationAssistanceError(true); hasValidationError = true; } else { setEvacuationAssistanceError(false); }
-
-                // Only if referralStatus is 'other', otherStatusText is required
-                if (referralStatus === 'other' && !otherStatusText.trim()) {
-                    showMessage('בחרת "אחר" כסטטוס הפניה, אנא פרט.', 'danger');
-                    hasValidationError = true;
-                }
-                
-                if (hasValidationError) {
-                    showMessage('אנא תקן את השדות המסומנים באדום לפני השמירה.', 'danger');
-                    setLoading(false); // Stop loading if validation fails
-                    return false;
+                if (!validateForm()) {
+                    showMessage('אנא מלא את כל השדות הנדרשים כראוי.', 'danger');
+                    return;
                 }
 
                 setLoading(true);
                 try {
-                    const submissionId = submission.id;
-                    const submissionUserId = submission.userId; 
-
-                    console.log(`Attempting to save for Submission ID: ${submissionId}, Owner User ID: ${submissionUserId}`);
-                    const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/users/${submissionUserId}/formData`, submissionId);
-                    
-                    // Prepare data for update
-                    const updateData = {
-                        reportedPersonFirstName: reportedPersonFirstName.trim(),
-                        reportedPersonFamilyName: reportedPersonFamilyName.trim(),
-                        reportedPersonIdNumber: trimmedReportedId,
-                        age: parseInt(age),
-                        gender,
-                        phone: phone.trim(),
-                        address: address.trim(),
-                        residents: parseInt(residents),
-                        physicalInjury,
-                        casualties,
-                        disconnected,
-                        evacuationAssistance,
-                        notes: notes.trim(),
-                        referralStatus,
-                        adminNotes: adminNotes.trim(),
-                        updatedAt: Date.now() // Add an update timestamp
-                    };
-
-                    // Only include otherStatusText if referralStatus is 'other'
-                    if (referralStatus === 'other') {
-                        updateData.otherStatusText = otherStatusText.trim();
-                    } else {
-                        updateData.otherStatusText = ''; // Clear if status is changed from 'other'
-                    }
-
-                    await window.updateDocFirebaseGlobal(docRef, updateData);
+                    // Update document in the PUBLIC collection
+                    const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`, submission.id);
+                    await window.updateDocFirebaseGlobal(docRef, {
+                        firstName: firstName.trim(),
+                        familyName: familyName.trim(),
+                        idNumber: idNumber.trim(),
+                        phoneNumber: phoneNumber.trim(),
+                        protectedSpaceStatus: protectedSpaceStatus,
+                        protectedSpaceDetails: protectedSpaceDetails.trim(),
+                        comments: comments.trim(),
+                        lastUpdated: Date.now() // Add a last updated timestamp
+                    });
                     showMessage('הדיווח עודכן בהצלחה!', 'success');
-                    setHasUnsavedChanges(false); // Reset changes flag after successful save
+                    setHasUnsavedChanges(false); // Reset unsaved changes flag
+                    // Update original refs to reflect saved data
+                    originalFirstNameRef.current = firstName.trim();
+                    originalFamilyNameRef.current = familyName.trim();
+                    originalIdNumberRef.current = idNumber.trim();
+                    originalPhoneNumberRef.current = phoneNumber.trim();
+                    originalProtectedSpaceStatusRef.current = protectedSpaceStatus;
+                    originalProtectedSpaceDetailsRef.current = protectedSpaceDetails.trim();
+                    originalCommentsRef.current = comments.trim();
 
                 } catch (error) {
                     console.error("Error updating document:", error);
-                    let displayMessage = `שגיאה בעדכון הדיווח: ${error.message}`;
+                    let errorMessage = `שגיאה בעדכון הדיווח: ${error.message}.`;
                     if (error.code === 'permission-denied') {
-                        displayMessage += " (ייתכן שאין לך הרשאה לכתיבה ל-Firestore).";
+                        errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים עדכון נתונים בנתיב זה עבור המשתמש המחובר.";
                     }
-                    showMessage(displayMessage, 'danger');
+                    showMessage(errorMessage, 'danger');
                 } finally {
                     setLoading(false);
-                    console.log("--- Finished handleUpdateSubmission ---");
                 }
-                return true; // Indicate success for navigation or other actions
             };
-
 
             if (loading) {
                 return (
-                    <div className="container">
-                        <h1>טוען פרטי דיווח...</h1>
-                        {message && <div className={`message-box ${messageType}`}>{message}</div>}
+                    <div className="container" style={{ textAlign: 'center', padding: '50px' }}>
+                        <div className="spinner"></div>
+                        <p>טוען פרטי דיווח...</p>
                     </div>
                 );
             }
 
             if (!submission) {
                 return (
-                    <div className="container">
-                        <h1>דיווח לא נמצא</h1>
+                    <div className="container" style={{ textAlign: 'center', padding: '50px' }}>
                         {message && <div className={`message-box ${messageType}`}>{message}</div>}
-                        <div className="button-container">
-                            <a href="data.html" className="action-button secondary" style={{ textDecoration: 'none' }}>חזרה לכל הנתונים</a>
-                        </div>
+                        <p>לא ניתן לטעון את פרטי הדיווח.</p>
+                        <a href="data.html" className="action-button secondary" style={{ marginTop: '20px', textDecoration: 'none' }}>
+                            <i className="fas fa-arrow-right"></i> חזור לכל הדיווחים
+                        </a>
                     </div>
                 );
             }
 
             return (
                 <div className="container">
-                    <h1>טיפול ועדכון דיווח</h1>
-                    {message && <div className={`message-box ${messageType}`}>{message}</div>}
+                    <h1>עריכת דיווח: {submission.firstName} {submission.familyName}</h1>
+                    <p style={{textAlign: 'center', color: '#888'}}>
+                        <small>הוגש על ידי: {submission.interviewerFirstName} {submission.interviewerFamilyName} ({submission.interviewerUid}) בתאריך: {new Date(submission.timestamp).toLocaleString('he-IL')}</small>
+                        {submission.lastUpdated && <small> | עודכן לאחרונה: {new Date(submission.lastUpdated).toLocaleString('he-IL')}</small>}
+                    </p>
+
+                    {message && (
+                        <div className={`message-box ${messageType}`}>
+                            {message}
+                        </div>
+                    )}
 
                     <div className="details-grid">
-                        {/* Reported Person's Details - Now editable */}
-                        <div className={`details-item ${reportedPersonFirstNameError ? 'error' : ''}`}>
-                            <label htmlFor="reportedPersonFirstName" className="required">שם פרטי (מדווח עליו):</label>
+                        {/* פרטי האזרח (מרואיין) */}
+                        <div className={`details-item ${firstNameError ? 'error' : ''}`}>
+                            <label htmlFor="firstName" className="required">שם פרטי (אזרח):</label>
                             <input
                                 type="text"
-                                id="reportedPersonFirstName"
-                                value={reportedPersonFirstName}
-                                onChange={(e) => { setReportedPersonFirstName(e.target.value); setReportedPersonFirstNameError(false); }}
-                                onBlur={() => setReportedPersonFirstNameError(!reportedPersonFirstName.trim())}
+                                id="firstName"
+                                value={firstName}
+                                onChange={(e) => { setFirstName(e.target.value); setFirstNameError(false); }}
                                 required
                             />
-                            {reportedPersonFirstNameError && <span className="error-message">שדה חובה</span>}
+                            {firstNameError && <p className="error-message">שם פרטי נדרש.</p>}
                         </div>
-                        <div className={`details-item ${reportedPersonFamilyNameError ? 'error' : ''}`}>
-                            <label htmlFor="reportedPersonFamilyName" className="required">שם משפחה (מדווח עליו):</label>
+                        <div className={`details-item ${familyNameError ? 'error' : ''}`}>
+                            <label htmlFor="familyName" className="required">שם משפחה (אזרח):</label>
                             <input
                                 type="text"
-                                id="reportedPersonFamilyName"
-                                value={reportedPersonFamilyName}
-                                onChange={(e) => { setReportedPersonFamilyName(e.target.value); setReportedPersonFamilyNameError(false); }}
-                                onBlur={() => setReportedPersonFamilyNameError(!reportedPersonFamilyName.trim())}
+                                id="familyName"
+                                value={familyName}
+                                onChange={(e) => { setFamilyName(e.target.value); setFamilyNameError(false); }}
                                 required
                             />
-                            {reportedPersonFamilyNameError && <span className="error-message">שדה חובה</span>}
+                            {familyNameError && <p className="error-message">שם משפחה נדרש.</p>}
                         </div>
-                        <div className={`details-item ${reportedPersonIdNumberError ? 'error' : ''}`}>
-                            <label htmlFor="reportedPersonIdNumber" className="required">תעודת זהות (מדווח עליו):</label>
-                            <input
-                                type="text"
-                                id="reportedPersonIdNumber"
-                                value={reportedPersonIdNumber}
-                                onChange={(e) => { 
-                                    const val = e.target.value.replace(/\D/g, '').substring(0, 9); // Only digits, max 9
-                                    setReportedPersonIdNumber(val); 
-                                    setReportedPersonIdNumberError(false); 
-                                }}
-                                onBlur={() => {
-                                    const trimmedId = reportedPersonIdNumber.trim();
-                                    if (!trimmedId || !/^\d{9}$/.test(trimmedId)) {
-                                        setReportedPersonIdNumberError(true);
-                                        showMessage('מספר תעודת זהות של האדם המדווח חייב להיות בן 9 ספרות בדיוק.', 'danger');
-                                    } else if (!validateIsraeliId(trimmedId)) {
-                                        setReportedPersonIdNumberError(true);
-                                        showMessage('מספר תעודת הזהות של האדם המדווח אינו תקין.', 'danger');
-                                    } else {
-                                        setReportedPersonIdNumberError(false);
-                                        showMessage(''); // Clear message if validation passes
-                                    }
-                                }}
-                                required
-                                inputMode="numeric"
-                            />
-                            {reportedPersonIdNumberError && <span className="error-message">{message}</span>}
-                        </div>
-
-                        {/* Other details, now editable */}
-                        <div className={`details-item ${ageError ? 'error' : ''}`}>
-                            <label htmlFor="age" className="required">גיל:</label>
-                            <input
-                                type="number"
-                                id="age"
-                                value={age}
-                                onChange={(e) => { setAge(e.target.value); setAgeError(false); }}
-                                onBlur={() => setAgeError(!String(age).trim() || isNaN(parseInt(age)) || parseInt(age) < 0)}
-                                min="0"
-                                required
-                            />
-                            {ageError && <span className="error-message">שדה חובה (מספר חיובי)</span>}
-                        </div>
-                        <div className={`details-item ${genderError ? 'error' : ''}`}>
-                            <label htmlFor="gender" className="required">מין:</label>
-                            <select
-                                id="gender"
-                                value={gender}
-                                onChange={(e) => { setGender(e.target.value); setGenderError(false); }}
-                                onBlur={() => setGenderError(!gender)}
-                                required
-                            >
-                                <option value="">בחר</option>
-                                <option value="male">זכר</option>
-                                <option value="female">נקבה</option>
-                            </select>
-                            {genderError && <span className="error-message">שדה חובה</span>}
-                        </div>
-                        <div className={`details-item ${phoneError ? 'error' : ''}`}>
-                            <label htmlFor="phone" className="required">טלפון:</label>
+                        <div className={`details-item ${idNumberError ? 'error' : ''}`}>
+                            <label htmlFor="idNumber" className="required">תעודת זהות (אזרח):</label>
                             <input
                                 type="tel"
-                                id="phone"
-                                value={phone}
-                                onChange={(e) => { setPhone(e.target.value); setPhoneError(false); }}
-                                onBlur={() => setPhoneError(!phone.trim())}
+                                id="idNumber"
+                                value={idNumber}
+                                onChange={(e) => { setIdNumber(e.target.value.replace(/\D/g, '').slice(0, 9)); setIdNumberError(false); }}
+                                maxLength="9"
                                 required
                             />
-                            {phoneError && <span className="error-message">שדה חובה</span>}
+                            {idNumberError && <p className="error-message">מספר תעודת זהות לא תקין (9 ספרות).</p>}
                         </div>
-                        <div className={`details-item ${addressError ? 'error' : ''}`}>
-                            <label htmlFor="address" className="required">כתובת:</label>
+                        <div className={`details-item ${phoneNumberError ? 'error' : ''}`}>
+                            <label htmlFor="phoneNumber" className="required">טלפון:</label>
                             <input
-                                type="text"
-                                id="address"
-                                value={address}
-                                onChange={(e) => { setAddress(e.target.value); setAddressError(false); }}
-                                onBlur={() => setAddressError(!address.trim())}
+                                type="tel"
+                                id="phoneNumber"
+                                value={phoneNumber}
+                                onChange={(e) => { setPhoneNumber(e.target.value.replace(/\D/g, '')); setPhoneNumberError(false); }}
                                 required
                             />
-                            {addressError && <span className="error-message">שדה חובה</span>}
-                        </div>
-                        <div className={`details-item ${residentsError ? 'error' : ''}`}>
-                            <label htmlFor="residents" className="required">מספר שוהים בדירה:</label>
-                            <input
-                                type="number"
-                                id="residents"
-                                value={residents}
-                                onChange={(e) => { setResidents(e.target.value); setResidentsError(false); }}
-                                onBlur={() => setResidentsError(!String(residents).trim() || isNaN(parseInt(residents)) || parseInt(residents) < 0)}
-                                min="0"
-                                required
-                            />
-                            {residentsError && <span className="error-message">שדה חובה (מספר חיובי)</span>}
-                        </div>
-                        <div className={`details-item ${physicalInjuryError ? 'error' : ''}`}>
-                            <label htmlFor="physicalInjury" className="required">האם קיימת פציעה פיזית?</label>
-                            <select
-                                id="physicalInjury"
-                                value={physicalInjury}
-                                onChange={(e) => { setPhysicalInjury(e.target.value); setPhysicalInjuryError(false); }}
-                                onBlur={() => setPhysicalInjuryError(!physicalInjury)}
-                                required
-                            >
-                                <option value="">בחר</option>
-                                {Object.entries(physicalInjuryMap).map(([key, value]) => (
-                                    <option key={key} value={key}>{value}</option>
-                                ))}
-                            </select>
-                            {physicalInjuryError && <span className="error-message">שדה חובה</span>}
-                        </div>
-                        <div className={`details-item ${casualtiesError ? 'error' : ''}`}>
-                            <label htmlFor="casualties" className="required">האם קיימים הרוגים/פצועים?</label>
-                            <select
-                                id="casualties"
-                                value={casualties}
-                                onChange={(e) => { setCasualties(e.target.value); setCasualtiesError(false); }}
-                                onBlur={() => setCasualtiesError(!casualties)}
-                                required
-                            >
-                                <option value="">בחר</option>
-                                <option value="yes">כן</option>
-                                <option value="no">לא</option>
-                            </select>
-                            {casualtiesError && <span className="error-message">שדה חובה</span>}
-                        </div>
-                        <div className={`details-item ${disconnectedError ? 'error' : ''}`}>
-                            <label htmlFor="disconnected" className="required">האם מנותקי קשר?</label>
-                            <select
-                                id="disconnected"
-                                value={disconnected}
-                                onChange={(e) => { setDisconnected(e.target.value); setDisconnectedError(false); }}
-                                onBlur={() => setDisconnectedError(!disconnected)}
-                                required
-                            >
-                                <option value="">בחר</option>
-                                <option value="yes">כן</option>
-                                <option value="no">לא</option>
-                            </select>
-                            {disconnectedError && <span className="error-message">שדה חובה</span>}
-                        </div>
-                        <div className={`details-item ${evacuationAssistanceError ? 'error' : ''}`}>
-                            <label htmlFor="evacuationAssistance" className="required">האם נדרש סיוע בפינוי?</label>
-                            <select
-                                id="evacuationAssistance"
-                                value={evacuationAssistance}
-                                onChange={(e) => { setEvacuationAssistance(e.target.value); setEvacuationAssistanceError(false); }}
-                                onBlur={() => setEvacuationAssistanceError(!evacuationAssistance)}
-                                required
-                            >
-                                <option value="">בחר</option>
-                                <option value="yes">כן</option>
-                                <option value="no">לא</option>
-                            </select>
-                            {evacuationAssistanceError && <span className="error-message">שדה חובה</span>}
-                        </div>
-                        <div className="details-item">
-                            <label htmlFor="notes">הערות:</label>
-                            <textarea
-                                id="notes"
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                className="large-notes"
-                            ></textarea>
-                        </div>
-                        
-                        {/* Reporter Details (read-only for context) */}
-                        <div className="details-item">
-                            <label>שם מדווח:</label>
-                            <p>{submission.reporterFirstName || submission.firstName || 'לא הוזן'} {submission.reporterFamilyName || submission.familyName || ''}</p>
-                        </div>
-                        <div className="details-item">
-                            <label>ת.ז. מדווח:</label>
-                            <p>{submission.reporterIdentityId || submission.userId || 'לא הוזן'}</p>
-                        </div>
-                        <div className="details-item">
-                            <label>תאריך דיווח:</label>
-                            <p>{submission.timestamp ? new Date(submission.timestamp).toLocaleString('he-IL') : 'לא ידוע'}</p>
+                            {phoneNumberError && <p className="error-message">מספר טלפון נדרש ותקין (9-10 ספרות).</p>}
                         </div>
 
-                        {/* Admin fields */}
-                        <div className="details-item">
-                            <label htmlFor="referralStatus">סטטוס הפניה:</label>
-                            <select 
-                                id="referralStatus" 
-                                value={referralStatus} 
-                                onChange={(e) => setReferralStatus(e.target.value)}
+                        <div className={`details-item ${protectedSpaceStatusError ? 'error' : ''}`}>
+                            <label htmlFor="protectedSpaceStatus" className="required">האם המרחב המוגן תקין?</label>
+                            <select
+                                id="protectedSpaceStatus"
+                                value={protectedSpaceStatus}
+                                onChange={(e) => { setProtectedSpaceStatus(e.target.value); setProtectedSpaceStatusError(false); }}
+                                required
                             >
-                                <option value="open">פתוחה</option>
-                                <option value="social_worker">הועבר לטיפול עו"ס</option>
-                                <option value="other">הועבר להמשך טיפול אחר</option>
-                                <option value="closed">סגורה</option>
+                                <option value="">בחר סטטוס</option>
+                                <option value="yes">כן</option>
+                                <option value="no">לא</option>
+                                <option value="not_sure">לא בטוח</option>
                             </select>
+                            {protectedSpaceStatusError && <p className="error-message">בחירת סטטוס נדרשת.</p>}
                         </div>
-                        {referralStatus === 'other' && (
-                            <div className="details-item">
-                                <label htmlFor="otherStatusText">פירוט סטטוס אחר:</label>
+
+                        {(protectedSpaceStatus === 'no' || protectedSpaceStatus === 'not_sure') && (
+                            <div className={`details-item ${protectedSpaceDetailsError ? 'error' : ''}`}>
+                                <label htmlFor="protectedSpaceDetails" className="required">פירוט (למה לא תקין / לא בטוח):</label>
                                 <textarea
-                                    id="otherStatusText"
-                                    value={otherStatusText}
-                                    onChange={(e) => setOtherStatusText(e.target.value)}
-                                    placeholder="פרט את הסטטוס האחר"
-                                    className={referralStatus === 'other' && !otherStatusText.trim() ? 'error-field' : ''}
+                                    id="protectedSpaceDetails"
+                                    value={protectedSpaceDetails}
+                                    onChange={(e) => { setProtectedSpaceDetails(e.target.value); setProtectedSpaceDetailsError(false); }}
+                                    rows="3"
+                                    required
                                 ></textarea>
-                                {referralStatus === 'other' && !otherStatusText.trim() && <span className="error-message">שדה חובה בבחירת "אחר"</span>}
+                                {protectedSpaceDetailsError && <p className="error-message">פירוט נדרש עבור סטטוס זה.</p>}
                             </div>
                         )}
-                        <div className="details-item">
-                            <label htmlFor="adminNotes">הערות מנהל:</label>
+
+                        <div className={`details-item ${commentsError ? 'error' : ''}`}>
+                            <label htmlFor="comments">הערות: <span style={{fontSize: '0.8em', color: '#888'}}>(עד 50 תווים)</span></label>
                             <textarea
-                                id="adminNotes"
-                                value={adminNotes}
-                                onChange={(e) => setAdminNotes(e.target.value)}
+                                id="comments"
+                                value={comments}
+                                onChange={(e) => { setComments(e.target.value.slice(0, 50)); setCommentsError(false); }}
                                 className="large-notes"
+                                maxLength="50"
                             ></textarea>
+                             <p style={{fontSize: '0.8em', color: '#888', textAlign: 'left', marginTop: '4px'}}>
+                                {comments.length}/50 תווים
+                            </p>
+                            {commentsError && <p className="error-message">הערות: מקסימום 50 תווים.</p>}
                         </div>
                     </div>
 
-                    <div className="details-actions">
+                    <div className="button-container">
                         <button 
-                            className="action-button" 
+                            className={`action-button ${hasUnsavedChanges ? '' : 'secondary'}`} 
                             onClick={handleUpdateSubmission} 
                             disabled={loading || !hasUnsavedChanges}
                         >
-                            {loading ? 'שומר...' : 'שמור עדכונים'}
+                            {loading ? 'שומר שינויים...' : 'שמור שינויים'}
                         </button>
                         <a href="data.html" className="action-button secondary" style={{ textDecoration: 'none' }}>
-                            חזרה לכל הנתונים
+                            <i className="fas fa-arrow-right"></i> חזור לכל הדיווחים
                         </a>
-                        <button 
-                            className="action-button danger" 
-                            onClick={() => { if(window.confirm('האם אתה בטוח שברצונך להתנתק?')) onLogout(); }} // Basic confirmation
-                        >
-                            התנתק
+                        <button onClick={onLogout} className="action-button danger">
+                            <i className="fas fa-sign-out-alt"></i> התנתק
                         </button>
                     </div>
                 </div>
             );
         }
 
-        // Main App Component
+        // Main App Component (Authentication handling)
         function App() {
             const [firebaseInstances, setFirebaseInstances] = useState({ app: null, auth: null, db: null });
             const [isAuthReady, setIsAuthReady] = useState(false);
@@ -1122,7 +920,7 @@
             }, []);
 
             const handleLogout = async () => {
-                logoutTriggeredRef.current = true; // Set the flag to prevent re-login after logout
+                logoutTriggeredRef.current = true;
                 if (firebaseInstances.auth) {
                     try {
                         await window.signOutFirebaseGlobal(firebaseInstances.auth);
@@ -1131,15 +929,16 @@
                     } catch (error) {
                         console.error("Error signing out:", error);
                     } finally {
-                        logoutTriggeredRef.current = false; // Reset flag
+                        logoutTriggeredRef.current = false;
                     }
                 }
             };
 
             if (!isAuthReady) {
                 return (
-                    <div className="container">
-                        <p>טוען הגדרות אבטחה...</p>
+                    <div className="container" style={{ textAlign: 'center', padding: '50px' }}>
+                        <h1>טוען הגדרות אבטחה...</h1>
+                        <p style={{color: '#555'}}>ממתין לסטטוס הזדהות.</p>
                     </div>
                 );
             }
@@ -1148,7 +947,7 @@
                 return <LoginPage auth={firebaseInstances.auth} onLoginSuccess={(user) => setUserUid(user.uid)} />;
             }
             
-            // Render the SubmissionDetailsComponent if authenticated
+            // Render the DataDisplayComponent if authenticated
             return (
                 <SubmissionDetailsComponent
                     auth={firebaseInstances.auth}
