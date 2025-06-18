@@ -125,13 +125,20 @@
             border-radius: 8px; /* Subtle rounded corners */
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); /* Very subtle shadow for depth */
             width: 100%;
-            max-width: 700px; /* Increased max-width for wider layout */
+            max-width: 800px; /* Increased max-width for wider layout on desktop */
             box-sizing: border-box;
             text-align: right; /* RTL alignment */
             margin: 0 auto; /* Center on larger screens, but stretch on mobile */
         }
+        @media (max-width: 1024px) { /* Adjust for larger tablets and small laptops */
+            .container {
+                max-width: 700px;
+                padding: 22px;
+            }
+        }
         @media (max-width: 768px) {
             .container {
+                max-width: 100%; /* Ensure full width on smaller screens */
                 padding: 20px; /* Slightly smaller padding on tablets */
             }
         }
@@ -838,51 +845,9 @@
             useEffect(() => {
                 if (!db || !user) return;
 
-                // Query for submissions by the current INTERVIEWEE'S ID number
-                // This means the `onSnapshot` needs to wait until formData.idNumber is set.
-                // Or, more accurately, we only fetch previous submissions *after* a new interviewee's ID is entered
-                // and validated, which is a more complex flow. For now, we'll keep the current user's profile ID
-                // as the basis for fetching 'previous submissions', but rename it to 'previous submissions by this ID'.
-                // If the user wants to fetch submissions for the *current form's ID*, that would require re-triggering the fetch.
-                // Given the request to remove the interviewer's ID and clarify, it makes more sense
-                // that previous submissions listed here are those submitted using the currently logged-in interviewer's credentials
-                // OR submissions related to the ID currently being entered into the form.
-                // The request seems to imply the latter ("הגשות קודמות של {userProfile.firstName}" and "הבדיקה שלא היתה הזנה של תעודת זהות פעמיים כל זה כפי שזה כעת").
-                // Let's assume the "previous submissions" section should show submissions *associated with the ID currently entered in the form*.
-                // This means this useEffect should depend on `formData.idNumber` rather than `userProfile.idNumber`.
-
-                // To correctly display previous submissions FOR THE CURRENTLY ENTERED ID:
-                // This useEffect should react to changes in formData.idNumber (the interviewee's ID).
-                // However, the `onSnapshot` listener needs a stable query.
-                // A better approach would be to fetch previous submissions AFTER a successful form submission
-                // for the new ID, or have a separate "Search Submissions by ID" feature.
-                // For simplicity and to match the previous behavior, let's keep it tied to the currently logged-in user (interviewer)
-                // but change the displayed text to reflect this, or assume the user wants the form to show only the currently
-                // submitted entry.
-
-                // Given the explicit request "את שאר השאלות שיש בשאלון כרגע תסיר ותשאיר כמובן אימות ת.ז והבדיקה שלא היתה הזנה של תעודת זהות פעמיים כל זה כפי שזה כעת",
-                // and "כל השאלות הם לאזרח אז שם + שם משפחה + ת.ז הם של אזרחים כמובן עם כללי האימות. לא צריך תעודת זהות של המראיין."
-                // This implies the previous submissions should be tied to the *interviewee ID entered in the form*.
-                // To achieve this reactively, the `useEffect` needs to be inside the form logic or the form itself needs to trigger a fetch.
-
-                // Let's simplify the 'previous submissions' section for this version:
-                // It will show previous submissions associated with the ID that was *successfully submitted*.
-                // For the "previous submissions" section: It will show all public submissions by *any* ID.
-                // A more refined approach would be a search field for previous submissions.
-                // For now, I will modify it to show "כל ההגשות האחרונות" (all recent submissions)
-                // and keep the query simple without 'where' clause, if that's what the user prefers, or keep it by interviewer's ID for simplicity.
-
-                // Re-evaluating: The instruction "הגשות קודמות של {userProfile.firstName}" implies previous submissions by the logged-in user (interviewer).
-                // However, the subsequent request "כל השאלות הם לאזרח אז שם + שם משפחה + ת.ז הם של אזרחים כמובן עם כללי האימות. לא צריך תעודת זהות של המראיין."
-                // suggests that the form itself is *about* the citizen, and thus the check for duplicate ID would be on the citizen's ID.
-                // The "previous submissions" section is ambiguous.
-                // Let's make "previous submissions" show *all submissions made using the currently logged-in interviewer's UID*,
-                // but clarify that the form itself is for citizen data. This is a common pattern: an interviewer logs in, and they see *their own* past activity.
-                // The validation for duplicate *citizen* ID will happen within the form itself.
-
                 // Query for submissions made BY THIS INTERVIEWER (user.uid)
                 const formCollectionRef = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`);
-                const q = window.queryFirebaseGlobal(formCollectionRef, window.whereFirebaseGlobal('submitterUid', '==', user.uid));
+                const q = window.queryFirebaseGlobal(formCollectionRef, window.whereFirebaseGlobal('interviewerUid', '==', user.uid)); // Changed to interviewerUid
 
                 const unsubscribe = window.onSnapshotGlobal(q, (snapshot) => {
                     const submissions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
