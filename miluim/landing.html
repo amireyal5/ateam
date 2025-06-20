@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ברוך הבא</title>
+    <!-- React Libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX compilation directly in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Firebase Libraries - Initialized here and exposed globally -->
+    <script type="module">
+        // Import Firebase functions (These must be standard ES module imports in this block)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment (do not modify these directly)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // Fallback for myFirebaseConfig if __firebase_config is empty or not provided
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyA38-uZwniXXCCK954yjcICl56mwVXbHDk",
+            authDomain: "ateam-3cf3d.firebaseapp.com",
+            projectId: "ateam-3cf3d",
+            storageBucket: "ateam-3cf3d.firebasestorage.app",
+            messagingSenderId: "760383317284",
+            appId: "1:760383317284:web:a33ae7d2a89911b77f3fb1",
+            measurementId: "G-NCVXFH3R6X"
+        };
+        
+        let firebaseConfigFromEnv; // Declare this variable to hold the parsed config from environment
+        try {
+            // Attempt to parse __firebase_config. If it's undefined or invalid JSON, it will fall back to an empty object.
+            firebaseConfigFromEnv = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        } catch (e) {
+            console.error("Error parsing __firebase_config, treating as empty:", e);
+            firebaseConfigFromEnv = {}; // If parsing fails, treat it as an empty config
+        }
+
+        let finalFirebaseConfig;
+        if (Object.keys(firebaseConfigFromEnv).length > 0) { // This now correctly uses firebaseConfigFromEnv
+            finalFirebaseConfig = firebaseConfigFromEnv;
+        } else {
+            finalFirebaseConfig = myFirebaseConfig;
+            // Provide a more specific message if __firebase_config was present but empty/invalid vs entirely missing
+            if (typeof __firebase_config !== 'undefined') {
+                console.warn("Environmental __firebase_config was empty after parsing or invalid. Falling back to hardcoded myFirebaseConfig.");
+            } else {
+                console.log("Environmental __firebase_config not found. Using hardcoded myFirebaseConfig.");
+            }
+        }
+
+        let app;
+        let auth;
+        let db;
+
+        if (finalFirebaseConfig) {
+            try {
+                app = initializeApp(finalFirebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                console.log("Firebase initialized in global script for landing.html.");
+            } catch (error) {
+                console.error("Failed to initialize Firebase in global script for landing.html:", error);
+                app = null;
+                auth = null;
+                db = null;
+            }
+        } else {
+            console.error("Skipping Firebase initialization due to empty config.");
+        }
+
+        // Expose Firebase instances and functions globally for React to access
+        window.firebaseApp = app;
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.globalAppId = appId;
+        // initialAuthToken is correctly exposed from the global scope by the environment
+        window.initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
+
+        // Expose specific Firebase functions globally
+        window.signInAnonymouslyGlobal = signInAnonymously;
+        window.signInWithCustomTokenGlobal = signInWithCustomToken;
+        window.onAuthStateChangedGlobal = onAuthStateChanged;
+        window.signInWithEmailAndPasswordGlobal = signInWithEmailAndPassword; // For employee login
+        window.signOutFirebaseGlobal = signOut; // For employee logout
+        window.docFirebaseGlobal = doc;
+        window.setDocFirebaseGlobal = setDoc;
+        window.getDocFirebaseGlobal = getDoc;
+    </script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            direction: rtl; /* RTL support */
+            text-align: right;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333333;
+            margin-bottom: 25px;
+            font-size: 2em;
+        }
+
+        h2 {
+            color: #555555;
+            margin-top: 30px;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .entry-options {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .action-button {
+            background-color: #3498db;
+            color: white;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            text-decoration: none; /* For links */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .action-button:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .action-button:active {
+            transform: translateY(0);
+        }
+
+        .action-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            text-align: right; /* RTL alignment */
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group input[type="email"],
+        .form-group input[type="password"],
+        .form-group input[type="text"],
+        .form-group input[type="tel"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+        .form-group.error input {
+            border-color: #e74c3c;
+        }
+        .error-message {
+            color: #e74c3c;
+            font-size: 0.85em;
+            margin-top: 5px;
+            text-align: right;
+        }
+
+        .message-box {
+            background-color: #f8f8f8;
+            color: #333333;
+            padding: 12px;
+            border: 1px solid #cccccc;
+            border-radius: 6px;
+            margin-top: 16px;
+            margin-bottom: 16px;
+            text-align: right;
+            font-size: 0.9em;
+            font-weight: normal;
+        }
+        .message-box.success {
+            background-color: #e6ffe6;
+            color: #2e7d32;
+            border-color: #a3e6a3;
+        }
+        .message-box.danger { 
+            background-color: #ffe6e6;
+            color: #c62828;
+            border-color: #e6a3a3;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+            display: inline-block; /* Aligns with text */
+            vertical-align: middle;
+            margin-left: 8px; /* Space from text */
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Function to validate Israeli ID Number (reused)
+        function validateIsraeliId(id) {
+            id = String(id).trim();
+            if (id.length > 9 || !/^\d+$/.test(id)) {
+                return false;
+            }
+            id = id.padStart(9, '0');
+            let sum = 0;
+            for (let i = 0; i < 9; i++) {
+                let digit = parseInt(id[i], 10);
+                sum += (i % 2 === 0) ? digit : (digit * 2 > 9 ? digit * 2 - 9 : digit * 2);
+            }
+            return (sum % 10 === 0);
+        }
+
+        // Login Page Component for Employees
+        function EmployeeLoginPage({ auth }) {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [message, setMessage] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const handleLogin = async () => {
+                setMessage('');
+                setLoading(true);
+                try {
+                    if (!auth) {
+                        setMessage('שגיאה: שירותי Firebase Auth אינם זמינים.');
+                        setLoading(false);
+                        return;
+                    }
+                    await window.signInWithEmailAndPasswordGlobal(auth, email, password);
+                    setMessage('התחברות הצליחה! מפנה למסך הנתונים...');
+                    window.location.href = 'data.html'; // Redirect to data page
+                } catch (error) {
+                    console.error("Login error:", error);
+                    let errorMessage = 'שגיאה בהתחברות. וודא מייל וסיסמה.';
+                    if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                        errorMessage = 'מייל או סיסמה שגויים.';
+                    } else if (error.code === 'auth/invalid-email') {
+                        errorMessage = 'פורמט מייל לא תקין.';
+                    } else if (error.code === 'auth/user-disabled') {
+                        errorMessage = 'המשתמש הושבת. פנה למנהל המערכת.';
+                    }
+                    setMessage(errorMessage);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div style={{ padding: '20px', border: '1px solid #eee', borderRadius: '8px', marginTop: '20px', backgroundColor: '#fcfcfc' }}>
+                    <h2>כניסה לעובד (גישה לכל הנתונים)</h2>
+                    {message && (
+                        <div className={`message-box ${message.includes('הצליחה') ? 'success' : 'danger'}`}>
+                            {message}
+                        </div>
+                    )}
+                    <div className="form-group">
+                        <label htmlFor="employeeEmail">מייל:</label>
+                        <input type="email" id="employeeEmail" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="הזן מייל עובד" required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="employeePassword">סיסמה:</label>
+                        <input type="password" id="employeePassword" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="הזן סיסמה" required />
+                    </div>
+                    <button className="action-button" onClick={handleLogin} disabled={loading}>
+                        {loading ? <>מתחבר... <div className="spinner"></div></> : 'התחבר כמנהל'}
+                    </button>
+                    <p style={{marginTop: '15px', fontSize: '0.85em', color: '#888'}}>
+                        <strong style={{color: '#F44336'}}>הערה:</strong> רק משתמשים שהוספו ל-Firebase Authentication יכולים להתחבר כאן.
+                    </p>
+                </div>
+            );
+        }
+
+        // Interviewer Registration Form (within Landing Page)
+        function InterviewerRegistrationForm({ auth, db, globalAppId, onRegistrationSuccess }) {
+            const [firstName, setFirstName] = useState('');
+            const [familyName, setFamilyName] = useState('');
+            const [idNumber, setIdNumber] = useState('');
+            const [message, setMessage] = useState('');
+            const [messageType, setMessageType] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [isAuthReady, setIsAuthReady] = useState(false);
+            const [userUid, setUserUid] = useState(null);
+            const initialAuthAttemptedRef = useRef(false);
+
+            // Function to set message and clear it after a delay
+            const showMessage = (text, type = 'default') => {
+                setMessage(text);
+                setMessageType(type);
+                setTimeout(() => {
+                    setMessage('');
+                    setMessageType('');
+                }, 5000); 
+            };
+
+            useEffect(() => {
+                if (!auth) {
+                    showMessage('שגיאה: שירותי Firebase Auth אינם זמינים. אנא וודא את הגדרות Firebase.', 'danger');
+                    return;
+                }
+
+                const authenticateFirebase = async () => {
+                    if (!auth.currentUser && !initialAuthAttemptedRef.current) {
+                        try {
+                            if (window.initialAuthToken) {
+                                await window.signInWithCustomTokenGlobal(auth, window.initialAuthToken);
+                                console.log("Signed in with custom token (initial).");
+                            } else {
+                                await window.signInAnonymouslyGlobal(auth);
+                                console.log("Signed in anonymously.");
+                            }
+                            initialAuthAttemptedRef.current = true;
+                        } catch (error) {
+                            console.error("Firebase authentication error:", error);
+                            showMessage('שגיאה בהתחברות אוטומטית. אנא וודא ש-Anonymous Authentication מופעל.', 'danger');
+                            initialAuthAttemptedRef.current = true;
+                        }
+                    } else if (auth.currentUser) {
+                         console.log("User already signed in. UID:", auth.currentUser.uid);
+                    }
+                };
+
+                const unsubscribe = window.onAuthStateChangedGlobal(auth, (user) => {
+                    if (user) {
+                        setUserUid(user.uid);
+                        setIsAuthReady(true);
+                    } else {
+                        setUserUid(null);
+                        setIsAuthReady(true); // Still ready, just no user means need to authenticate
+                        authenticateFirebase(); // Attempt to authenticate if no user is found
+                    }
+                });
+
+                authenticateFirebase(); // Initial call to authenticate
+
+                return () => unsubscribe();
+            }, [auth]);
+
+            const handleRegister = async () => {
+                setMessage('');
+                setMessageType('');
+
+                if (!firstName.trim()) {
+                    showMessage('שם פרטי נדרש.', 'danger');
+                    return;
+                }
+                if (!familyName.trim()) {
+                    showMessage('שם משפחה נדרש.', 'danger');
+                    return;
+                }
+                const trimmedId = idNumber.trim();
+                if (!trimmedId || !/^\d{9}$/.test(trimmedId) || !validateIsraeliId(trimmedId)) {
+                    showMessage('מספר תעודת זהות לא תקין (9 ספרות).', 'danger');
+                    return;
+                }
+
+                if (!userUid) {
+                    showMessage('שגיאה: לא ניתן לזהות את המשתמש. נא רענן את הדף ונסה שוב.', 'danger');
+                    return;
+                }
+
+                setLoading(true);
+                try {
+                    // Save interviewer details to localStorage
+                    localStorage.setItem('interviewerFirstName', firstName.trim());
+                    localStorage.setItem('interviewerFamilyName', familyName.trim());
+                    localStorage.setItem('interviewerIdNumber', trimmedId);
+                    localStorage.setItem('interviewerUid', userUid); // Store anonymous UID for future use
+
+                    // Save interviewer details to Firebase (profile linked to anonymous UID)
+                    const interviewerProfileRef = window.docFirebaseGlobal(db, `artifacts/${globalAppId}/users/${userUid}/profile/details`);
+                    await window.setDocFirebaseGlobal(interviewerProfileRef, {
+                        firstName: firstName.trim(),
+                        familyName: familyName.trim(),
+                        idNumber: trimmedId,
+                        uid: userUid,
+                        lastRegistered: Date.now()
+                    }, { merge: true });
+
+                    showMessage('ההרשמה הצליחה! מפנה לטופס השאלון...', 'success');
+                    onRegistrationSuccess(); // Notify parent component about successful registration
+                } catch (error) {
+                    console.error("Registration error:", error);
+                    showMessage(`שגיאה בהרשמה: ${error.message}.`, 'danger');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (!isAuthReady || !userUid) {
+                return (
+                    <div style={{ padding: '20px', border: '1px solid #eee', borderRadius: '8px', marginTop: '20px', backgroundColor: '#fcfcfc' }}>
+                        <h2>טוען הרשמת מראיין...</h2>
+                        <div className="spinner"></div>
+                        <p style={{marginTop: '10px', fontSize: '0.9em', color: '#888'}}>
+                            ממתין לזיהוי אוטומטי. אנא וודא ש-Firebase Authentication מוגדר כראוי (Anonymous Enabled).
+                        </p>
+                    </div>
+                );
+            }
+
+            return (
+                <div style={{ padding: '20px', border: '1px solid #eee', borderRadius: '8px', marginTop: '20px', backgroundColor: '#fcfcfc' }}>
+                    <h2>הרשמה מהירה למראיין</h2>
+                    {message && (
+                        <div className={`message-box ${messageType}`}>{message}</div>
+                    )}
+                    <div className="form-group">
+                        <label htmlFor="interviewerRegFirstName">שם פרטי:</label>
+                        <input type="text" id="interviewerRegFirstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="הזן שם פרטי" required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="interviewerRegFamilyName">שם משפחה:</label>
+                        <input type="text" id="interviewerRegFamilyName" value={familyName} onChange={(e) => setFamilyName(e.target.value)} placeholder="הזן שם משפחה" required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="interviewerRegIdNumber">תעודת זהות (9 ספרות):</label>
+                        <input type="tel" id="interviewerRegIdNumber" value={idNumber} onChange={(e) => setIdNumber(e.target.value.replace(/\D/g, '').slice(0, 9))} placeholder="הזן תעודת זהות" maxLength="9" required />
+                    </div>
+                    <button className="action-button" onClick={handleRegister} disabled={loading}>
+                        {loading ? <>מרשם... <div className="spinner"></div></> : 'המשך לטופס השאלון'}
+                    </button>
+                    <p style={{marginTop: '15px', fontSize: '0.85em', color: '#888'}}>
+                        <i className="fas fa-info-circle"></i> פרטים אלו ישמרו במחשבך לזיהוי מהיר בפעמים הבאות.
+                    </p>
+                </div>
+            );
+        }
+
+        // Main Landing Page Component
+        function LandingPage() {
+            const [showEmployeeLogin, setShowEmployeeLogin] = useState(false);
+            const [showInterviewerRegistration, setShowInterviewerRegistration] = useState(false);
+            const [interviewerAlreadyRegistered, setInterviewerAlreadyRegistered] = useState(false);
+            const [firebaseReady, setFirebaseReady] = useState(false);
+            const [firebaseAuth, setFirebaseAuth] = useState(null);
+            const [firebaseDb, setFirebaseDb] = useState(null);
+            const [globalAppId, setGlobalAppId] = useState(null);
+
+            useEffect(() => {
+                // Check localStorage for interviewer details
+                const storedFirstName = localStorage.getItem('interviewerFirstName');
+                const storedFamilyName = localStorage.getItem('interviewerFamilyName');
+                const storedIdNumber = localStorage.getItem('interviewerIdNumber');
+                if (storedFirstName && storedFamilyName && storedIdNumber && validateIsraeliId(storedIdNumber)) {
+                    setInterviewerAlreadyRegistered(true);
+                } else {
+                    setInterviewerAlreadyRegistered(false);
+                }
+
+                if (window.firebaseApp && window.firebaseAuth && window.firebaseDb && window.globalAppId) {
+                    setFirebaseReady(true);
+                    setFirebaseAuth(window.firebaseAuth);
+                    setFirebaseDb(window.firebaseDb);
+                    setGlobalAppId(window.globalAppId);
+                } else {
+                    console.error("Firebase or App ID is not initialized. Please check Firebase config in the script module.");
+                }
+            }, []);
+
+            const handleInterviewerRegistrationSuccess = () => {
+                // After successful registration, mark as registered and redirect
+                setInterviewerAlreadyRegistered(true);
+                setShowInterviewerRegistration(false); // Hide the registration form
+                window.location.href = 'index.html'; // Redirect to questionnaire form
+            };
+
+            return (
+                <div className="container">
+                    <h1>ברוך הבא למערכת הדיווח</h1>
+                    <p style={{marginBottom: '30px', color: '#666'}}>
+                        בחר את סוג הכניסה הרצוי:
+                    </p>
+
+                    <div className="entry-options">
+                        {firebaseReady ? (
+                            interviewerAlreadyRegistered ? (
+                                <a href="index.html" className="action-button">
+                                    <i className="fas fa-file-alt"></i> המשך לטופס מראיין
+                                </a>
+                            ) : (
+                                <button className="action-button" onClick={() => {
+                                    setShowInterviewerRegistration(true);
+                                    setShowEmployeeLogin(false);
+                                }}>
+                                    <i className="fas fa-file-alt"></i> התחל כמראיין (הרשמה חד פעמית)
+                                </button>
+                            )
+                        ) : (
+                            <button className="action-button" disabled>טוען... <div className="spinner"></div></button>
+                        )}
+                       
+                        <button 
+                            className="action-button secondary" 
+                            onClick={() => {
+                                setShowEmployeeLogin(!showEmployeeLogin);
+                                setShowInterviewerRegistration(false); // Hide interviewer form if showing employee login
+                            }}
+                        >
+                            <i className="fas fa-users-cog"></i> כניסה לעובד / מנהל
+                        </button>
+                    </div>
+
+                    {showEmployeeLogin && firebaseReady && (
+                        <EmployeeLoginPage auth={firebaseAuth} />
+                    )}
+                     {showEmployeeLogin && !firebaseReady && (
+                        <div className="message-box danger">
+                            שגיאה: שירותי Firebase אינם זמינים. אנא וודא את הגדרות Firebase.
+                        </div>
+                    )}
+
+                    {showInterviewerRegistration && firebaseReady && (
+                        <InterviewerRegistrationForm 
+                            auth={firebaseAuth} 
+                            db={firebaseDb} 
+                            globalAppId={globalAppId}
+                            onRegistrationSuccess={handleInterviewerRegistrationSuccess}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<LandingPage />);
+    </script>
+</body>
+</html>
