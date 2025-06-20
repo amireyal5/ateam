@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>הדיווחים שלי</title>
+    <title>השאלונים שלי</title>
     <!-- React Libraries -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -366,7 +366,8 @@
                     
                     setLoading(true);
                     try {
-                        const formDataCollection = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`);
+                        // Changed collection name to 'reservistWivesInterviews'
+                        const formDataCollection = window.collectionFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/reservistWivesInterviews`);
                         // Query for submissions by the interviewer's ID number
                         const q = window.queryFirebaseGlobal(
                             formDataCollection,
@@ -381,9 +382,10 @@
                         console.error("Error fetching submissions:", error);
                         let errorMessage = `שגיאה באחזור הדיווחים: ${error.message}.`;
                         if (error.code === 'permission-denied') {
-                            errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מקולקציית 'formData'.";
+                            errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים קריאה מקולקציית 'reservistWivesInterviews'.";
                         }
                         showMessage(errorMessage, 'danger');
+                        setLoading(false);
                     } finally {
                         setLoading(false);
                     }
@@ -401,32 +403,6 @@
 
                 return () => unsubscribeAuth();
             }, [db, auth, interviewerId]); // Re-run if db, auth, or interviewerId changes
-
-            // Removed handleDelete and handleEdit functions as they are no longer needed.
-            // const handleDelete = async (id) => {
-            //     if (window.confirm('האם אתה בטוח שברצונך למחוק דיווח זה?')) {
-            //         setLoading(true);
-            //         try {
-            //             const docRef = window.docFirebaseGlobal(db, `artifacts/${window.globalAppId}/public/data/formData`, id);
-            //             await window.deleteDocFirebaseGlobal(docRef);
-            //             setSubmissions(submissions.filter(sub => sub.id !== id));
-            //             showMessage('הדיווח נמחק בהצלחה!', 'success');
-            //         } catch (error) {
-            //             console.error("Error deleting document:", error);
-            //             let errorMessage = `שגיאה במחיקת הדיווח: ${error.message}.`;
-            //             if (error.code === 'permission-denied') {
-            //                 errorMessage += " וודא שכללי האבטחה של Firestore מאפשרים מחיקה מקולקציית 'formData'.";
-            //             }
-            //             showMessage(errorMessage, 'danger');
-            //         } finally {
-            //             setLoading(false);
-            //         }
-            //     }
-            // };
-
-            // const handleEdit = (id) => {
-            //     window.location.href = `details.html?id=${id}`;
-            // };
 
             if (loading) {
                 return (
@@ -458,37 +434,21 @@
                             <table className="data-table">
                                 <thead>
                                     <tr>
-                                        <th>ת.ז. אזרח</th>
-                                        <th>שם פרטי אזרח</th>
-                                        <th>שם משפחה אזרח</th>
-                                        <th>סטטוס מרחב מוגן</th>
+                                        <th>ת.ז. מרואיינת</th>
+                                        <th>שם פרטי מרואיינת</th>
+                                        <th>שם משפחה מרואיינת</th>
+                                        <th>שם המילואימניק</th> {/* New column header */}
                                         <th>זמן הגשה</th>
-                                        {/* Removed the 'פעולות' (Actions) header */}
-                                        {/* <th>פעולות</th> */}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {submissions.map((sub) => (
                                         <tr key={sub.id}>
-                                            <td data-label="ת.ז. אזרח">{sub.idNumber}</td>
-                                            <td data-label="שם פרטי אזרח">{sub.firstName}</td>
-                                            <td data-label="שם משפחה אזרח">{sub.familyName}</td>
-                                            <td data-label="סטטוס מרחב מוגן">
-                                                {sub.protectedSpaceStatus === 'yes' && 'כן'}
-                                                {sub.protectedSpaceStatus === 'no' && 'לא'}
-                                                {sub.protectedSpaceStatus === 'not_sure' && 'לא בטוח'}
-                                                {sub.protectedSpaceDetails && ` (${sub.protectedSpaceDetails})`}
-                                            </td>
-                                            <td data-label="זמן הגשה">{new Date(sub.timestamp).toLocaleString('he-IL')}</td>
-                                            {/* Removed the 'פעולות' (Actions) cell with buttons */}
-                                            {/* <td data-label="פעולות" class="actions">
-                                                <button onClick={() => handleEdit(sub.id)} className="action-button secondary small-button">
-                                                    <i className="fas fa-edit"></i> ערוך
-                                                </button>
-                                                <button onClick={() => handleDelete(sub.id)} className="action-button danger small-button" style={{ marginLeft: '5px' }}>
-                                                    <i className="fas fa-trash-alt"></i> מחק
-                                                </button>
-                                            </td> */}
+                                            <td data-label="ת.ז. מרואיינת">{sub.idNumber || 'לא הוזן'}</td>
+                                            <td data-label="שם פרטי מרואיינת">{sub.firstName || 'לא הוזן'}</td>
+                                            <td data-label="שם משפחה מרואיינת">{sub.lastName || 'לא הוזן'}</td> {/* Changed from familyName */}
+                                            <td data-label="שם המילואימניק">{sub.reservistHusbandName || 'לא הוזן'}</td> {/* New column data */}
+                                            <td data-label="זמן הגשה">{sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('he-IL') : 'לא ידוע'}</td> {/* Changed from timestamp to submittedAt */}
                                         </tr>
                                     ))}
                                 </tbody>
