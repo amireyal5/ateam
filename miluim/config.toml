@@ -1,0 +1,5 @@
+baseURL = "https://amireyal5.github.io/ateam/" # שנה את YOUR_USERNAME ושם המאגר
+languageCode = "he-il"
+title = "טופס נתונים"
+theme = "" # השאר ריק
+disableKinds = ["RSS", "taxonomy", "taxonomyTerm", "page", "section"]
